@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="a9dcaea3-c4fe-4f34-89a1-32cf23e2896b" name="ByteTrack">
+        <fileTransfer accessType="SFTP" host="10.8.3.1" port="22" sshConfigId="50f78ff0-3736-4ddc-92ec-5c4f67dd7b91" sshConfig="jaya@10.8.3.1:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
