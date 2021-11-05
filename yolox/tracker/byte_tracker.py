@@ -51,7 +51,12 @@ class STrack(BaseTrack):
                 stracks[i].covariance = cov
 
     def activate(self, kalman_filter, frame_id):
-        """Start a new tracklet"""
+        """
+        Start a new tracklet
+        :param kalman_filter:
+        :param frame_id:
+        :return:
+        """
         self.kalman_filter = kalman_filter
         self.track_id = self.next_id()
         self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
@@ -65,9 +70,16 @@ class STrack(BaseTrack):
         self.start_frame = frame_id
 
     def re_activate(self, new_track, frame_id, new_id=False):
-        self.mean, self.covariance = self.kalman_filter.update(
-            self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
-        )
+        """
+        :param new_track:
+        :param frame_id:
+        :param new_id:
+        :return:
+        """
+        self.mean, self.covariance = self.kalman_filter.update(self.mean,
+                                                               self.covariance,
+                                                               self.tlwh_to_xyah(new_track.tlwh))
+
         self.tracklet_len = 0
         self.state = TrackState.Tracked
         self.is_activated = True
@@ -130,11 +142,18 @@ class STrack(BaseTrack):
         return ret
 
     def to_xyah(self):
+        """
+        :return:
+        """
         return self.tlwh_to_xyah(self.tlwh)
 
     @staticmethod
     # @jit(nopython=True)
     def tlbr_to_tlwh(tlbr):
+        """
+        :param tlbr:
+        :return:
+        """
         ret = np.asarray(tlbr).copy()
         ret[2:] -= ret[:2]
         return ret
@@ -142,11 +161,18 @@ class STrack(BaseTrack):
     @staticmethod
     # @jit(nopython=True)
     def tlwh_to_tlbr(tlwh):
+        """
+        :param tlwh:
+        :return:
+        """
         ret = np.asarray(tlwh).copy()
         ret[2:] += ret[:2]
         return ret
 
     def __repr__(self):
+        """
+        :return:
+        """
         return 'OT_{}_({}-{})'.format(self.track_id, self.start_frame, self.end_frame)
 
 
@@ -171,17 +197,23 @@ class BYTETracker(object):
     def update(self, output_results, img_info, img_size):
         """
         :param output_results:
-        :param img_info:
-        :param img_size:
+        :param img_info: img_height, img_width
+        :param img_size: net_height, net_width
         :return:
         """
         self.frame_id += 1
+
         activated_starcks = []
         refind_stracks = []
         lost_stracks = []
         removed_stracks = []
 
-        if output_results.shape[1] == 5:
+        # if output_results.shape[1] == 5:
+        #     scores = output_results[:, 4]
+        #     bboxes = output_results[:, :4]
+
+        ## @even modified
+        if output_results.shape[1] == 5 or output_results.shape[1] == 6:
             scores = output_results[:, 4]
             bboxes = output_results[:, :4]
         else:
@@ -189,7 +221,9 @@ class BYTETracker(object):
             scores = output_results[:, 4] * output_results[:, 5]
             bboxes = output_results[:, :4]  # x1y1x2y2
 
+        # image width and image height
         img_h, img_w = img_info[0], img_info[1]
+
         scale = min(img_size[0] / float(img_h), img_size[1] / float(img_w))
         bboxes /= scale
 
@@ -312,6 +346,11 @@ class BYTETracker(object):
 
 
 def joint_stracks(tlista, tlistb):
+    """
+    :param tlista:
+    :param tlistb:
+    :return:
+    """
     exists = {}
     res = []
     for t in tlista:
@@ -326,6 +365,11 @@ def joint_stracks(tlista, tlistb):
 
 
 def sub_stracks(tlista, tlistb):
+    """
+    :param tlista:
+    :param tlistb:
+    :return:
+    """
     stracks = {}
     for t in tlista:
         stracks[t.track_id] = t
@@ -337,6 +381,11 @@ def sub_stracks(tlista, tlistb):
 
 
 def remove_duplicate_stracks(stracksa, stracksb):
+    """
+    :param stracksa:
+    :param stracksb:
+    :return:
+    """
     pdist = matching.iou_distance(stracksa, stracksb)
     pairs = np.where(pdist < 0.15)
     dupa, dupb = list(), list()

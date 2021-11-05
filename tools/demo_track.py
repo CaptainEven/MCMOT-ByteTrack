@@ -330,16 +330,23 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
     tracker = BYTETracker(args, frame_rate=30)
 
     timer = Timer()
+
     frame_id = 0
     results = []
+
     while True:
         if frame_id % 20 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
         ret_val, frame = cap.read()
+
         if ret_val:
             outputs, img_info = predictor.inference(frame, timer)
-            if outputs[0] is not None:
-                online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], exp.test_size)
+            dets = outputs[0]
+
+            if dets is not None:
+                ## ----- update the frame
+                online_targets = tracker.update(dets, [img_info['height'], img_info['width']], exp.test_size)
+
                 online_tlwhs = []
                 online_ids = []
                 online_scores = []
@@ -351,12 +358,18 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
                         online_tlwhs.append(tlwh)
                         online_ids.append(tid)
                         online_scores.append(t.score)
+
                 results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
+
                 timer.toc()
-                online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
-                                          fps=1. / timer.average_time)
+                online_im = plot_tracking(img_info['raw_img'],
+                                          online_tlwhs,
+                                          online_ids,
+                                          frame_id=frame_id + 1,
+                                          fps=1.0 / timer.average_time)
             else:
                 timer.toc()
+
                 online_im = img_info['raw_img']
             if args.save_result:
                 vid_writer.write(online_im)
@@ -364,7 +377,10 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
             if ch == 27 or ch == ord("q") or ch == ord("Q"):
                 break
         else:
+            print("Read frame {:d} failed!".format(frame_id))
             break
+
+        ## ----- update frame id
         frame_id += 1
 
 

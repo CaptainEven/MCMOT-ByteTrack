@@ -43,6 +43,10 @@ def vis(img, boxes, scores, cls_ids, conf=0.5, class_names=None):
 
 
 def get_color(idx):
+    """
+    :param idx:
+    :return:
+    """
     idx = idx * 3
     color = ((37 * idx) % 255, (17 * idx) % 255, (29 * idx) % 255)
 
@@ -50,6 +54,16 @@ def get_color(idx):
 
 
 def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0., ids2=None):
+    """
+    :param image:
+    :param tlwhs:
+    :param obj_ids:
+    :param scores:
+    :param frame_id:
+    :param fps:
+    :param ids2:
+    :return:
+    """
     im = np.ascontiguousarray(np.copy(image))
     im_h, im_w = im.shape[:2]
 
