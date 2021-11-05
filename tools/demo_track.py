@@ -51,6 +51,10 @@ def make_parser():
                         help="whether to save the inference result of image/video")
 
     # exp file
+    parser.add_argument("--n_classes",
+                        type=int,
+                        default=5,
+                        help="")  # number of object classes
     parser.add_argument("-f",
                         "--exp_file",
                         default="../exps/example/mot/yolox_x_ablation.py",
@@ -346,6 +350,7 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
             if dets is not None:
                 ## ----- update the frame
                 online_targets = tracker.update(dets, [img_info['height'], img_info['width']], exp.test_size)
+                # online_targets = tracker.update_tracking(dets, [img_info['height'], img_info['width']], exp.test_size)
 
                 online_tlwhs = []
                 online_ids = []
