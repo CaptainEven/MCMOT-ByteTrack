@@ -4,18 +4,19 @@
 """
 Data augmentation functionality. Passed as callable transformations to
 Dataset classes.
-
 The data augmentation procedures were interpreted from @weiliu89's SSD paper
 http://arxiv.org/abs/1512.02325
 """
 
-import math
-import random
-
 import cv2
 import numpy as np
 
+import torch
+
 from yolox.utils import xyxy2cxcywh
+
+import math
+import random
 
 
 def augment_hsv(img, hgain=0.015, sgain=0.7, vgain=0.4):
@@ -42,14 +43,6 @@ def augment_hsv(img, hgain=0.015, sgain=0.7, vgain=0.4):
 
 
 def box_candidates(box1, box2, wh_thr=2, ar_thr=20, area_thr=0.2):
-    """
-    :param box1:
-    :param box2:
-    :param wh_thr:
-    :param ar_thr:
-    :param area_thr:
-    :return:
-    """
     # box1(4,n), box2(4,n)
     # Compute candidate boxes which include follwing 5 things:
     # box1 before augment, box2 after augment, wh_thr (pixels), aspect_ratio_thr, area_ratio
@@ -64,25 +57,16 @@ def box_candidates(box1, box2, wh_thr=2, ar_thr=20, area_thr=0.2):
     )  # candidates
 
 
-def random_perspective(img,
-                       targets=(),
-                       degrees=10,
-                       translate=0.1,
-                       scale=0.1,
-                       shear=10,
-                       perspective=0.0,
-                       border=(0, 0)):
-    """
-    :param img:
-    :param targets:
-    :param degrees:
-    :param translate:
-    :param scale:
-    :param shear:
-    :param perspective:
-    :param border:
-    :return:
-    """
+def random_perspective(
+        img,
+        targets=(),
+        degrees=10,
+        translate=0.1,
+        scale=0.1,
+        shear=10,
+        perspective=0.0,
+        border=(0, 0),
+):
     # targets = [cls, xyxy]
     height = img.shape[0] + border[0] * 2  # shape(h,w,c)
     width = img.shape[1] + border[1] * 2
@@ -170,17 +154,7 @@ def random_perspective(img,
 
 
 def _distort(image):
-    """
-    :param image:
-    :return:
-    """
     def _convert(image, alpha=1, beta=0):
-        """
-        :param image:
-        :param alpha:
-        :param beta:
-        :return:
-        """
         tmp = image.astype(float) * alpha + beta
         tmp[tmp < 0] = 0
         tmp[tmp > 255] = 255
@@ -188,7 +162,7 @@ def _distort(image):
 
     image = image.copy()
 
-    if random.randrange(2):0
+    if random.randrange(2):
         _convert(image, beta=random.uniform(-32, 32))
 
     if random.randrange(2):
@@ -210,11 +184,6 @@ def _distort(image):
 
 
 def _mirror(image, boxes):
-    """
-    :param image:
-    :param boxes:
-    :return:
-    """
     _, width, _ = image.shape
     if random.randrange(2):
         image = image[:, ::-1]
@@ -224,14 +193,6 @@ def _mirror(image, boxes):
 
 
 def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
-    """
-    :param image:
-    :param input_size:
-    :param mean:
-    :param std:
-    :param swap:
-    :return:
-    """
     if len(image.shape) == 3:
         padded_img = np.ones((input_size[0], input_size[1], 3)) * 114.0
     else:
@@ -258,24 +219,12 @@ def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
 
 class TrainTransform:
     def __init__(self, p=0.5, rgb_means=None, std=None, max_labels=100):
-        """
-        :param p:
-        :param rgb_means:
-        :param std:
-        :param max_labels:
-        """
         self.means = rgb_means
         self.std = std
         self.p = p
         self.max_labels = max_labels
 
     def __call__(self, image, targets, input_dim):
-        """
-        :param image:
-        :param targets:
-        :param input_dim:
-        :return:
-        """
         boxes = targets[:, :4].copy()
         labels = targets[:, 4].copy()
         ids = targets[:, 5].copy()
@@ -331,15 +280,12 @@ class ValTransform:
     """
     Defines the transformations that should be applied to test PIL image
     for input into the network
-
     dimension -> tensorize -> color adj
-
     Arguments:
         resize (int): input dimension to SSD
         rgb_means ((int,int,int)): average RGB of the dataset
             (104,117,123)
         swap ((int,int,int)): final order of channels
-
     Returns:
         transform (transform) : callable transform to be applied to test/val
         data
