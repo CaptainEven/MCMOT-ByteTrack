@@ -16,7 +16,9 @@ class Exp(MyExp):
         """
         super(Exp, self).__init__()
 
-        self.num_classes = 1
+        ## ----- Single class or multi-classes
+        self.num_classes = 1  # 1
+
         self.depth = 1.33
         self.width = 1.25
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]

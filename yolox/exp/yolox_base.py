@@ -66,6 +66,10 @@ class Exp(BaseExp):
         from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead
 
         def init_yolo(M):
+            """
+            :param M:
+            :return:
+            """
             for m in M.modules():
                 if isinstance(m, nn.BatchNorm2d):
                     m.eps = 1e-3
@@ -79,6 +83,7 @@ class Exp(BaseExp):
 
         self.model.apply(init_yolo)
         self.model.head.initialize_biases(1e-2)
+
         return self.model
 
     def get_data_loader(self, batch_size, is_distributed, no_aug=False):

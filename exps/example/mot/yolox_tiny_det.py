@@ -14,7 +14,10 @@ class Exp(MyExp):
         YOLOX Tiny
         """
         super(Exp, self).__init__()
-        self.num_classes = 1
+
+        ## -----
+        self.num_classes = 80  # 1
+
         self.depth = 0.33
         self.width = 0.375
         self.scale = (0.5, 1.5)

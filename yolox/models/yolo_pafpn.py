@@ -14,25 +14,35 @@ class YOLOPAFPN(nn.Module):
     YOLOv3 model. Darknet 53 is the default backbone of this model.
     """
 
-    def __init__(
-        self,
-        depth=1.0,
-        width=1.0,
-        in_features=("dark3", "dark4", "dark5"),
-        in_channels=[256, 512, 1024],
-        depthwise=False,
-        act="silu",
-    ):
+    def __init__(self,
+                 depth=1.0,
+                 width=1.0,
+                 in_features=("dark3", "dark4", "dark5"),
+                 in_channels=[256, 512, 1024],
+                 depthwise=False,
+                 act="silu", ):
+        """
+        :param depth:
+        :param width:
+        :param in_features:
+        :param in_channels:
+        :param depthwise:
+        :param act:
+        """
         super().__init__()
+
+        ## ----- define the backbone
         self.backbone = CSPDarknet(depth, width, depthwise=depthwise, act=act)
+
         self.in_features = in_features
         self.in_channels = in_channels
         Conv = DWConv if depthwise else BaseConv
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.lateral_conv0 = BaseConv(
-            int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
-        )
+        self.lateral_conv0 = BaseConv(int(in_channels[2] * width),
+                                      int(in_channels[1] * width),
+                                      1, 1, act=act)
+
         self.C3_p4 = CSPLayer(
             int(2 * in_channels[1] * width),
             int(in_channels[1] * width),

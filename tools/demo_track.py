@@ -37,7 +37,7 @@ def make_parser():
                         default=None,
                         help="model name")
 
-    # "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
+    ## "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
     parser.add_argument("--path",
                         default="../videos/palace.mp4",
                         help="path to images or video")
@@ -55,14 +55,18 @@ def make_parser():
                         type=int,
                         default=5,
                         help="")  # number of object classes
+
+    ## yolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_x_ablation.py",
+                        default="../exps/example/mot/yolox_tiny_det.py",
                         type=str,
                         help="pls input your expriment description file")
+
+    ## bytetrack_x_mot17.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/bytetrack_x_mot17.pth.tar",
+                        default="../pretrained/yolox_tiny_32.8.pth",
                         type=str,
                         help="ckpt for eval")
     parser.add_argument("--device",
@@ -430,7 +434,7 @@ def main(exp, args):
         else:
             ckpt_file = args.ckpt
 
-        logger.info("loading checkpoint")
+        logger.info("loading checkpoint...")
         ckpt = torch.load(ckpt_file, map_location="cpu")
 
         # load the model state dict

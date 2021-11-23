@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import argparse
 import random
 import warnings
@@ -11,9 +13,19 @@ from yolox.exp import get_exp
 
 
 def make_parser():
+    """
+    :return:
+    """
     parser = argparse.ArgumentParser("YOLOX train parser")
-    parser.add_argument("-expn", "--experiment-name", type=str, default=None)
-    parser.add_argument("-n", "--name", type=str, default=None, help="model name")
+    parser.add_argument("-expn",
+                        "--experiment-name",
+                        type=str,
+                        default=None)
+    parser.add_argument("-n",
+                        "--name",
+                        type=str,
+                        default=None,
+                        help="model name")
 
     # distributed
     parser.add_argument("--dist-backend",
@@ -24,34 +36,41 @@ def make_parser():
                         default=None,
                         type=str,
                         help="url used to set up distributed training")
+
+    ## ---------- batch size and device id
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=64,
+                        default=48,  # 48, 64
                         help="batch size")
     parser.add_argument("-d",
                         "--devices",
-                        default=None,
+                        default=7,  #
                         type=int,
                         help="device for training")
+    ## ----------
+
     parser.add_argument("--local_rank",
                         default=0,
                         type=int,
                         help="local rank for dist training")
+
+    ## ---------- expiriment file path and checkpoint file path
     parser.add_argument("-f",
                         "--exp_file",
-                        default=None,
+                        default="../exps/example/mot/yolox_tiny_det.py",
                         type=str,
                         help="plz input your expriment description file")
+    parser.add_argument("-c",
+                        "--ckpt",
+                        default="../pretrained/yolox_tiny_32.8.pth",
+                        type=str,
+                        help="checkpoint file")
+
     parser.add_argument("--resume",
                         default=False,
                         action="store_true",
                         help="resume training")
-    parser.add_argument("-c",
-                        "--ckpt",
-                        default=None,
-                        type=str,
-                        help="checkpoint file")
     parser.add_argument("-e",
                         "--start_epoch",
                         default=None,

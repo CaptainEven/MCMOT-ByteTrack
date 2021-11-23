@@ -121,9 +121,7 @@ class MOTDataset(Dataset):
 
         res, img_info, file_name = self.annotations[index]
         # load image and preprocess
-        img_file = os.path.join(
-            self.data_dir, self.name, file_name
-        )
+        img_file = os.path.join(self.data_dir, self.name, file_name)
         img = cv2.imread(img_file)
         assert img is not None
 
