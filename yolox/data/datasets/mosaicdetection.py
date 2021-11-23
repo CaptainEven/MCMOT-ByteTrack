@@ -37,28 +37,26 @@ def get_mosaic_coordinate(mosaic_image, mosaic_index, xc, yc, w, h, input_h, inp
 class MosaicDetection(Dataset):
     """Detection dataset wrapper that performs mixup for normal dataset."""
 
-    def __init__(
-        self, dataset, img_size, mosaic=True, preproc=None,
+    def __init__(self, dataset, img_size, mosaic=True, preproc=None,
         degrees=10.0, translate=0.1, scale=(0.5, 1.5), mscale=(0.5, 1.5),
-        shear=2.0, perspective=0.0, enable_mixup=True, *args
-    ):
+        shear=2.0, perspective=0.0, enable_mixup=True, *args):
         """
-
         Args:
-            dataset(Dataset) : Pytorch dataset object.
-            img_size (tuple):
-            mosaic (bool): enable mosaic augmentation or not.
-            preproc (func):
-            degrees (float):
-            translate (float):
-            scale (tuple):
-            mscale (tuple):
-            shear (float):
-            perspective (float):
-            enable_mixup (bool):
-            *args(tuple) : Additional arguments for mixup random sampler.
+        :param dataset(Dataset) : Pytorch dataset object.
+        :param img_size (tuple):
+        :param mosaic (bool): enable mosaic augmentation or not.
+        :param preproc (func):
+        :param degrees (float):
+        :param translate (float):
+        :param scale (tuple):
+        :param mscale (tuple):
+        :param shear (float):
+        :param perspective (float):
+        :param enable_mixup (bool):
+        :param *args(tuple) : Additional arguments for mixup random sampler.
         """
         super().__init__(img_size, mosaic=mosaic)
+
         self._dataset = dataset
         self.preproc = preproc
         self.degrees = degrees
@@ -71,10 +69,17 @@ class MosaicDetection(Dataset):
         self.enable_mixup = enable_mixup
 
     def __len__(self):
+        """
+        :return:
+        """
         return len(self._dataset)
 
     @Dataset.resize_getitem
     def __getitem__(self, idx):
+        """
+        :param idx:
+        :return:
+        """
         if self.enable_mosaic:
             mosaic_labels = []
             input_dim = self._dataset.input_dim
