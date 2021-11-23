@@ -234,12 +234,24 @@ def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
 
 class TrainTransform:
     def __init__(self, p=0.5, rgb_means=None, std=None, max_labels=100):
+        """
+        :param p:
+        :param rgb_means:
+        :param std:
+        :param max_labels:
+        """
         self.means = rgb_means
         self.std = std
         self.p = p
         self.max_labels = max_labels
 
     def __call__(self, image, targets, input_dim):
+        """
+        :param image:
+        :param targets:
+        :param input_dim:
+        :return:
+        """
         boxes = targets[:, :4].copy()
         labels = targets[:, 4].copy()
         ids = targets[:, 5].copy()

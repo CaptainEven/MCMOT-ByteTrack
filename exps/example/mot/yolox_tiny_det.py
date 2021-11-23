@@ -102,6 +102,12 @@ class Exp(MyExp):
         return train_loader
 
     def get_eval_loader(self, batch_size, is_distributed, testdev=False):
+        """
+        :param batch_size:
+        :param is_distributed:
+        :param testdev:
+        :return:
+        """
         from yolox.data import MOTDataset, ValTransform
 
         valdataset = MOTDataset(
@@ -134,6 +140,12 @@ class Exp(MyExp):
         return val_loader
 
     def get_evaluator(self, batch_size, is_distributed, testdev=False):
+        """
+        :param batch_size:
+        :param is_distributed:
+        :param testdev:
+        :return:
+        """
         from yolox.evaluators import COCOEvaluator
 
         val_loader = self.get_eval_loader(batch_size, is_distributed, testdev=testdev)
@@ -145,4 +157,5 @@ class Exp(MyExp):
             num_classes=self.num_classes,
             testdev=testdev,
         )
+
         return evaluator
