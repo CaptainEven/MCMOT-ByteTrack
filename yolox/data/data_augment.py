@@ -8,15 +8,13 @@ The data augmentation procedures were interpreted from @weiliu89's SSD paper
 http://arxiv.org/abs/1512.02325
 """
 
+import math
+import random
+
 import cv2
 import numpy as np
 
-import torch
-
 from yolox.utils import xyxy2cxcywh
-
-import math
-import random
 
 
 def augment_hsv(img, hgain=0.015, sgain=0.7, vgain=0.4):
@@ -43,6 +41,14 @@ def augment_hsv(img, hgain=0.015, sgain=0.7, vgain=0.4):
 
 
 def box_candidates(box1, box2, wh_thr=2, ar_thr=20, area_thr=0.2):
+    """
+    :param box1:
+    :param box2:
+    :param wh_thr:
+    :param ar_thr:
+    :param area_thr:
+    :return:
+    """
     # box1(4,n), box2(4,n)
     # Compute candidate boxes which include follwing 5 things:
     # box1 before augment, box2 after augment, wh_thr (pixels), aspect_ratio_thr, area_ratio
@@ -57,16 +63,25 @@ def box_candidates(box1, box2, wh_thr=2, ar_thr=20, area_thr=0.2):
     )  # candidates
 
 
-def random_perspective(
-        img,
-        targets=(),
-        degrees=10,
-        translate=0.1,
-        scale=0.1,
-        shear=10,
-        perspective=0.0,
-        border=(0, 0),
-):
+def random_perspective(img,
+                       targets=(),
+                       degrees=10,
+                       translate=0.1,
+                       scale=0.1,
+                       shear=10,
+                       perspective=0.0,
+                       border=(0, 0), ):
+    """
+    :param img:
+    :param targets:
+    :param degrees:
+    :param translate:
+    :param scale:
+    :param shear:
+    :param perspective:
+    :param border:
+    :return:
+    """
     # targets = [cls, xyxy]
     height = img.shape[0] + border[0] * 2  # shape(h,w,c)
     width = img.shape[1] + border[1] * 2
