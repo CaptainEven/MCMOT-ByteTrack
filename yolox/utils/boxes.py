@@ -31,7 +31,16 @@ def filter_box(output, scale_range):
 
 
 def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
+    """
+    :param prediction:
+    :param num_classes:
+    :param conf_thre:
+    :param nms_thre:
+    :return:
+    """
     box_corner = prediction.new(prediction.shape)
+
+    ## ----- cxcywh2xyxy
     box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2
     box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2
     box_corner[:, :, 2] = prediction[:, :, 0] + prediction[:, :, 2] / 2

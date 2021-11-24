@@ -6,14 +6,16 @@ import time
 
 import cv2
 import torch
+import shutil
 from loguru import logger
+from collections import defaultdict
 
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, postprocess
-from yolox.utils.visualize import plot_tracking
+from yolox.utils.visualize import plot_tracking, plot_tracking_mcmot
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -37,13 +39,17 @@ def make_parser():
                         default=None,
                         help="model name")
 
-    # exp file
+    ## ----- object classes
     parser.add_argument("--n_classes",
                         type=int,
                         default=5,
                         help="")  # number of object classes
+    parser.add_argument("--class_names",
+                        type=str,
+                        default="car, bicycle, person, cyclist, tricycle",
+                        help="")
 
-    ## yolox_x_ablation.py
+    ## ----- exp fileyolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
                         default="../exps/example/mot/yolox_tiny_det.py",
@@ -109,7 +115,7 @@ def make_parser():
                         help="tracking confidence threshold")
     parser.add_argument("--track_buffer",
                         type=int,
-                        default=30,
+                        default=240,  # 30
                         help="the frames for keep lost tracks")
     parser.add_argument("--match_thresh",
                         type=int,
@@ -238,9 +244,7 @@ class Predictor(object):
             outputs = self.model(img)
             if self.decoder is not None:
                 outputs = self.decoder(outputs, dtype=outputs.type())
-            outputs = postprocess(
-                outputs, self.num_classes, self.confthre, self.nmsthre
-            )
+            outputs = postprocess(outputs, self.num_classes, self.confthre, self.nmsthre)
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
         return outputs, img_info
 
@@ -323,6 +327,8 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
     height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
     fps = cap.get(cv2.CAP_PROP_FPS)
 
+    if os.path.isdir(vis_dir):
+        shutil.rmtree(vis_dir)
     save_dir = os.path.join(vis_dir, time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
     os.makedirs(save_dir, exist_ok=True)
 
@@ -339,6 +345,13 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
     ## ---------- define the tracker
     tracker = BYTETracker(args, frame_rate=30)
     ## ----------
+
+    ## ----- class name to class id and class id to class name
+    id2cls = defaultdict(str)
+    cls2id = defaultdict(int)
+    for cls_id, cls_name in enumerate(tracker.class_names):
+        id2cls[cls_id] = cls_name
+        cls2id[cls_name] = cls_id
 
     timer = Timer()
 
@@ -357,34 +370,60 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
 
             if dets is not None:
                 ## ----- update the frame
-                online_targets = tracker.update(dets, [img_info['height'], img_info['width']], exp.test_size)
+                # online_targets = tracker.update(dets, [img_info['height'], img_info['width']], exp.test_size)
+                online_dict = tracker.update_mcmot(dets, [img_info['height'], img_info['width']], exp.test_size)
 
-                online_tlwhs = []
-                online_ids = []
-                online_scores = []
-                for t in online_targets:
-                    tlwh = t.tlwh
-                    tid = t.track_id
-                    vertical = tlwh[2] / tlwh[3] > 1.6
-                    if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
-                        online_tlwhs.append(tlwh)
-                        online_ids.append(tid)
-                        online_scores.append(t.score)
+                ## ----- plot single-class multi-object tracking results
+                if tracker.num_classes == 1:
+                    online_tlwhs = []
+                    online_ids = []
+                    online_scores = []
+                    for t in online_targets:
+                        tlwh = t.tlwh
+                        tid = t.track_id
+                        vertical = tlwh[2] / tlwh[3] > 1.6
+                        if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
+                            online_tlwhs.append(tlwh)
+                            online_ids.append(tid)
+                            online_scores.append(t.score)
 
-                results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
+                    results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
 
-                timer.toc()
-                online_im = plot_tracking(img_info['raw_img'],
-                                          online_tlwhs,
-                                          online_ids,
-                                          frame_id=frame_id + 1,
-                                          fps=1.0 / timer.average_time)
+                    timer.toc()
+                    online_im = plot_tracking(img_info['raw_img'],
+                                              online_tlwhs,
+                                              online_ids,
+                                              frame_id=frame_id + 1,
+                                              fps=1.0 / timer.average_time)
+
+                ## ----- plot multi-class multi-object tracking results
+                elif tracker.num_classes > 1:
+                    ## ---------- aggregate current frame's results for each object class
+                    online_tlwhs_dict = defaultdict(list)
+                    online_ids_dict = defaultdict(list)
+                    for cls_id in range(tracker.num_classes):  # process each object class
+                        online_targets = online_dict[cls_id]
+                        for track in online_targets:
+                            online_tlwhs_dict[cls_id].append(track.tlwh)
+                            online_ids_dict[cls_id].append(track.track_id)
+
+                    timer.toc()
+
+                    # to draw track/detection
+                    online_im = plot_tracking_mcmot(image=img_info['raw_img'],
+                                                    tlwhs_dict=online_tlwhs_dict,
+                                                    obj_ids_dict=online_ids_dict,
+                                                    num_classes=tracker.num_classes,
+                                                    frame_id=frame_id + 1,
+                                                    fps=1.0 / timer.average_time,
+                                                    id2cls=id2cls)
             else:
                 timer.toc()
-
                 online_im = img_info['raw_img']
+
             if args.save_result:
                 vid_writer.write(online_im)
+
             ch = cv2.waitKey(1)
             if ch == 27 or ch == ord("q") or ch == ord("Q"):
                 break
@@ -396,7 +435,7 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
         frame_id += 1
 
 
-def main(exp, args):
+def run(exp, args):
     """
     :param exp:
     :param args:
@@ -476,7 +515,12 @@ def main(exp, args):
 if __name__ == "__main__":
     args = make_parser().parse_args()
     exp = get_exp(args.exp_file, args.name)
-    exp.num_classes = args.n_classes
+
+    class_names = args.class_names.split(",")
+    args.class_names = class_names
+    exp.class_names = class_names
+    exp.num_classes = len(exp.class_names)
     print("Number of classes: ", exp.num_classes)
 
-    main(exp, args)
+    ## ----- run the tracking
+    run(exp, args)

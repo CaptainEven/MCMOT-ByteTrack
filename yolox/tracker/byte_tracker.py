@@ -401,6 +401,7 @@ class BYTETracker(object):
         self.kalman_filter = KalmanFilter()
 
         # Get number of tracking object classes
+        self.class_names = args.class_names
         self.num_classes = args.n_classes
 
         # Define track lists for single object class
@@ -413,9 +414,11 @@ class BYTETracker(object):
         self.lost_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.removed_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
 
-    def update_byte_mcmot(self, dets_results):
+    def update_mcmot(self, dets, img_size, net_size):
         """
-        :param dets_results:
+        :param dets:
+        :param img_size:
+        :param net_size:
         :return:
         """
         ## ----- update frame id
@@ -425,6 +428,11 @@ class BYTETracker(object):
         if self.frame_id == 1:
             MCTrack.init_id_dict(self.num_classes)
         # -----
+
+        # ----- image width, height and net width, height
+        img_h, img_w = img_size
+        net_h, net_w = net_size
+        scale = min(net_h / float(img_h), net_w / float(img_w))
 
         # ----- The current frame tracking states recording
         unconfirmed_dict = defaultdict(list)
@@ -437,11 +445,13 @@ class BYTETracker(object):
         output_tracks_dict = defaultdict(list)
 
         #################### Even: Start MCMOT
+        dets = dets.cpu().numpy()
 
         ## ----- Get box dict and score dict
         boxxes_dict = defaultdict(list)
         scores_dict = defaultdict(list)
-        for det in dets_results:
+
+        for det in dets:
             if det.size == 7:
                 x1, y1, x2, y2, score1, score2, cls_id = det  # 7
                 score = score1 * score2
@@ -449,6 +459,7 @@ class BYTETracker(object):
                 x1, y1, x2, y2, score, cls_id = det  # 6
 
             box = np.array([x1, y1, x2, y2])
+            box /= scale
 
             boxxes_dict[int(cls_id)].append(box)
             scores_dict[int(cls_id)].append(score)
