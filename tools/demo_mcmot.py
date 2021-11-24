@@ -65,7 +65,7 @@ def make_parser():
 
     ## "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
     parser.add_argument("--path",
-                        default="../videos/test_10.mp4",
+                        default="../videos/test_30.mp4",
                         help="path to images or video")
 
     parser.add_argument("--camid",
@@ -272,7 +272,12 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
 
     for image_name in files:
         if frame_id % 20 == 0:
-            logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1.0 / max(1e-5, timer.average_time)))
+            if frame_id != 0:
+                logger.info('Processing frame {} ({:.2f} fps)'
+                            .format(frame_id, 1.0 / max(1e-5, timer.average_time)))
+            else:
+                logger.info('Processing frame {} ({:.2f} fps)'
+                            .format(frame_id, 1.0 / 30.0))
 
         outputs, img_info = predictor.inference(image_name, timer)
         if outputs[0] is not None:
