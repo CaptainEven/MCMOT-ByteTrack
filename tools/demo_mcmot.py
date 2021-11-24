@@ -2,13 +2,13 @@
 
 import argparse
 import os
+import shutil
 import time
+from collections import defaultdict
 
 import cv2
 import torch
-import shutil
 from loguru import logger
-from collections import defaultdict
 
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
@@ -65,7 +65,7 @@ def make_parser():
 
     ## "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
     parser.add_argument("--path",
-                        default="../videos/palace.mp4",
+                        default="../videos/test_10.mp4",
                         help="path to images or video")
 
     parser.add_argument("--camid",
@@ -328,13 +328,19 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
     height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
     fps = cap.get(cv2.CAP_PROP_FPS)
 
-    if os.path.isdir(vis_dir):
-        shutil.rmtree(vis_dir)
-    save_dir = os.path.join(vis_dir, time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
+    # if os.path.isdir(vis_dir):
+    #     shutil.rmtree(vis_dir)
+
+    video_name = args.path.split("/")[-1][:-4]
+    # save_dir = os.path.join(vis_dir, time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
+    save_dir = os.path.join(vis_dir, video_name)
     os.makedirs(save_dir, exist_ok=True)
 
     if args.demo == "video":
-        save_path = os.path.join(save_dir, args.path.split("/")[-1])
+        # save_path = os.path.join(save_dir, args.path.split("/")[-1])
+
+        current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
+        save_path = os.path.join(save_dir, video_name + "_" + current_time + ".mp4")
     else:
         save_path = os.path.join(save_dir, "camera.mp4")
     save_path = os.path.abspath(save_path)
@@ -494,9 +500,8 @@ def run(exp, args):
     if args.trt:
         assert not args.fuse, "TensorRT model is not support model fusing!"
         trt_file = os.path.join(file_name, "model_trt.pth")
-        assert os.path.exists(
-            trt_file
-        ), "TensorRT model is not found!\n Run python3 tools/trt.py first!"
+        assert os.path.exists(trt_file), \
+            "TensorRT model is not found!\n Run python3 tools/trt.py first!"
         model.head.decode_in_inference = False
         decoder = model.head.decode_outputs
         logger.info("Using TensorRT to inference")
