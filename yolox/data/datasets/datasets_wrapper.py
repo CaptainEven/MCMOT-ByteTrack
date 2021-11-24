@@ -11,12 +11,19 @@ from functools import wraps
 
 class ConcatDataset(torchConcatDataset):
     def __init__(self, datasets):
+        """
+        :param datasets:
+        """
         super(ConcatDataset, self).__init__(datasets)
         if hasattr(self.datasets[0], "input_dim"):
             self._input_dim = self.datasets[0].input_dim
             self.input_dim = self.datasets[0].input_dim
 
     def pull_item(self, idx):
+        """
+        :param idx:
+        :return:
+        """
         if idx < 0:
             if -idx > len(self):
                 raise ValueError(

@@ -52,7 +52,7 @@ def make_parser():
                         help="plz input your expriment description file")
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/yolox_tiny_32.8.pth",
+                        default="../pretrained/c5_tiny_latest_ckpt.pth",  # yolox_tiny_32.8.pth
                         type=str,
                         help="checkpoint file")
     ## ----------
@@ -76,7 +76,7 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=32,  # 4, 8, 16, 32, 48, 64
+                        default=18,  # 4, 8, 16, 18, 24, 32, 48, 64
                         help="batch size")
     parser.add_argument("-d",
                         "--devices",

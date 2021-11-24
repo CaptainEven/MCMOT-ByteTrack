@@ -67,6 +67,7 @@ class Exp(MyExp):
 
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mix_det")
+
         dataset = MOTDataset(
             data_dir=data_dir,
             json_file=self.train_ann,
