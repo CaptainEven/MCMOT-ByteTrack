@@ -13,7 +13,7 @@ from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, postprocess
-from yolox.utils.visualize import plot_tracking
+from yolox.utils.visualize import plot_tracking_sc
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -287,8 +287,8 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
             # save results
             results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
             timer.toc()
-            online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
-                                      fps=1. / timer.average_time)
+            online_im = plot_tracking_sc(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
+                                         fps=1. / timer.average_time)
         else:
             timer.toc()
             online_im = img_info['raw_img']
@@ -372,11 +372,11 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
                 results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
 
                 timer.toc()
-                online_im = plot_tracking(img_info['raw_img'],
-                                          online_tlwhs,
-                                          online_ids,
-                                          frame_id=frame_id + 1,
-                                          fps=1.0 / timer.average_time)
+                online_im = plot_tracking_sc(img_info['raw_img'],
+                                             online_tlwhs,
+                                             online_ids,
+                                             frame_id=frame_id + 1,
+                                             fps=1.0 / timer.average_time)
             else:
                 timer.toc()
 

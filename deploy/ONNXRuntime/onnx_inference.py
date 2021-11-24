@@ -9,7 +9,7 @@ import onnxruntime
 
 from yolox.data.data_augment import preproc as preprocess
 from yolox.utils import mkdir, multiclass_nms, demo_postprocess, vis
-from yolox.utils.visualize import plot_tracking
+from yolox.utils.visualize import plot_tracking_sc
 from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracking_utils.timer import Timer
 
@@ -142,8 +142,8 @@ def imageflow_demo(predictor, args):
                     online_scores.append(t.score)
             timer.toc()
             results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
-            online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
-                                      fps=1. / timer.average_time)
+            online_im = plot_tracking_sc(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
+                                         fps=1. / timer.average_time)
             vid_writer.write(online_im)
             ch = cv2.waitKey(1)
             if ch == 27 or ch == ord("q") or ch == ord("Q"):

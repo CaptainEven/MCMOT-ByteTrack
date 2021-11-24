@@ -15,7 +15,7 @@ from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, postprocess
-from yolox.utils.visualize import plot_tracking, plot_tracking_mcmot
+from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -292,8 +292,8 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
             # save results
             results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
             timer.toc()
-            online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
-                                      fps=1. / timer.average_time)
+            online_im = plot_tracking_sc(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
+                                         fps=1. / timer.average_time)
         else:
             timer.toc()
             online_im = img_info['raw_img']
@@ -340,7 +340,8 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
         # save_path = os.path.join(save_dir, args.path.split("/")[-1])
 
         current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
-        save_path = os.path.join(save_dir, video_name + "_" + current_time + ".mp4")
+        save_path = os.path.join(save_dir, current_time + ".mp4")
+        # save_path = os.path.join(save_dir, video_name + "_" + current_time + ".mp4")
     else:
         save_path = os.path.join(save_dir, "camera.mp4")
     save_path = os.path.abspath(save_path)
@@ -397,11 +398,11 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
                     results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
 
                     timer.toc()
-                    online_im = plot_tracking(img_info['raw_img'],
-                                              online_tlwhs,
-                                              online_ids,
-                                              frame_id=frame_id + 1,
-                                              fps=1.0 / timer.average_time)
+                    online_im = plot_tracking_sc(img_info['raw_img'],
+                                                 online_tlwhs,
+                                                 online_ids,
+                                                 frame_id=frame_id + 1,
+                                                 fps=1.0 / timer.average_time)
 
                 ## ----- plot multi-class multi-object tracking results
                 elif tracker.num_classes > 1:
@@ -417,13 +418,13 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
                     timer.toc()
 
                     # to draw track/detection
-                    online_im = plot_tracking_mcmot(image=img_info['raw_img'],
-                                                    tlwhs_dict=online_tlwhs_dict,
-                                                    obj_ids_dict=online_ids_dict,
-                                                    num_classes=tracker.num_classes,
-                                                    frame_id=frame_id + 1,
-                                                    fps=1.0 / timer.average_time,
-                                                    id2cls=id2cls)
+                    online_im = plot_tracking_mc(image=img_info['raw_img'],
+                                                 tlwhs_dict=online_tlwhs_dict,
+                                                 obj_ids_dict=online_ids_dict,
+                                                 num_classes=tracker.num_classes,
+                                                 frame_id=frame_id + 1,
+                                                 fps=1.0 / timer.average_time,
+                                                 id2cls=id2cls)
             else:
                 timer.toc()
                 online_im = img_info['raw_img']

@@ -61,14 +61,14 @@ def get_color(idx):
     return color
 
 
-def plot_tracking_mcmot(image,
-                        tlwhs_dict,
-                        obj_ids_dict,
-                        num_classes,
-                        scores=None,
-                        frame_id=0,
-                        fps=0.0,
-                        id2cls=None):
+def plot_tracking_mc(image,
+                     tlwhs_dict,
+                     obj_ids_dict,
+                     num_classes,
+                     scores=None,
+                     frame_id=0,
+                     fps=0.0,
+                     id2cls=None):
     """
     :param image:
     :param tlwhs_dict:
@@ -98,7 +98,7 @@ def plot_tracking_mcmot(image,
                 (0, int(15 * text_scale)),
                 cv2.FONT_HERSHEY_PLAIN,
                 2,
-                (0, 0, 255),
+                (0, 255, 255),
                 thickness=2)
 
     for cls_id in range(num_classes):
@@ -146,8 +146,8 @@ def plot_tracking_mcmot(image,
     return img
 
 
-def plot_tracking(image, tlwhs, obj_ids,
-                  scores=None, frame_id=0, fps=0.0, ids2=None):
+def plot_tracking_sc(image, tlwhs, obj_ids,
+                     scores=None, frame_id=0, fps=0.0, ids2=None):
     """
     :param image:
     :param tlwhs:
