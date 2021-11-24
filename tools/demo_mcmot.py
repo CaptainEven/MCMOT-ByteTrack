@@ -49,14 +49,14 @@ def make_parser():
                         default="car, bicycle, person, cyclist, tricycle",
                         help="")
 
-    ## ----- exp fileyolox_x_ablation.py
+    ## ----- exp file, eg: yolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
                         default="../exps/example/mot/yolox_tiny_det.py",
                         type=str,
                         help="pls input your expriment description file")
 
-    ## bytetrack_x_mot17.pth.tar
+    ## ----- checkpoing file path, eg: bytetrack_x_mot17.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
                         default="../pretrained/c5_tiny_latest_ckpt.pth",
@@ -65,8 +65,9 @@ def make_parser():
 
     ## "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
     parser.add_argument("--path",
-                        default="../videos/test_13.mp4",
+                        default="../videos/palace.mp4",
                         help="path to images or video")
+
     parser.add_argument("--camid",
                         type=int,
                         default=0,
