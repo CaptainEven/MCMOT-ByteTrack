@@ -17,8 +17,10 @@ class Exp(MyExp):
         """
         super(Exp, self).__init__()
 
-        ## -----
+        ## ----- number of classes
         self.num_classes = 5  # 1, 5, 80
+        ## -----
+
         if debug:
             self.data_num_workers = 0
         else:

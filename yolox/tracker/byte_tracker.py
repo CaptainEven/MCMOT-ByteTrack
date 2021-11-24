@@ -9,7 +9,7 @@ from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
 
 
-# Multi-class Track class
+# Multi-class Track class without embedding(feature vector)
 class MCTrack(MCBaseTrack):
     shared_kalman = KalmanFilter()
 
@@ -25,6 +25,8 @@ class MCTrack(MCBaseTrack):
         self._tlwh = np.asarray(tlwh, dtype=np.float)
         self.kalman_filter = None
         self.mean, self.covariance = None, None
+
+        ## ----- init is_activated to be False
         self.is_activated = False
 
         self.score = score
@@ -34,7 +36,7 @@ class MCTrack(MCBaseTrack):
         """
         :return:
         """
-        self.reset_track_count(self.cls_id)
+        self.reset_track_id(self.cls_id)
 
     def predict(self):
         """
@@ -67,7 +69,7 @@ class MCTrack(MCBaseTrack):
 
     def activate(self, kalman_filter, frame_id):
         """
-        Start a new tracklet
+        Start a new track-let: the initial activation
         :param kalman_filter:
         :param frame_id:
         :return:
@@ -102,8 +104,10 @@ class MCTrack(MCBaseTrack):
         self.tracklet_len = 0
         self.frame_id = frame_id
 
+        ## ----- Update states
         self.state = TrackState.Tracked
         self.is_activated = True
+        ## -----
 
         if new_id:  # update track id for the object class
             self.track_id = self.next_id(self.cls_id)
@@ -123,22 +127,28 @@ class MCTrack(MCBaseTrack):
 
         new_tlwh = new_track.tlwh
         self.mean, self.covariance = self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
+
+        ## ----- Update the states
         self.state = TrackState.Tracked
         self.is_activated = True
+        ## -----
 
         self.score = new_track.score
 
     @property
     # @jit(nopython=True)
     def tlwh(self):
-        """Get current position in bounding box format `(top left x, top left y,
-                width, height)`.
+        """
+        Get current position in bounding box format
+        `(top left x, top left y, width, height)`.
         """
         if self.mean is None:
             return self._tlwh.copy()
+
         ret = self.mean[:4].copy()
         ret[2] *= ret[3]
-        ret[:2] -= ret[2:] / 2
+        ret[:2] -= ret[2:] * 0.5
+
         return ret
 
     @property
@@ -197,8 +207,7 @@ class MCTrack(MCBaseTrack):
         """
         return 'OT_({}-{})_({}-{})'.format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
 
-
-class STrack(BaseTrack):
+class Track(BaseTrack):
     shared_kalman = KalmanFilter()
 
     def __init__(self, tlwh, score):
@@ -238,7 +247,7 @@ class STrack(BaseTrack):
                 if st.state != TrackState.Tracked:
                     multi_mean[i][7] = 0
 
-            multi_mean, multi_covariance = STrack.shared_kalman.multi_predict(multi_mean, multi_covariance)
+            multi_mean, multi_covariance = Track.shared_kalman.multi_predict(multi_mean, multi_covariance)
 
             for i, (mean, cov) in enumerate(zip(multi_mean, multi_covariance)):
                 stracks[i].mean = mean
@@ -291,7 +300,7 @@ class STrack(BaseTrack):
     def update(self, new_track, frame_id):
         """
         Update a matched track
-        :type new_track: STrack
+        :type new_track: Track
         :type frame_id: int
         :type update_feature: bool
         :return:
@@ -395,20 +404,18 @@ class BYTETracker(object):
         self.num_classes = args.n_classes
 
         # Define track lists for single object class
-        self.tracked_tracks = []  # type: list[STrack]
-        self.lost_tracks = []  # type: list[STrack]
-        self.removed_tracks = []  # type: list[STrack]
+        self.tracked_tracks = []  # type: list[Track]
+        self.lost_tracks = []  # type: list[Track]
+        self.removed_tracks = []  # type: list[Track]
 
         # Define tracks dict for multi-class objects
         self.tracked_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.lost_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.removed_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
 
-    def update_mcmot(self, output_results, img_size, net_size):
+    def update_byte_mcmot(self, dets_results):
         """
-        :param output_results:
-        :param img_size: img_height, img_width
-        :param net_size: net_height, net_width
+        :param dets_results:
         :return:
         """
         ## ----- update frame id
@@ -416,32 +423,25 @@ class BYTETracker(object):
 
         # ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            MCTrack.init_count(self.num_classes)
+            MCTrack.init_id_dict(self.num_classes)
         # -----
 
-        ## ----- Get image height and image width
-        img_h, img_w = img_size[0], img_size[1]
-
-        # ----- Get net height and net width
-        net_h, net_w = net_size[0], net_size[1]
-
-        # record tracking states of the current frame
+        # ----- The current frame tracking states recording
+        unconfirmed_dict = defaultdict(list)
+        tracked_tracks_dict = defaultdict(list)
+        track_pool_dict = defaultdict(list)
         activated_tracks_dict = defaultdict(list)
-        refined_tracks_dict = defaultdict(list)
+        refind_tracks_dict = defaultdict(list)
         lost_tracks_dict = defaultdict(list)
         removed_tracks_dict = defaultdict(list)
         output_tracks_dict = defaultdict(list)
 
-        ## ----- Get the scale
-        scale = min(float(net_h) / float(img_h), float(net_w) / float(img_w))
+        #################### Even: Start MCMOT
 
-        #################### Even: MCMOT
-        ## ---------- Get dets dict
-        output_results = output_results.cpu().numpy()
+        ## ----- Get box dict and score dict
         boxxes_dict = defaultdict(list)
         scores_dict = defaultdict(list)
-
-        for det in output_results:
+        for det in dets_results:
             if det.size == 7:
                 x1, y1, x2, y2, score1, score2, cls_id = det  # 7
                 score = score1 * score2
@@ -449,15 +449,20 @@ class BYTETracker(object):
                 x1, y1, x2, y2, score, cls_id = det  # 6
 
             box = np.array([x1, y1, x2, y2])
+
             boxxes_dict[int(cls_id)].append(box)
             scores_dict[int(cls_id)].append(score)
 
         ## ---------- Process each object class
         for cls_id in range(self.num_classes):
+            ## ----- class boxes
             cls_boxes = boxxes_dict[cls_id]
             cls_boxes = np.array(cls_boxes)
-            cls_boxes /= scale
 
+            ## ----- Scaling the boxes to image size
+            # cls_boxes /= scale
+
+            ## ----- class scores
             cls_scores = scores_dict[cls_id]
             cls_scores = np.array(cls_scores)
 
@@ -483,8 +488,6 @@ class BYTETracker(object):
             # print(cls_detections)
 
             '''Add newly detected tracks(current frame) to tracked_tracks'''
-            unconfirmed_dict = defaultdict(list)
-            tracked_tracks_dict = defaultdict(list)
             for track in self.tracked_tracks_dict[cls_id]:
                 if not track.is_activated:
                     unconfirmed_dict[cls_id].append(track)  # record unconfirmed tracks in this frame
@@ -493,11 +496,12 @@ class BYTETracker(object):
 
             ''' Step 2: First association, with high score detection boxes'''
             ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
-            track_pool_dict = defaultdict(list)
             track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
 
-            # Predict the current location with KF
-            MCTrack.multi_predict(track_pool_dict[cls_id])
+            # ---------- Predict the current location with KF
+            # MCTrack.multi_predict(track_pool_dict[cls_id])
+            MCTrack.multi_predict(tracked_tracks_dict[cls_id])  # only predict tracked tracks
+            # ----------
 
             # Matching with Hungarian Algorithm
             dists = matching.iou_distance(track_pool_dict[cls_id], cls_detections)
@@ -512,12 +516,13 @@ class BYTETracker(object):
             for i_tracked, i_det in matches:
                 track = track_pool_dict[cls_id][i_tracked]
                 det = cls_detections[i_det]
+
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
                     activated_tracks_dict[cls_id].append(track)  # for multi-class
                 else:  # re-activate the lost track
                     track.re_activate(det, self.frame_id, new_id=False)
-                    refined_tracks_dict[cls_id].append(track)
+                    refind_tracks_dict[cls_id].append(track)
 
             ''' Step 3: Second association, with low score detection boxes'''
             # association the un-track to the low score detections
@@ -531,21 +536,24 @@ class BYTETracker(object):
 
             r_tracked_tracks = [track_pool_dict[cls_id][i]
                                 for i in u_track if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+
             dists = matching.iou_distance(r_tracked_tracks, cls_detections_second)
-            matches, u_track, u_detection_second = matching.linear_assignment(dists, thresh=0.5)
+            matches, u_track, u_detection_second = matching.linear_assignment(dists, thresh=0.5)  # thresh=0.5
+
             for i_tracked, i_det in matches:
                 track = r_tracked_tracks[i_tracked]
                 det = cls_detections_second[i_det]
+
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
                     activated_tracks_dict[cls_id].append(track)
                 else:
                     track.re_activate(det, self.frame_id, new_id=False)
-                    refined_tracks_dict[cls_id].append(track)
+                    refind_tracks_dict[cls_id].append(track)
 
             # process unmatched tracks for two rounds
-            for it in u_track:
-                track = r_tracked_tracks[it]
+            for i in u_track:
+                track = r_tracked_tracks[i]
                 if not track.state == TrackState.Lost:
                     # mark unmatched track as lost track
                     track.mark_lost()
@@ -561,29 +569,30 @@ class BYTETracker(object):
             if not self.args.mot20:
                 dists = matching.fuse_score(dists, cls_detections)
 
-            matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
+            matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)  # 0.7
 
             for i_tracked, i_det in matches:
                 unconfirmed_dict[cls_id][i_tracked].update(cls_detections[i_det], self.frame_id)
                 activated_tracks_dict[cls_id].append(unconfirmed_dict[cls_id][i_tracked])
-            for it in u_unconfirmed:
-                track = unconfirmed_dict[cls_id][it]
+
+            for i in u_unconfirmed:
+                track = unconfirmed_dict[cls_id][i]
                 track.mark_removed()
                 removed_tracks_dict[cls_id].append(track)
 
-            """ Step 4: Init new tracks"""
+            """Step 4: Init new tracks"""
             for i_new in u_detection:  # current frame's unmatched detection
                 track = cls_detections[i_new]
                 if track.score < self.det_thresh:
                     continue
 
                 # tracked but not activated: activate do not set 'is_activated' to be True
-                track.activate(self.kalman_filter, self.frame_id)
+                track.activate(self.kalman_filter, self.frame_id)  # if fr_id > 1, tracked but not activated
 
                 # activated_tarcks_dict may contain track with 'is_activated' False
                 activated_tracks_dict[cls_id].append(track)
 
-            """ Step 5: Update state"""
+            """Step 5: Update state"""
             # update removed tracks
             for track in self.lost_tracks_dict[cls_id]:
                 if self.frame_id - track.end_frame > self.max_time_lost:
@@ -594,180 +603,26 @@ class BYTETracker(object):
             self.tracked_tracks_dict[cls_id] = [t for t in self.tracked_tracks_dict[cls_id] if
                                                 t.state == TrackState.Tracked]
             self.tracked_tracks_dict[cls_id] = join_tracks(self.tracked_tracks_dict[cls_id],
-                                                           activated_tracks_dict[cls_id])  # add activated track
+                                                           activated_tracks_dict[cls_id])
             self.tracked_tracks_dict[cls_id] = join_tracks(self.tracked_tracks_dict[cls_id],
-                                                           refined_tracks_dict[cls_id])  # add refined track
-            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
-                                                       self.tracked_tracks_dict[cls_id])  # update lost tracks
+                                                           refind_tracks_dict[cls_id])
+
+            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id], self.tracked_tracks_dict[cls_id])
             self.lost_tracks_dict[cls_id].extend(lost_tracks_dict[cls_id])
-            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
-                                                       self.removed_tracks_dict[cls_id])
+            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id], self.removed_tracks_dict[cls_id])
+
             self.removed_tracks_dict[cls_id].extend(removed_tracks_dict[cls_id])
+
             self.tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id] = remove_duplicate_tracks(
                 self.tracked_tracks_dict[cls_id],
                 self.lost_tracks_dict[cls_id])
 
             # get scores of lost tracks
             output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id] if track.is_activated]
-            return output_tracks_dict
 
+        ## ---------- Return final online targets of the frame
+        return output_tracks_dict
         #################### MCMOT end
-
-        # ## ----- Get all infos of results
-        # if output_results.shape[1] == 5:
-        #     scores = output_results[:, 4]
-        #     bboxes = output_results[:, :4]
-        # elif output_results.shape[1] == 6:  # x1, y1, x2, y2, score cls
-        #     output_results = output_results.cpu().numpy()
-        #     scores = output_results[:, 4]
-        #     bboxes = output_results[:, :4]  # x1y1x2y2
-        #     # classes = output_results[:, -1]  # class ids
-        # elif output_results.shape[1] == 7:  # x1, y1, x2, y2, score1, score2, cls
-        #     output_results = output_results.cpu().numpy()
-        #     scores = output_results[:, 4] * output_results[:, 5]
-        #     bboxes = output_results[:, :4]  # x1y1x2y2
-        #     # classes = output_results[:, -1]  # class ids
-        #
-        # bboxes /= scale
-        #
-        # remain_inds = scores > self.args.track_thresh
-        # inds_low = scores > 0.1
-        # inds_high = scores < self.args.track_thresh
-        #
-        # ## second indices
-        # inds_second = np.logical_and(inds_low, inds_high)
-        #
-        # dets_boxes = bboxes[remain_inds]
-        # dets_boxes_second = bboxes[inds_second]
-        #
-        # scores_keep = scores[remain_inds]
-        # scores_second = scores[inds_second]
-        #
-        # ## ---------- Updating tracks
-        # activated_tarcks = []
-        # refind_tracks = []
-        # lost_stracks = []
-        # removed_stracks = []
-        #
-        # if len(dets_boxes) > 0:
-        #     '''Detections'''
-        #     detections = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
-        #                   (tlbr, s) in zip(dets_boxes, scores_keep)]
-        # else:
-        #     detections = []
-        #
-        # ''' Add newly detected tracklets to tracked_stracks'''
-        # unconfirmed = []
-        # tracked_tracks = []  # type: list[STrack]
-        # for track in self.tracked_tracks:
-        #     if not track.is_activated:
-        #         unconfirmed.append(track)
-        #     else:
-        #         tracked_tracks.append(track)
-        #
-        # ''' Step 2: First association, with high score detection boxes'''
-        # track_pool = join_tracks(tracked_tracks, self.lost_tracks)
-        #
-        # # Predict the current location with KF
-        # STrack.multi_predict(track_pool)
-        #
-        # # Matching with Hungarian Algorithm
-        # dists = matching.iou_distance(track_pool, detections)
-        #
-        # if not self.args.mot20:
-        #     dists = matching.fuse_score(dists, detections)
-        #
-        # matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.args.match_thresh)
-        # for i_tracked, i_det in matches:
-        #     track = track_pool[i_tracked]
-        #     det = detections[i_det]
-        #     if track.state == TrackState.Tracked:
-        #         track.update(det, self.frame_id)
-        #         activated_tarcks.append(track)
-        #     else:
-        #         track.re_activate(det, self.frame_id, new_id=False)
-        #         refind_tracks.append(track)
-        #
-        # ''' Step 3: Second association, with low score detection boxes'''
-        # # association the untrack to the low score detections
-        # if len(dets_boxes_second) > 0:
-        #     '''Detections'''
-        #     detections_second = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
-        #                          (tlbr, s) in zip(dets_boxes_second, scores_second)]
-        # else:
-        #     detections_second = []
-        #
-        # r_tracked_tracks = [track_pool[i] for i in u_track if track_pool[i].state == TrackState.Tracked]
-        # dists = matching.iou_distance(r_tracked_tracks, detections_second)
-        # matches, u_track, u_detection_second = matching.linear_assignment(dists, thresh=0.5)
-        # for i_tracked, i_det in matches:
-        #     track = r_tracked_tracks[i_tracked]
-        #     det = detections_second[i_det]
-        #     if track.state == TrackState.Tracked:
-        #         track.update(det, self.frame_id)
-        #         activated_tarcks.append(track)
-        #     else:
-        #         track.re_activate(det, self.frame_id, new_id=False)
-        #         refind_tracks.append(track)
-        #
-        # # process unmatched tracks for two rounds
-        # for it in u_track:
-        #     track = r_tracked_tracks[it]
-        #     if not track.state == TrackState.Lost:
-        #         track.mark_lost()
-        #         lost_stracks.append(track)
-        #
-        # '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
-        # detections = [detections[i] for i in u_detection]
-        # dists = matching.iou_distance(unconfirmed, detections)
-        #
-        # if not self.args.mot20:
-        #     dists = matching.fuse_score(dists, detections)
-        #
-        # matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
-        #
-        # for i_tracked, i_det in matches:
-        #     unconfirmed[i_tracked].update(detections[i_det], self.frame_id)
-        #     activated_tarcks.append(unconfirmed[i_tracked])
-        # for it in u_unconfirmed:
-        #     track = unconfirmed[it]
-        #     track.mark_removed()
-        #     removed_stracks.append(track)
-        #
-        # """ Step 4: Init new tracks"""
-        # for i_new in u_detection:
-        #     track = detections[i_new]
-        #
-        #     if track.score < self.det_thresh:
-        #         continue
-        #
-        #     # tracked but not activated
-        #     track.activate(self.kalman_filter, self.frame_id)
-        #
-        #     # activated_tarcks_dict may contain track with 'is_activated' False
-        #     activated_tarcks.append(track)
-        #
-        # """ Step 5: Update state"""
-        # for track in self.lost_tracks:
-        #     if self.frame_id - track.end_frame > self.max_time_lost:
-        #         track.mark_removed()
-        #         removed_stracks.append(track)
-        #
-        # # print('Ramained match {} s'.format(t4-t3))
-        #
-        # self.tracked_tracks = [t for t in self.tracked_tracks if t.state == TrackState.Tracked]
-        # self.tracked_tracks = join_tracks(self.tracked_tracks, activated_tarcks)
-        # self.tracked_tracks = join_tracks(self.tracked_tracks, refind_tracks)
-        # self.lost_tracks = sub_tracks(self.lost_tracks, self.tracked_tracks)
-        # self.lost_tracks.extend(lost_stracks)
-        # self.lost_tracks = sub_tracks(self.lost_tracks, self.removed_stracks)
-        # self.removed_stracks.extend(removed_stracks)
-        # self.tracked_tracks, self.lost_tracks = remove_duplicate_stracks(self.tracked_tracks, self.lost_tracks)
-        #
-        # # get scores of lost tracks
-        # output_stracks = [track for track in self.tracked_tracks if track.is_activated]
-        #
-        # return output_stracks
 
     def update(self, output_results, img_info, img_size):
         """
@@ -810,14 +665,14 @@ class BYTETracker(object):
 
         if len(dets) > 0:
             '''Detections'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
+            detections = [Track(Track.tlbr_to_tlwh(tlbr), s) for
                           (tlbr, s) in zip(dets, scores_keep)]
         else:
             detections = []
 
         ''' Add newly detected tracklets to tracked_stracks'''
         unconfirmed = []
-        tracked_stracks = []  # type: list[STrack]
+        tracked_stracks = []  # type: list[Track]
         for track in self.tracked_tracks:
             if not track.is_activated:
                 unconfirmed.append(track)
@@ -826,8 +681,10 @@ class BYTETracker(object):
 
         ''' Step 2: First association, with high score detection boxes'''
         strack_pool = join_tracks(tracked_stracks, self.lost_tracks)
+
         # Predict the current location with KF
-        STrack.multi_predict(strack_pool)
+        Track.multi_predict(strack_pool)
+
         dists = matching.iou_distance(strack_pool, detections)
         if not self.args.mot20:
             dists = matching.fuse_score(dists, detections)
@@ -847,7 +704,7 @@ class BYTETracker(object):
         # association the untrack to the low score detections
         if len(dets_second) > 0:
             '''Detections'''
-            detections_second = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
+            detections_second = [Track(Track.tlbr_to_tlwh(tlbr), s) for
                                  (tlbr, s) in zip(dets_second, scores_second)]
         else:
             detections_second = []

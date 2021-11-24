@@ -25,10 +25,11 @@
 #     "train",
 #     "tvmonitor",
 # )
+
 VOC_CLASSES = (
-    "car",
-    "bicycle",
-    "person",
-    "cyclist",
-    "tricycle",
+    "car",         # 0
+    "bicycle",     # 1
+    "person",      # 2
+    "cyclist",     # 3
+    "tricycle",    # 4
 )

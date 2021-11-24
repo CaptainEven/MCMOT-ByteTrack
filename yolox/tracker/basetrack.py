@@ -17,7 +17,7 @@ class MCBaseTrack(object):
     """
     Multi-class Base track
     """
-    _count_dict = defaultdict(int)  # the MCBaseTrack class owns this dict
+    _id_dict = defaultdict(int)  # the MCBaseTrack class owns this dict
 
     track_id = 0
     is_activated = False
@@ -43,13 +43,13 @@ class MCBaseTrack(object):
 
     # @even: reset track id
     @staticmethod
-    def init_count(num_classes):
+    def init_id_dict(num_classes):
         """
         Initiate _count for all object classes
         :param num_classes:
         """
         for cls_id in range(num_classes):
-            MCBaseTrack._count_dict[cls_id] = 0
+            MCBaseTrack._id_dict[cls_id] = 0
 
     @staticmethod
     def next_id(cls_id):
@@ -57,16 +57,16 @@ class MCBaseTrack(object):
         :param cls_id:
         :return:
         """
-        MCBaseTrack._count_dict[cls_id] += 1
-        return MCBaseTrack._count_dict[cls_id]
+        MCBaseTrack._id_dict[cls_id] += 1
+        return MCBaseTrack._id_dict[cls_id]
 
     @staticmethod
-    def reset_track_count(cls_id):
+    def reset_track_id(cls_id):
         """
         :param cls_id:
         :return:
         """
-        MCBaseTrack._count_dict[cls_id] = 0
+        MCBaseTrack._id_dict[cls_id] = 0
 
     def activate(self, *args):
         """
