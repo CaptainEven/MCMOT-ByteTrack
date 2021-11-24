@@ -18,6 +18,9 @@ class BaseExp(metaclass=ABCMeta):
     """Basic class for any experiment."""
 
     def __init__(self):
+        """
+        The Base experiment class
+        """
         self.seed = None
         self.output_dir = "../YOLOX_outputs"
         self.print_interval = 100

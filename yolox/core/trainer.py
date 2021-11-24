@@ -2,10 +2,12 @@
 # -*- coding:utf-8 -*-
 # Copyright (c) Megvii, Inc. and its affiliates.
 
-from loguru import logger
+import datetime
+import os
+import time
 
 import torch
-
+from loguru import logger
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
 
@@ -25,10 +27,6 @@ from yolox.utils import (
     synchronize
 )
 
-import datetime
-import os
-import time
-
 
 class Trainer:
     def __init__(self, exp, args):
@@ -47,7 +45,7 @@ class Trainer:
         self.device = "cuda:{}".format(self.local_rank)
         self.use_model_ema = exp.ema
 
-        # data/dataloader related attr
+        # ---------- data/dataloader related attr
         self.data_type = torch.float16 if args.fp16 else torch.float32
         self.input_size = exp.input_size
         self.best_ap = 0
@@ -67,7 +65,11 @@ class Trainer:
         )
 
     def train(self):
+        """
+        :return:
+        """
         self.before_train()
+
         try:
             self.train_in_epoch()
         except Exception:
@@ -76,18 +78,27 @@ class Trainer:
             self.after_train()
 
     def train_in_epoch(self):
+        """
+        :return:
+        """
         for self.epoch in range(self.start_epoch, self.max_epoch):
             self.before_epoch()
             self.train_in_iter()
             self.after_epoch()
 
     def train_in_iter(self):
+        """
+        :return:
+        """
         for self.iter in range(self.max_iter):
             self.before_iter()
             self.train_one_iter()
             self.after_iter()
 
     def train_one_iter(self):
+        """
+        :return:
+        """
         iter_start_time = time.time()
 
         inps, targets = self.prefetcher.next()
@@ -121,15 +132,17 @@ class Trainer:
         )
 
     def before_train(self):
+        """
+        :return:
+        """
         logger.info("args: {}".format(self.args))
         logger.info("exp value:\n{}".format(self.exp))
 
         # model related init
         torch.cuda.set_device(self.local_rank)
         model = self.exp.get_model()
-        logger.info(
-            "Model Summary: {}".format(get_model_info(model, self.exp.test_size))
-        )
+        logger.info("Model Summary: {}"
+                    .format(get_model_info(model, self.exp.test_size)))
         model.to(self.device)
 
         # solver related init
@@ -140,19 +153,19 @@ class Trainer:
 
         # data related init
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.no_aug_epochs
-        self.train_loader = self.exp.get_data_loader(
-            batch_size=self.args.batch_size,
-            is_distributed=self.is_distributed,
-            no_aug=self.no_aug,
-        )
+        self.train_loader = self.exp.get_data_loader(batch_size=self.args.batch_size,
+                                                     is_distributed=self.is_distributed,
+                                                     data_dir=self.args.data_dir,
+                                                     name=self.args.train_name,
+                                                     no_aug=self.no_aug, )
+
         logger.info("init prefetcher, this might take one minute or less...")
         self.prefetcher = DataPrefetcher(self.train_loader)
         # max_iter means iters per epoch
         self.max_iter = len(self.train_loader)
 
-        self.lr_scheduler = self.exp.get_lr_scheduler(
-            self.exp.basic_lr_per_img * self.args.batch_size, self.max_iter
-        )
+        self.lr_scheduler = self.exp.get_lr_scheduler(self.exp.basic_lr_per_img * self.args.batch_size,
+                                                      self.max_iter)
         if self.args.occupy:
             occupy_mem(self.local_rank)
 
@@ -166,15 +179,17 @@ class Trainer:
         self.model = model
         self.model.train()
 
-        self.evaluator = self.exp.get_evaluator(
-            batch_size=self.args.batch_size, is_distributed=self.is_distributed
-        )
+        self.evaluator = self.exp.get_evaluator(batch_size=self.args.batch_size,
+                                                is_distributed=self.is_distributed,
+                                                data_dir=self.args.data_dir,
+                                                name=self.args.val_name)
+
         # Tensorboard logger
         if self.rank == 0:
             self.tblogger = SummaryWriter(self.file_name)
 
         logger.info("Training start...")
-        #logger.info("\n{}".format(model))
+        # logger.info("\n{}".format(model))
 
     def after_train(self):
         logger.info(
@@ -187,7 +202,7 @@ class Trainer:
         logger.info("---> start train epoch{}".format(self.epoch + 1))
 
         if self.epoch + 1 == self.max_epoch - self.exp.no_aug_epochs or self.no_aug:
-            
+
             logger.info("--->No mosaic aug now!")
             self.train_loader.close_mosaic()
             logger.info("--->Add additional L1 loss now!")
@@ -195,7 +210,7 @@ class Trainer:
                 self.model.module.head.use_l1 = True
             else:
                 self.model.head.use_l1 = True
-            
+
             self.exp.eval_interval = 1
             if not self.no_aug:
                 self.save_ckpt(ckpt_name="last_mosaic_epoch")
@@ -265,11 +280,11 @@ class Trainer:
         if self.args.resume:
             logger.info("resume training")
             if self.args.ckpt is None:
-                ckpt_file = os.path.join(self.file_name, "latest" + "_ckpt.pth.tar")
+                ckpt_path = os.path.join(self.file_name, "latest" + "_ckpt.pth.tar")
             else:
-                ckpt_file = self.args.ckpt
+                ckpt_path = self.args.ckpt
 
-            ckpt = torch.load(ckpt_file, map_location=self.device)
+            ckpt = torch.load(ckpt_path, map_location=self.device)
             # resume the model/optimizer state dict
             model.load_state_dict(ckpt["model"])
             self.optimizer.load_state_dict(ckpt["optimizer"])
@@ -286,10 +301,11 @@ class Trainer:
             )  # noqa
         else:
             if self.args.ckpt is not None:
-                logger.info("loading checkpoint for fine tuning")
-                ckpt_file = self.args.ckpt
-                ckpt = torch.load(ckpt_file, map_location=self.device)["model"]
+                logger.info("loading checkpoint for fine tuning...")
+                ckpt_path = self.args.ckpt
+                ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
                 model = load_ckpt(model, ckpt)
+                print("{:s} loaded!".format(ckpt_path))
             self.start_epoch = 0
 
         return model
@@ -306,7 +322,7 @@ class Trainer:
             logger.info("\n" + summary)
         synchronize()
 
-        #self.best_ap = max(self.best_ap, ap50_95)
+        # self.best_ap = max(self.best_ap, ap50_95)
         self.save_ckpt("last_epoch", ap50 > self.best_ap)
         self.best_ap = max(self.best_ap, ap50)
 

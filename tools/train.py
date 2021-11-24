@@ -1,5 +1,10 @@
 # encoding=utf-8
 
+import os
+
+os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+os.environ['CUDA_VISIBLE_DEVICES'] = '7'
+
 import argparse
 import random
 import warnings
@@ -24,8 +29,38 @@ def make_parser():
     parser.add_argument("-n",
                         "--name",
                         type=str,
-                        default=None,
+                        default="",  # ""
                         help="model name")
+    parser.add_argument("--train_name",
+                        type=str,
+                        default="train",  # ""
+                        help="model name")
+    parser.add_argument("--val_name",
+                        type=str,
+                        default="test",  # ""
+                        help="model name")
+    parser.add_argument("--data_dir",
+                        type=str,
+                        default="/mnt/diskd/even/MOT17",
+                        help="")
+
+    ## ---------- expiriment file path and checkpoint file path
+    parser.add_argument("-f",
+                        "--exp_file",
+                        default="../exps/example/mot/yolox_tiny_det.py",
+                        type=str,
+                        help="plz input your expriment description file")
+    parser.add_argument("-c",
+                        "--ckpt",
+                        default="../pretrained/yolox_tiny_32.8.pth",
+                        type=str,
+                        help="checkpoint file")
+    ## ----------
+
+    parser.add_argument("--debug",
+                        type=int,
+                        default=0,  # False | True
+                        help="")
 
     # distributed
     parser.add_argument("--dist-backend",
@@ -41,11 +76,11 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=48,  # 48, 64
+                        default=32,  # 4, 8, 16, 32, 48, 64
                         help="batch size")
     parser.add_argument("-d",
                         "--devices",
-                        default=7,  #
+                        default=1,  # number of devices(gpus)
                         type=int,
                         help="device for training")
     ## ----------
@@ -54,18 +89,6 @@ def make_parser():
                         default=0,
                         type=int,
                         help="local rank for dist training")
-
-    ## ---------- expiriment file path and checkpoint file path
-    parser.add_argument("-f",
-                        "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det.py",
-                        type=str,
-                        help="plz input your expriment description file")
-    parser.add_argument("-c",
-                        "--ckpt",
-                        default="../pretrained/yolox_tiny_32.8.pth",
-                        type=str,
-                        help="checkpoint file")
 
     parser.add_argument("--resume",
                         default=False,
@@ -84,15 +107,19 @@ def make_parser():
                         default=0,
                         type=int,
                         help="node rank for multi-node training")
+
+    ## ---------- data type: float16 or not
     parser.add_argument("--fp16",
                         dest="fp16",
+                        type=bool,
                         default=True,
-                        action="store_true",
+                        # action="store_true",
                         help="Adopting mix precision training.")
+
     parser.add_argument("-o",
                         "--occupy",
                         dest="occupy",
-                        default=False,
+                        default=False,  # False
                         action="store_true",
                         help="occupy GPU memory first for training.")
     parser.add_argument("opts",
@@ -115,8 +142,10 @@ def main(exp, args):
         torch.manual_seed(exp.seed)
         cudnn.deterministic = True
         warnings.warn(
-            "You have chosen to seed training. This will turn on the CUDNN deterministic setting, "
-            "which can slow down your training considerably! You may see unexpected behavior "
+            "You have chosen to seed training. "
+            "This will turn on the CUDNN deterministic setting, "
+            "which can slow down your training considerably!"
+            " You may see unexpected behavior "
             "when restarting from checkpoints."
         )
 
@@ -129,8 +158,12 @@ def main(exp, args):
 
 if __name__ == "__main__":
     args = make_parser().parse_args()
+    print("args:\n", args)
     exp = get_exp(args.exp_file, args.name)
     exp.merge(args.opts)
+
+    if args.debug:
+        exp.data_num_workers = 0
 
     if not args.experiment_name:
         args.experiment_name = exp.exp_name

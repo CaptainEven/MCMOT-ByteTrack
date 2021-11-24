@@ -14,21 +14,20 @@ class MOTDataset(Dataset):
     """
     COCO dataset class.
     """
-
     def __init__(self,
                  data_dir=None,
                  json_file="train_half.json",
-                 name="train",
+                 name="",
                  img_size=(608, 1088),
                  preproc=None):
         """
         COCO dataset initialization. Annotation data are read into memory by COCO API.
         Args:
-            data_dir (str): dataset root directory
-            json_file (str): COCO json file name
-            name (str): COCO data name (e.g. 'train2017' or 'val2017')
-            img_size (int): target image size after pre-processing
-            preproc: data augmentation strategy
+        @:param data_dir (str): dataset root directory
+        @:param json_file (str): COCO json file name
+        @:param name (str): COCO data name (e.g. 'train2017' or 'val2017')
+        @:param img_size (int): target image size after pre-processing
+        @:param preproc: data augmentation strategy
         """
         super().__init__(img_size)
 
@@ -112,17 +111,18 @@ class MOTDataset(Dataset):
         """
         return self.annotations[index][0]
 
-    def pull_item(self, index):
+    def pull_item(self, idx):
         """
-        :param index:
+        :param idx:
         :return:
         """
-        id_ = self.ids[index]
+        id_ = self.ids[idx]
 
-        res, img_info, file_name = self.annotations[index]
+        res, img_info, file_name = self.annotations[idx]
+
         # load image and preprocess
-        img_file = os.path.join(self.data_dir, self.name, file_name)
-        img = cv2.imread(img_file)
+        img_path = os.path.join(self.data_dir, self.name, file_name)
+        img = cv2.imread(img_path)
         assert img is not None
 
         return img, res.copy(), img_info, np.array([id_])
