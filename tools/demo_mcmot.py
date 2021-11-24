@@ -277,7 +277,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
                             .format(frame_id, 1.0 / max(1e-5, timer.average_time)))
             else:
                 logger.info('Processing frame {} ({:.2f} fps)'
-                            .format(frame_id, 1.0 / 30.0))
+                            .format(frame_id, 30.0))
 
         outputs, img_info = predictor.inference(image_name, timer)
         if outputs[0] is not None:
