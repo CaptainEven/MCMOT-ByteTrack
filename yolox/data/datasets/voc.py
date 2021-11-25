@@ -2,26 +2,20 @@
 # encoding=utf-8
 # Code are based on
 # https://github.com/fmassa/vision/blob/voc_dataset/torchvision/datasets/voc.py
-# Copyright (c) Francisco Massa.
-# Copyright (c) Ellis Brown, Max deGroot.
-# Copyright (c) Megvii, Inc. and its affiliates.
-
-import cv2
-import numpy as np
-
-from yolox.evaluators.voc_eval import voc_eval
 
 import os
 import os.path
-import pickle
 import xml.etree.ElementTree as ET
+
+import cv2
+import numpy as np
+from yolox.evaluators.voc_eval import voc_eval
 
 from .datasets_wrapper import Dataset
 from .voc_classes import VOC_CLASSES
 
 
 class AnnotationTransform(object):
-
     """Transforms a VOC annotation into a Tensor of bbox coords and label index
     Initilized with a dictionary lookup of classnames to indexes
 
@@ -33,7 +27,6 @@ class AnnotationTransform(object):
         height (int): height
         width (int): width
     """
-
     def __init__(self, class_to_ind=None, keep_difficult=True):
         """
         :param class_to_ind:
@@ -57,7 +50,7 @@ class AnnotationTransform(object):
             #     continue
             # name = obj.find("name").text.lower().strip()
             name = obj.find("targettype").text.lower().strip()
-            if name not in ["car","bicycle","person","cyclist","tricycle"]:
+            if name not in ["car", "bicycle", "person", "cyclist", "tricycle"]:
                 continue
             bbox = obj.find("bndbox")
 
@@ -77,7 +70,6 @@ class AnnotationTransform(object):
 
 
 class VOCDetection(Dataset):
-
     """
     VOC Detection Dataset Object
 
@@ -94,12 +86,11 @@ class VOCDetection(Dataset):
         dataset_name (string, optional): which dataset to load
             (default: 'VOC2007')
     """
-
     def __init__(self,
-        data_dir,
-        img_size=(768, 448),
-        preproc=None,
-        target_transform=AnnotationTransform(),):
+                 data_dir,
+                 img_size=(768, 448),
+                 preproc=None,
+                 target_transform=AnnotationTransform(), ):
         """
         :param data_dir:
         :param img_size:
@@ -131,7 +122,7 @@ class VOCDetection(Dataset):
         lines = f.readlines()
         for line in lines:
             folder_name = line.split('/')[5]
-            img_name = line.split('/')[-1].replace('.jpg','').replace('\n','')
+            img_name = line.split('/')[-1].replace('.jpg', '').replace('\n', '')
             self.ids.append((folder_name, img_name))
         f.close()
 
@@ -176,6 +167,10 @@ class VOCDetection(Dataset):
 
     @Dataset.resize_getitem
     def __getitem__(self, index):
+        """
+        :param index:
+        :return:
+        """
         img, target, img_info, img_id = self.pull_item(index)
 
         if self.preproc is not None:
@@ -203,9 +198,12 @@ class VOCDetection(Dataset):
         # print("map_5095:", np.mean(mAPs))
         # print("map_50:", mAPs[0])
         # print("--------------------------------------------------------------")
-        return 0,0 #np.mean(mAPs), mAPs[0]
+        return 0, 0  # np.mean(mAPs), mAPs[0]
 
     def _get_voc_results_file_template(self):
+        """
+        :return:
+        """
         filename = "comp4_det_test" + "_{:s}.txt"
         # filedir = os.path.join(self.root, "results", "VOC" + self._year, "Main")
         filedir = os.path.join("/users/duanyou/c5/experiments/YOLOX-main/YOLOX_outputs/yolox-tiny")
@@ -215,11 +213,15 @@ class VOCDetection(Dataset):
         return path
 
     def _write_voc_results_file(self, all_boxes):
+        """
+        :param all_boxes:
+        :return:
+        """
         for im_ind, index in enumerate(self.ids):
-            index0 = index[0] # test_3000
-            index1 = index[1] # 10_2_XGTCTX00014_TX020127_20201222092014_866_0
+            index0 = index[0]  # test_3000
+            index1 = index[1]  # 10_2_XGTCTX00014_TX020127_20201222092014_866_0
             filename = '/users/duanyou/c5/experiments/YOLOX-main/YOLOX_outputs/yolox_tiny/results_5000/' + index1 + '.txt'
-            with open(filename,"wt")as f:
+            with open(filename, "wt")as f:
                 f.write("class scores x y w h total= \n")
                 for cls_ind, cls in enumerate(VOC_CLASSES):
                     if cls == "__background__":
@@ -234,10 +236,10 @@ class VOCDetection(Dataset):
                             "{:d} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(
                                 cls_ind,
                                 dets[k, -1],
-                                ((dets[k, 0] + 1)+(dets[k, 2] + 1))/3840,
-                                ((dets[k, 1] + 1)+(dets[k, 3] + 1))/2160,
-                                ((dets[k, 2] + 1)-(dets[k, 0] + 1))/1920,
-                                ((dets[k, 3] + 1)-(dets[k, 1] + 1))/1080,
+                                ((dets[k, 0] + 1) + (dets[k, 2] + 1)) / 3840,
+                                ((dets[k, 1] + 1) + (dets[k, 3] + 1)) / 2160,
+                                ((dets[k, 2] + 1) - (dets[k, 0] + 1)) / 1920,
+                                ((dets[k, 3] + 1) - (dets[k, 1] + 1)) / 1080,
                             )
                         )
         # for cls_ind, cls in enumerate(VOC_CLASSES):
@@ -253,20 +255,24 @@ class VOCDetection(Dataset):
         #             dets = all_boxes[cls_ind][im_ind]
         #             if dets == []:
         #                 continue
-                    # for k in range(dets.shape[0]):
-                    #     f.write(
-                    #         "{:s} {:s} {:.3f} {:.1f} {:.1f} {:.1f} {:.1f}\n".format(
-                    #             index0,
-                    #             index1,
-                    #             dets[k, -1],
-                    #             dets[k, 0] + 1,
-                    #             dets[k, 1] + 1,
-                    #             dets[k, 2] + 1,
-                    #             dets[k, 3] + 1,
-                    #         )
-                    #     )
+        # for k in range(dets.shape[0]):
+        #     f.write(
+        #         "{:s} {:s} {:.3f} {:.1f} {:.1f} {:.1f} {:.1f}\n".format(
+        #             index0,
+        #             index1,
+        #             dets[k, -1],
+        #             dets[k, 0] + 1,
+        #             dets[k, 1] + 1,
+        #             dets[k, 2] + 1,
+        #             dets[k, 3] + 1,
+        #         )
+        #     )
 
     def _write_voc_results_file_ori(self, all_boxes):
+        """
+        :param all_boxes:
+        :return:
+        """
         for cls_ind, cls in enumerate(VOC_CLASSES):
             cls_ind = cls_ind
             if cls == "__background__":
@@ -313,12 +319,12 @@ class VOCDetection(Dataset):
         cachedir = "/users/duanyou/c5/experiments/YOLOX-main/YOLOX_outputs/yolox-tiny"
         annopath = []
         imagesetfile = []
-        detall = [['name','obj_type', 'score',0,0,0,0]]
+        detall = [['name', 'obj_type', 'score', 0, 0, 0, 0]]
         f1 = open(self.root, 'r')
         lines = f1.readlines()
         for line in lines:
-            image_name = line.replace('\n','')
-            xml_name = image_name.replace('JPEGImages','Annotations').replace('.jpg','.xml')
+            image_name = line.replace('\n', '')
+            xml_name = image_name.replace('JPEGImages', 'Annotations').replace('.jpg', '.xml')
             annopath.append(xml_name)
             imagesetfile.append(image_name)
         for i, cls in enumerate(VOC_CLASSES):
@@ -327,7 +333,7 @@ class VOCDetection(Dataset):
                 continue
 
             filename = self._get_voc_results_file_template().format(cls)
-            print('filename: ',filename)
+            print('filename: ', filename)
             rec, prec, ap = voc_eval(
                 filename,
                 annopath,
@@ -362,4 +368,4 @@ class VOCDetection(Dataset):
             print("-- Thanks, The Management")
             print("--------------------------------------------------------------")
 
-        return 0 #np.mean(aps)
+        return 0  # np.mean(aps)
