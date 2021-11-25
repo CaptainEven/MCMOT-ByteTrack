@@ -5,7 +5,7 @@ import torch
 import torch.distributed as dist
 
 from yolox.data import get_yolox_datadir
-from yolox.data.datasets import voc
+from yolox.data.datasets.voc import VOCDetection
 from yolox.exp import Exp as MyExp
 
 
@@ -83,7 +83,7 @@ class Exp(MyExp):
         #     ),
         # )
 
-        dataset = voc(data_dir=data_dir, img_size=(768, 448))
+        dataset = VOCDetection(data_dir=data_dir, img_size=(768, 448))
 
         dataset = MosaicDetection(
             dataset,

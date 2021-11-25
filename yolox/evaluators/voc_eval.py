@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding:utf-8 -*-
+# encoding=utf-8
 # Code are based on
 # https://github.com/rbgirshick/py-faster-rcnn/blob/master/lib/datasets/voc_eval.py
 # Copyright (c) Bharath Hariharan.
@@ -13,9 +13,15 @@ import os
 import pickle
 import xml.etree.ElementTree as ET
 
-def convert1(size, box):  # box=xmin,ymin,xmax,ymax
-    dw = 1. / size[0]
-    dh = 1. / size[1]
+
+def convert1(size, box):
+    """
+    :param size:
+    :param box: box=xmin,ymin,xmax,ymax
+    :return:
+    """
+    dw = 1.0 / size[0]
+    dh = 1.0 / size[1]
     xmin = box[0] * dw
     ymin = box[1] * dh
     xmax = box[2] * dw
