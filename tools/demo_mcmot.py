@@ -65,7 +65,7 @@ def make_parser():
 
     ## "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
     parser.add_argument("--path",
-                        default="../videos/test_30.mp4",
+                        default="../videos/7.mp4",
                         help="path to images or video")
 
     parser.add_argument("--camid",
@@ -271,7 +271,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     results = []
 
     for image_name in files:
-        if frame_id % 20 == 0:
+        if frame_id % 30 == 0:
             if frame_id != 0:
                 logger.info('Processing frame {} ({:.2f} fps)'
                             .format(frame_id, 1.0 / max(1e-5, timer.average_time)))
@@ -372,9 +372,14 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
     results = []
 
     while True:
-        if frame_id % 30 == 0:
+        if frame_id != 0:
             logger.info('Processing frame {} ({:.2f} fps)'
-                        .format(frame_id, 1. / max(1e-5, timer.average_time)))
+                        .format(frame_id, 1.0 / max(1e-5, timer.average_time)))
+        else:
+            logger.info('Processing frame {} ({:.2f} fps)'
+                        .format(frame_id, 30.0))
+
+        ## ----- read the video
         ret_val, frame = cap.read()
 
         if ret_val:
@@ -421,8 +426,6 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
                             online_ids_dict[cls_id].append(track.track_id)
 
                     timer.toc()
-
-                    # to draw track/detection
                     online_im = plot_tracking_mc(image=img_info['raw_img'],
                                                  tlwhs_dict=online_tlwhs_dict,
                                                  obj_ids_dict=online_ids_dict,

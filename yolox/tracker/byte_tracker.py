@@ -2,8 +2,8 @@
 
 from collections import defaultdict
 
+import torch
 import numpy as np
-
 from yolox.tracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
@@ -424,17 +424,21 @@ class BYTETracker(object):
         ## ----- update frame id
         self.frame_id += 1
 
-        # ----- reset the track ids for all object classes in the first frame
+        ## ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
             MCTrack.init_id_dict(self.num_classes)
-        # -----
+        ## -----
 
-        # ----- image width, height and net width, height
+        ## ----- image width, height and net width, height
         img_h, img_w = img_size
         net_h, net_w = net_size
         scale = min(net_h / float(img_h), net_w / float(img_w))
 
-        # ----- The current frame tracking states recording
+        ## ----- gpu ——> cpu
+        with torch.no_grad():
+            dets = dets.cpu().numpy()
+
+        ## ----- The current frame tracking states recording
         unconfirmed_dict = defaultdict(list)
         tracked_tracks_dict = defaultdict(list)
         track_pool_dict = defaultdict(list)
@@ -445,8 +449,6 @@ class BYTETracker(object):
         output_tracks_dict = defaultdict(list)
 
         #################### Even: Start MCMOT
-        dets = dets.cpu().numpy()
-
         ## ----- Get box dict and score dict
         boxxes_dict = defaultdict(list)
         scores_dict = defaultdict(list)
