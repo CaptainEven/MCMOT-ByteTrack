@@ -5,6 +5,7 @@ import torch
 import torch.distributed as dist
 
 from yolox.data import get_yolox_datadir
+from yolox.data.datasets import voc
 from yolox.exp import Exp as MyExp
 
 
@@ -70,17 +71,19 @@ class Exp(MyExp):
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mix_det")
 
-        dataset = MOTDataset(
-            data_dir=data_dir,
-            json_file=self.train_ann,
-            name=name,
-            img_size=self.input_size,
-            preproc=TrainTransform(
-                rgb_means=(0.485, 0.456, 0.406),
-                std=(0.229, 0.224, 0.225),
-                max_labels=500,
-            ),
-        )
+        # dataset = MOTDataset(
+        #     data_dir=data_dir,
+        #     json_file=self.train_ann,
+        #     name=name,
+        #     img_size=self.input_size,
+        #     preproc=TrainTransform(
+        #         rgb_means=(0.485, 0.456, 0.406),
+        #         std=(0.229, 0.224, 0.225),
+        #         max_labels=500,
+        #     ),
+        # )
+
+        dataset = voc(data_dir=data_dir, img_size=(768, 448))
 
         dataset = MosaicDetection(
             dataset,

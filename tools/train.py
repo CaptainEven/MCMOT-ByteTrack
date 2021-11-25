@@ -39,17 +39,21 @@ def make_parser():
                         type=str,
                         default="test",  # ""
                         help="model name")
+
+    ## ----- data root dir, eg: /mnt/diskd/even/MOT17
     parser.add_argument("--data_dir",
                         type=str,
-                        default="/mnt/diskd/even/MOT17",
+                        default="/mnt/diskb/maqiao/multiClass",
                         help="")
 
-    ## ---------- expiriment file path and checkpoint file path
+    ## ---------- expiriment file path, eg: ../exps/example/mot/yolox_tiny_det.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det.py",
+                        default="../exps/example/mot/yolox_tiny_det_c5.py",
                         type=str,
                         help="plz input your expriment description file")
+
+    ## ---------- checkpoint file path
     parser.add_argument("-c",
                         "--ckpt",
                         default="../pretrained/c5_tiny_latest_ckpt.pth",  # yolox_tiny_32.8.pth
