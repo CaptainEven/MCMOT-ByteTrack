@@ -88,6 +88,7 @@ class VOCDetection(Dataset):
     """
     def __init__(self,
                  data_dir,
+                 f_list_path,
                  img_size=(768, 448),
                  preproc=None,
                  target_transform=AnnotationTransform(), ):
@@ -100,13 +101,14 @@ class VOCDetection(Dataset):
         super().__init__(img_size)
 
         self.root = data_dir
+        self.f_list_path = f_list_path
         self.img_size = img_size
         self.preproc = preproc
         self.target_transform = target_transform
         # self._annopath = os.path.join("%s", "Annotations", "%s.xml")
         # self._imgpath = os.path.join("%s", "JPEGImages", "%s.jpg")
-        self._annopath = os.path.join("/mnt/diskb/maqiao/multiClass/", "%s", "Annotations", "%s.xml")
-        self._imgpath = os.path.join("/mnt/diskb/maqiao/multiClass/", "%s", "JPEGImages", "%s.jpg")
+        self._annopath = os.path.join(self.root + "/", "%s", "Annotations", "%s.xml")
+        self._imgpath = os.path.join(self.root + "/", "%s", "JPEGImages", "%s.jpg")
         self._classes = VOC_CLASSES
         self.ids = list()
 
@@ -118,13 +120,16 @@ class VOCDetection(Dataset):
         #     ):
         #         self.ids.append((rootpath, line.strip()))
 
-        f = open(data_dir, 'r')
-        lines = f.readlines()
-        for line in lines:
-            folder_name = line.split('/')[5]
-            img_name = line.split('/')[-1].replace('.jpg', '').replace('\n', '')
-            self.ids.append((folder_name, img_name))
-        f.close()
+        if not os.path.isfile(self.f_list_path):
+            print("[Err]: invalid file list path!")
+            exit(-1)
+
+        with open(self.f_list_path, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                folder_name = line.split('/')[5]
+                img_name = line.split('/')[-1].replace('.jpg', '').replace('\n', '')
+                self.ids.append((folder_name, img_name))
 
     def __len__(self):
         """

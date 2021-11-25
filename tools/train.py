@@ -63,7 +63,7 @@ def make_parser():
 
     parser.add_argument("--debug",
                         type=int,
-                        default=0,  # False | True
+                        default=1,  # False | True
                         help="")
 
     # distributed

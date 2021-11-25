@@ -22,6 +22,10 @@ class Exp(MyExp):
         self.num_classes = 5  # 1, 5, 80
         ## -----
 
+        ## ----- Define file list path(imgs and txts(labels) path)
+        self.f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
+        ## -----
+
         if debug:
             self.data_num_workers = 0
         else:
@@ -83,7 +87,9 @@ class Exp(MyExp):
         #     ),
         # )
 
-        dataset = VOCDetection(data_dir=data_dir, img_size=(768, 448))
+        dataset = VOCDetection(data_dir=data_dir,
+                               f_list_path=self.f_list_path,
+                               img_size=(768, 448))
 
         dataset = MosaicDetection(
             dataset,
