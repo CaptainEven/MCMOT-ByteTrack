@@ -19,6 +19,9 @@ class DataPrefetcher:
     """
 
     def __init__(self, loader):
+        """
+        :param loader:
+        """
         self.loader = iter(loader)
         self.stream = torch.cuda.Stream()
         self.input_cuda = self._input_cuda_for_image

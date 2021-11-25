@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding:utf-8 -*-
+# encoding=utf-8
 # Copyright (c) Megvii, Inc. and its affiliates.
 """
 Data augmentation functionality. Passed as callable transformations to
@@ -169,6 +169,11 @@ def random_perspective(img,
 
 
 def _distort(image):
+    """
+    :param image:
+    :return:
+    """
+
     def _convert(image, alpha=1, beta=0):
         tmp = image.astype(float) * alpha + beta
         tmp[tmp < 0] = 0
@@ -199,6 +204,11 @@ def _distort(image):
 
 
 def _mirror(image, boxes):
+    """
+    :param image:
+    :param boxes:
+    :return:
+    """
     _, width, _ = image.shape
     if random.randrange(2):
         image = image[:, ::-1]
@@ -208,17 +218,26 @@ def _mirror(image, boxes):
 
 
 def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
+    """
+    :param image:
+    :param input_size:
+    :param mean:
+    :param std:
+    :param swap:
+    :return:
+    """
     if len(image.shape) == 3:
         padded_img = np.ones((input_size[0], input_size[1], 3)) * 114.0
     else:
         padded_img = np.ones(input_size) * 114.0
+
     img = np.array(image)
     r = min(input_size[0] / img.shape[0], input_size[1] / img.shape[1])
-    resized_img = cv2.resize(
-        img,
-        (int(img.shape[1] * r), int(img.shape[0] * r)),
-        interpolation=cv2.INTER_LINEAR,
-    ).astype(np.float32)
+
+    resized_img = cv2.resize(img,
+                             (int(img.shape[1] * r), int(img.shape[0] * r)),
+                             interpolation=cv2.INTER_LINEAR).astype(np.float32)
+
     padded_img[: int(img.shape[0] * r), : int(img.shape[1] * r)] = resized_img
 
     padded_img = padded_img[:, :, ::-1]
@@ -295,11 +314,10 @@ class TrainTransform:
 
         targets_t = np.hstack((labels_t, boxes_t, ids_t))
         padded_labels = np.zeros((self.max_labels, 6))
-        padded_labels[range(len(targets_t))[: self.max_labels]] = targets_t[
-                                                                  : self.max_labels
-                                                                  ]
+        padded_labels[range(len(targets_t))[: self.max_labels]] = targets_t[: self.max_labels]
         padded_labels = np.ascontiguousarray(padded_labels, dtype=np.float32)
         image_t = np.ascontiguousarray(image_t, dtype=np.float32)
+
         return image_t, padded_labels
 
 
@@ -319,11 +337,22 @@ class ValTransform:
     """
 
     def __init__(self, rgb_means=None, std=None, swap=(2, 0, 1)):
+        """
+        :param rgb_means:
+        :param std:
+        :param swap:
+        """
         self.means = rgb_means
         self.swap = swap
         self.std = std
 
     # assume input is cv2 img for now
     def __call__(self, img, res, input_size):
+        """
+        :param img:
+        :param res:
+        :param input_size:
+        :return:
+        """
         img, _ = preproc(img, input_size, self.means, self.std, self.swap)
         return img, np.zeros((1, 5))

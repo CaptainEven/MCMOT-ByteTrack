@@ -161,6 +161,7 @@ class Trainer:
 
         logger.info("init prefetcher, this might take one minute or less...")
         self.prefetcher = DataPrefetcher(self.train_loader)
+
         # max_iter means iters per epoch
         self.max_iter = len(self.train_loader)
 

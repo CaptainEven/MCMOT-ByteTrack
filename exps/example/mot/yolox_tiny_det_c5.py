@@ -5,7 +5,6 @@ import torch
 import torch.distributed as dist
 
 from yolox.data import get_yolox_datadir
-from yolox.data.datasets.voc import VOCDetection
 from yolox.exp import Exp as MyExp
 
 
@@ -22,8 +21,13 @@ class Exp(MyExp):
         self.num_classes = 5  # 1, 5, 80
         ## -----
 
+        ## ----- net size?
+        self.depth = 0.33
+        self.width = 0.5
+
         ## ----- Define file list path(imgs and txts(labels) path)
-        self.f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
+        self.train_f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
+        self.test_f_list_path = "/users/duanyou/c5/data_all/test5000.txt"
         ## -----
 
         if debug:
@@ -37,8 +41,8 @@ class Exp(MyExp):
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
         self.train_ann = "train.json"
         self.val_ann = "train.json"
-        self.input_size = (608, 1088)
-        self.test_size = (608, 1088)
+        self.input_size = (448, 768)  # (608, 1088)
+        self.test_size = (448, 768)  # (608, 1088)
         self.random_size = (12, 26)
         self.max_epoch = 100
         self.print_interval = 20
@@ -64,13 +68,12 @@ class Exp(MyExp):
         :return:
         """
         from yolox.data import (
-            MOTDataset,
-            TrainTransform,
             YoloBatchSampler,
             DataLoader,
             InfiniteSampler,
-            MosaicDetection,
         )
+        from yolox.evaluators import voc_evaluator
+        from yolox.data.datasets.voc import VOCDetection  ## VOC C5 dataset
 
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mix_det")
@@ -87,26 +90,32 @@ class Exp(MyExp):
         #     ),
         # )
 
-        dataset = VOCDetection(data_dir=data_dir,
-                               f_list_path=self.f_list_path,
-                               img_size=(768, 448))
-
-        dataset = MosaicDetection(
-            dataset,
-            mosaic=not no_aug,
-            img_size=self.input_size,
-            preproc=TrainTransform(
+        dataset = VOCDetection(
+            data_dir=data_dir,
+            f_list_path=self.train_f_list_path,
+            img_size=(768, 448),
+            preproc=ValTransform(
                 rgb_means=(0.485, 0.456, 0.406),
                 std=(0.229, 0.224, 0.225),
-                max_labels=1000,
             ),
-            degrees=self.degrees,
-            translate=self.translate,
-            scale=self.scale,
-            shear=self.shear,
-            perspective=self.perspective,
-            enable_mixup=self.enable_mixup,
         )
+
+        # dataset = MosaicDetection(
+        #     dataset,
+        #     mosaic=not no_aug,
+        #     img_size=self.input_size,
+        #     preproc=TrainTransform(
+        #         rgb_means=(0.485, 0.456, 0.406),
+        #         std=(0.229, 0.224, 0.225),
+        #         max_labels=1000,
+        #     ),
+        #     degrees=self.degrees,
+        #     translate=self.translate,
+        #     scale=self.scale,
+        #     shear=self.shear,
+        #     perspective=self.perspective,
+        #     enable_mixup=self.enable_mixup,
+        # )
 
         self.dataset = dataset
 
@@ -149,6 +158,7 @@ class Exp(MyExp):
 
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mot")
+
         valdataset = MOTDataset(
             data_dir=data_dir,
             json_file=self.val_ann,

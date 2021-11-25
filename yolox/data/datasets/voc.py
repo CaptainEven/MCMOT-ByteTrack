@@ -105,6 +105,7 @@ class VOCDetection(Dataset):
         self.img_size = img_size
         self.preproc = preproc
         self.target_transform = target_transform
+
         # self._annopath = os.path.join("%s", "Annotations", "%s.xml")
         # self._imgpath = os.path.join("%s", "JPEGImages", "%s.jpg")
         self._annopath = os.path.join(self.root + "/", "%s", "Annotations", "%s.xml")
@@ -131,6 +132,8 @@ class VOCDetection(Dataset):
                 img_name = line.split('/')[-1].replace('.jpg', '').replace('\n', '')
                 self.ids.append((folder_name, img_name))
 
+        print("Total {:d} samples to be trained.".format(len(self.ids)))
+
     def __len__(self):
         """
         :return:
@@ -143,7 +146,8 @@ class VOCDetection(Dataset):
         :return:
         """
         img_id = self.ids[index]
-        target = ET.parse(self._annopath % img_id).getroot()
+        label_f_path = self._annopath % img_id
+        target = ET.parse(label_f_path).getroot()
         if self.target_transform is not None:
             target = self.target_transform(target)
 
@@ -160,10 +164,12 @@ class VOCDetection(Dataset):
         Return:
             img, target
         """
+        ## ----- load image
         img_id = self.ids[idx]
         img = cv2.imread(self._imgpath % img_id, cv2.IMREAD_COLOR)
         height, width, _ = img.shape
 
+        ## ----- load label
         target = self.load_anno(idx)
 
         img_info = (height, width)
