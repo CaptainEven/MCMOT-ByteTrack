@@ -2,8 +2,9 @@
 
 from collections import defaultdict
 
-import torch
 import numpy as np
+import torch
+
 from yolox.tracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
@@ -206,6 +207,7 @@ class MCTrack(MCBaseTrack):
         :return:
         """
         return 'OT_({}-{})_({}-{})'.format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
+
 
 class Track(BaseTrack):
     shared_kalman = KalmanFilter()
