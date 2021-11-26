@@ -40,10 +40,10 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
     box_corner = prediction.new(prediction.shape)
 
     ## ----- cxcywh2xyxy
-    box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2
-    box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2
-    box_corner[:, :, 2] = prediction[:, :, 0] + prediction[:, :, 2] / 2
-    box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2
+    box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2.0
+    box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2.0
+    box_corner[:, :, 2] = prediction[:, :, 0] + prediction[:, :, 2] / 2.0
+    box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2.0
     prediction[:, :, :4] = box_corner[:, :, :4]
 
     output = [None for _ in range(len(prediction))]
@@ -52,6 +52,7 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
         # If none are remaining => process next image
         if not image_pred.size(0):
             continue
+
         # Get score and class with highest confidence
         class_conf, class_pred = torch.max(image_pred[:, 5: 5 + num_classes], 1, keepdim=True)
 

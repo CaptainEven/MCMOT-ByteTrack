@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import shutil
 import time
 from collections import defaultdict
 
@@ -27,8 +26,8 @@ def make_parser():
     parser = argparse.ArgumentParser("ByteTrack Demo!")
 
     parser.add_argument("--demo",
-                        default="video",  # image
-                        help="demo type, eg. image, video and webcam")
+                        default="videos",  # image
+                        help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("-expn",
                         "--experiment-name",
                         type=str,
@@ -52,7 +51,7 @@ def make_parser():
     ## ----- exp file, eg: yolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det.py",
+                        default="../exps/example/mot/yolox_tiny_det_c5.py",
                         type=str,
                         help="pls input your expriment description file")
 
@@ -64,7 +63,7 @@ def make_parser():
                         help="ckpt for eval")
 
     ## ----- videos dir's path
-    parser.add_argument("--videos_dir",
+    parser.add_argument("--video_dir",
                         type=str,
                         default="../videos",
                         help="")
@@ -74,6 +73,7 @@ def make_parser():
                         default="../videos/7.mp4",
                         help="path to images or video")
 
+    ## ----- Web camera's id
     parser.add_argument("--camid",
                         type=int,
                         default=0,
@@ -252,9 +252,13 @@ class Predictor(object):
 
         with torch.no_grad():
             timer.tic()
-            outputs = self.model(img)
+
+            ## ----- forward
+            outputs = self.model.forward(img)
+
             if self.decoder is not None:
                 outputs = self.decoder(outputs, dtype=outputs.type())
+
             outputs = postprocess(outputs, self.num_classes, self.confthre, self.nmsthre)
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
 
@@ -323,46 +327,24 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
             cv2.imwrite(save_file_name, online_im)
         ch = cv2.waitKey(0)
+
         frame_id += 1
         if ch == 27 or ch == ord("q") or ch == ord("Q"):
             break
     # write_results(result_filename, results)
 
 
-def imageflow_demo(predictor, vis_dir, current_time, args):
+def video_tracking(predictor, cap, save_path, args):
     """
     :param predictor:
-    :param vis_dir:
-    :param current_time:
+    :param cap:
+    :param save_path:
     :param args:
     :return:
     """
-    args.path = os.path.abspath(args.path)
-    cap = cv2.VideoCapture(args.path if args.demo == "video" else args.camid)
-
     width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
     height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
     fps = cap.get(cv2.CAP_PROP_FPS)
-
-    # if os.path.isdir(vis_dir):
-    #     shutil.rmtree(vis_dir)
-
-    video_name = args.path.split("/")[-1][:-4]
-    # save_dir = os.path.join(vis_dir, time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
-    save_dir = os.path.join(vis_dir, video_name)
-    os.makedirs(save_dir, exist_ok=True)
-
-    if args.demo == "video":
-        # save_path = os.path.join(save_dir, args.path.split("/")[-1])
-
-        current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
-        save_path = os.path.join(save_dir, current_time + ".mp4")
-        # save_path = os.path.join(save_dir, video_name + "_" + current_time + ".mp4")
-    else:
-        save_path = os.path.join(save_dir, "camera.mp4")
-    save_path = os.path.abspath(save_path)
-
-    logger.info(f"video save_path is {save_path}")
 
     vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height)))
 
@@ -462,6 +444,193 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
         frame_id += 1
 
 
+def imageflow_demo(predictor, vis_dir, current_time, args):
+    """
+    :param predictor:
+    :param vis_dir:
+    :param current_time:
+    :param args:
+    :return:
+    """
+    if args.demo == "videos":
+        if os.path.isdir(args.video_dir):
+            mp4_path_list = [args.video_dir + "/" + x for x in os.listdir(args.video_dir)
+                             if x.endswith(".mp4")]
+            mp4_path_list.sort()
+            for video_path in mp4_path_list:
+                if os.path.isfile(video_path):
+                    video_name = os.path.split(video_path)[-1][:-4]
+                    print("\nStart tracking video {:s} offline...".format(video_name))
+
+                    ## ----- video capture
+                    cap = cv2.VideoCapture(video_path)
+                    ## -----
+
+                    save_dir = os.path.join(vis_dir, video_name)
+                    if not os.path.isdir(save_dir):
+                        os.makedirs(save_dir)
+                    tupTime_newest = time.localtime(15000000000000)
+                    current_time = time.strftime("%Y_%m_%d_%H_%M_%S", tupTime_newest)
+                    save_path = os.path.join(save_dir, current_time + ".mp4")
+
+                    ## ---------- Get tracking results
+                    video_tracking(predictor, cap, save_path, args)
+                    ## ----------
+
+                    print("{:s} tracking offline done.".format(video_name))
+
+    elif args.demo == "video":
+        if os.path.isfile(args.path):
+            video_name = args.path.split("/")[-1][:-4]
+            print("Start tracking video {:s} offline...".format(video_name))
+
+            args.path = os.path.abspath(args.path)
+
+            ## ----- video capture
+            cap = cv2.VideoCapture(video_path)
+            ## -----
+
+            save_dir = os.path.join(vis_dir, video_name)
+            if not os.path.isdir(save_dir):
+                os.makedirs(save_dir)
+            tupTime_newest = time.localtime(15000000000000)
+            current_time = time.strftime("%Y_%m_%d_%H_%M_%S", tupTime_newest)
+            save_path = os.path.join(save_dir, current_time + ".mp4")
+
+            ## ---------- Get tracking results
+            video_tracking(predictor, cap, save_path, args)
+            ## ----------
+
+            print("{:s} tracking done offline.".format(video_name))
+
+    elif args.demo == "camera":
+        if os.path.isfile(args.path):
+            cap = cv2.VideoCapture(args.camid)
+            video_name = args.path.split("/")[-1][:-4]
+            save_dir = os.path.join(vis_dir, video_name)
+            save_path = os.path.join(save_dir, "camera.mp4")
+
+    # width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
+    # height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
+    # fps = cap.get(cv2.CAP_PROP_FPS)
+    #
+    # # if os.path.isdir(vis_dir):
+    # #     shutil.rmtree(vis_dir)
+    #
+    # video_name = args.path.split("/")[-1][:-4]
+    # # save_dir = os.path.join(vis_dir, time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
+    # save_dir = os.path.join(vis_dir, video_name)
+    # os.makedirs(save_dir, exist_ok=True)
+    #
+    # if args.demo == "video":
+    #     # save_path = os.path.join(save_dir, args.path.split("/")[-1])
+    #
+    #     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
+    #     save_path = os.path.join(save_dir, current_time + ".mp4")
+    #     # save_path = os.path.join(save_dir, video_name + "_" + current_time + ".mp4")
+    # else:
+    #     save_path = os.path.join(save_dir, "camera.mp4")
+    # save_path = os.path.abspath(save_path)
+    # logger.info("video save_path is {:s}".format(save_path))
+    #
+    # vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height)))
+    #
+    # ## ---------- define the tracker
+    # tracker = BYTETracker(args, frame_rate=30)
+    # ## ----------
+    #
+    # ## ----- class name to class id and class id to class name
+    # id2cls = defaultdict(str)
+    # cls2id = defaultdict(int)
+    # for cls_id, cls_name in enumerate(tracker.class_names):
+    #     id2cls[cls_id] = cls_name
+    #     cls2id[cls_name] = cls_id
+    #
+    # timer = Timer()
+    #
+    # frame_id = 0
+    # results = []
+    #
+    # while True:
+    #     if frame_id != 0:
+    #         logger.info('Processing frame {} ({:.2f} fps)'
+    #                     .format(frame_id, 1.0 / max(1e-5, timer.average_time)))
+    #     else:
+    #         logger.info('Processing frame {} ({:.2f} fps)'
+    #                     .format(frame_id, 30.0))
+    #
+    #     ## ----- read the video
+    #     ret_val, frame = cap.read()
+    #
+    #     if ret_val:
+    #         outputs, img_info = predictor.inference(frame, timer)
+    #         dets = outputs[0]
+    #
+    #         if dets is not None:
+    #             ## ----- update the frame
+    #             # online_targets = tracker.update(dets, [img_info['height'], img_info['width']], exp.test_size)
+    #             online_dict = tracker.update_mcmot(dets, [img_info['height'], img_info['width']], exp.test_size)
+    #
+    #             ## ----- plot single-class multi-object tracking results
+    #             if tracker.num_classes == 1:
+    #                 online_tlwhs = []
+    #                 online_ids = []
+    #                 online_scores = []
+    #                 for t in online_targets:
+    #                     tlwh = t.tlwh
+    #                     tid = t.track_id
+    #                     vertical = tlwh[2] / tlwh[3] > 1.6
+    #                     if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
+    #                         online_tlwhs.append(tlwh)
+    #                         online_ids.append(tid)
+    #                         online_scores.append(t.score)
+    #
+    #                 results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
+    #
+    #                 timer.toc()
+    #                 online_im = plot_tracking_sc(img_info['raw_img'],
+    #                                              online_tlwhs,
+    #                                              online_ids,
+    #                                              frame_id=frame_id + 1,
+    #                                              fps=1.0 / timer.average_time)
+    #
+    #             ## ----- plot multi-class multi-object tracking results
+    #             elif tracker.num_classes > 1:
+    #                 ## ---------- aggregate current frame's results for each object class
+    #                 online_tlwhs_dict = defaultdict(list)
+    #                 online_ids_dict = defaultdict(list)
+    #                 for cls_id in range(tracker.num_classes):  # process each object class
+    #                     online_targets = online_dict[cls_id]
+    #                     for track in online_targets:
+    #                         online_tlwhs_dict[cls_id].append(track.tlwh)
+    #                         online_ids_dict[cls_id].append(track.track_id)
+    #
+    #                 timer.toc()
+    #                 online_im = plot_tracking_mc(image=img_info['raw_img'],
+    #                                              tlwhs_dict=online_tlwhs_dict,
+    #                                              obj_ids_dict=online_ids_dict,
+    #                                              num_classes=tracker.num_classes,
+    #                                              frame_id=frame_id + 1,
+    #                                              fps=1.0 / timer.average_time,
+    #                                              id2cls=id2cls)
+    #         else:
+    #             timer.toc()
+    #             online_im = img_info['raw_img']
+    #
+    #         if args.save_result:
+    #             vid_writer.write(online_im)
+    #
+    #         ch = cv2.waitKey(1)
+    #         if ch == 27 or ch == ord("q") or ch == ord("Q"):
+    #             break
+    #     else:
+    #         print("Read frame {:d} failed!".format(frame_id))
+    #         break
+    #
+    #     ## ----- update frame id
+    #     frame_id += 1
+
+
 def run(exp, args):
     """
     :param exp:
@@ -538,7 +707,7 @@ def run(exp, args):
     current_time = time.localtime()
     if args.demo == "image":
         image_demo(predictor, vis_folder, args.path, current_time, args.save_result)
-    elif args.demo == "video" or args.demo == "webcam":
+    elif args.demo == "video" or args.demo == "videos" or args.demo == "webcam":
         imageflow_demo(predictor, vis_folder, current_time, args)
 
 
