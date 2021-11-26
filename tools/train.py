@@ -146,13 +146,11 @@ def main(exp, args):
         random.seed(exp.seed)
         torch.manual_seed(exp.seed)
         cudnn.deterministic = True
-        warnings.warn(
-            "You have chosen to seed training. "
-            "This will turn on the CUDNN deterministic setting, "
-            "which can slow down your training considerably!"
-            " You may see unexpected behavior "
-            "when restarting from checkpoints."
-        )
+        warnings.warn("You have chosen to seed training. "
+                      "This will turn on the CUDNN deterministic setting, "
+                      "which can slow down your training considerably!"
+                      " You may see unexpected behavior "
+                      "when restarting from checkpoints.")
 
     # set environment variables for distributed training
     cudnn.benchmark = True
@@ -176,12 +174,10 @@ if __name__ == "__main__":
     num_gpu = torch.cuda.device_count() if args.devices is None else args.devices
     assert num_gpu <= torch.cuda.device_count()
 
-    launch(
-        main,
-        num_gpu,
-        args.num_machines,
-        args.machine_rank,
-        backend=args.dist_backend,
-        dist_url=args.dist_url,
-        args=(exp, args),
-    )
+    launch(main,
+           num_gpu,
+           args.num_machines,
+           args.machine_rank,
+           backend=args.dist_backend,
+           dist_url=args.dist_url,
+           args=(exp, args), )
