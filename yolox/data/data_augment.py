@@ -292,6 +292,7 @@ class TrainTransform:
         height_o, width_o, _ = image_o.shape
         boxes_o = targets_o[:, :4]
         labels_o = targets_o[:, 4]
+
         # bbox_o: [xyxy] to [c_x,c_y,w,h]
         boxes_o = xyxy2cxcywh(boxes_o)
 
@@ -299,7 +300,8 @@ class TrainTransform:
         image_t, boxes = _mirror(image_t, boxes)
         height, width, _ = image_t.shape
         image_t, r_ = preproc(image_t, input_dim, self.means, self.std)
-        # boxes [xyxy] 2 [cx,cy,w,h]
+
+        # boxes [xyxy] to [cx,cy,w,h]
         boxes = xyxy2cxcywh(boxes)
         boxes *= r_
 
@@ -349,8 +351,7 @@ class TrainTransformTrack:
         boxes = targets[:, :4].copy()
         labels = targets[:, 4].copy()
 
-        if targets.shape[1] > 5:
-            ids = targets[:, 5].copy()
+        ids = targets[:, 5].copy()
 
         if len(boxes) == 0:
             targets = np.zeros((self.max_labels, 6), dtype=np.float32)
@@ -364,8 +365,7 @@ class TrainTransformTrack:
         boxes_o = targets_o[:, :4]
         labels_o = targets_o[:, 4]
 
-        if targets.shape[1] > 5:
-            ids_o = targets_o[:, 5]
+        ids_o = targets_o[:, 5]
 
         # bbox_o: [xyxy] to [c_x,c_y,w,h]
         boxes_o = xyxy2cxcywh(boxes_o)
@@ -386,8 +386,7 @@ class TrainTransformTrack:
         boxes_t = boxes[mask_b]
         labels_t = labels[mask_b]
 
-        if targets.shape[1] > 5:
-            ids_t = ids[mask_b]
+        ids_t = ids[mask_b]
 
         if len(boxes_t) == 0:
             image_t, r_o = preproc(image_o, input_dim, self.means, self.std)
@@ -395,23 +394,15 @@ class TrainTransformTrack:
             boxes_t = boxes_o
             labels_t = labels_o
 
-            if targets.shape[1] > 5:
-                ids_t = ids_o
+            ids_t = ids_o
 
         labels_t = np.expand_dims(labels_t, 1)
 
-        if targets.shape[1] > 5:
-            ids_t = np.expand_dims(ids_t, 1)
+        ids_t = np.expand_dims(ids_t, 1)
 
-        if targets.shape[1] > 5:
-            targets_t = np.hstack((labels_t, boxes_t, ids_t))
-        else:
-            targets_t = np.hstack((labels_t, boxes_t))
+        targets_t = np.hstack((labels_t, boxes_t, ids_t))
 
-        if targets.shape[1] > 5:
-            padded_labels = np.zeros((self.max_labels, 6))
-        else:
-            padded_labels = np.zeros((self.max_labels, 5))
+        padded_labels = np.zeros((self.max_labels, 6))
 
         padded_labels[range(len(targets_t))[: self.max_labels]] = targets_t[: self.max_labels]
         padded_labels = np.ascontiguousarray(padded_labels, dtype=np.float32)
