@@ -244,7 +244,7 @@ def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
     ## ----- BGR to RGB
     padded_img = padded_img[:, :, ::-1]
 
-    ## ----- normalize to [0, 1]
+    ## ----- Normalize to [0, 1]
     padded_img /= 255.0
 
     if mean is not None:
@@ -252,6 +252,7 @@ def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
     if std is not None:
         padded_img /= std
 
+    ## ----- HWC ——> CHW
     padded_img = padded_img.transpose(swap)
     padded_img = np.ascontiguousarray(padded_img, dtype=np.float32)
 
