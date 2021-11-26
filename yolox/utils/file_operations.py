@@ -13,6 +13,32 @@ def cmp2VideosDir(src_dir1, src_dir2, dst_dir, ext=".mp4"):
     :param ext:
     :return:
     """
+    if not (os.path.isdir(src_dir1) and os.path.isdir(src_dir2)):
+        print("[Err]: invalid src dirs!")
+        return
+
+    if not os.path.isdir(dst_dir):
+        os.makedirs(dst_dir)
+        print("{:s} made.".format(dst_dir))
+
+    video_paths1 = [src_dir1 + "/" + x for x in os.listdir(src_dir1) if x.endswith(ext)]
+    video_paths2 = [src_dir1 + "/" + x for x in os.listdir(src_dir2) if x.endswith(ext)]
+    video_paths1.sort()
+    video_paths2.sort()
+
+    assert len(video_paths1) == len(video_paths2)
+
+    for vid_path1, vid_path2 in zip(video_paths1, video_paths2):
+        if not (os.path.isfile(vid_path1) and os.path.isfile(vid_path2)):
+            print("[Err]: Video path wrong!")
+            continue
+
+        vid_name1 = os.path.split(vid_path1)[-1]
+        vid_name2 = os.path.split(vid_path2)[-1]
+
+        assert vid_name1 == vid_name2
+
+        ## ---------- Processing
 
 
 def cmp2VideosExt(src_root, dst_root,
