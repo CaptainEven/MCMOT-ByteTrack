@@ -345,6 +345,7 @@ def video_tracking(predictor, cap, save_path, args):
     width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
     height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
     fps = cap.get(cv2.CAP_PROP_FPS)
+    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
 
     vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height)))
 
@@ -366,11 +367,11 @@ def video_tracking(predictor, cap, save_path, args):
 
     while True:
         if frame_id != 0:
-            logger.info('Processing frame {} ({:.2f} fps)'
-                        .format(frame_id, 1.0 / max(1e-5, timer.average_time)))
+            logger.info('Processing frame {:03d} | {:03d} | {:.2f} fps'
+                        .format(frame_id, n_frames, 1.0 / max(1e-5, timer.average_time)))
         else:
-            logger.info('Processing frame {} ({:.2f} fps)'
-                        .format(frame_id, 30.0))
+            logger.info('Processing frame {:03d} | {:03d} | {:.2f} fps'
+                        .format(frame_id, n_frames, 30.0))
 
         ## ----- read the video
         ret_val, frame = cap.read()
@@ -469,8 +470,8 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
                     save_dir = os.path.join(vis_dir, video_name)
                     if not os.path.isdir(save_dir):
                         os.makedirs(save_dir)
-                    tupTime_newest = time.localtime(15000000000000)
-                    current_time = time.strftime("%Y_%m_%d_%H_%M_%S", tupTime_newest)
+                    current_time = time.localtime()
+                    current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
                     save_path = os.path.join(save_dir, current_time + ".mp4")
 
                     ## ---------- Get tracking results
@@ -493,8 +494,8 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             save_dir = os.path.join(vis_dir, video_name)
             if not os.path.isdir(save_dir):
                 os.makedirs(save_dir)
-            tupTime_newest = time.localtime(15000000000000)
-            current_time = time.strftime("%Y_%m_%d_%H_%M_%S", tupTime_newest)
+            current_time = time.localtime()
+            current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
             save_path = os.path.join(save_dir, current_time + ".mp4")
 
             ## ---------- Get tracking results
@@ -665,6 +666,7 @@ def run(exp, args):
 
     if args.device == "gpu":
         model.cuda()
+
     model.eval()
     ## -----
 
