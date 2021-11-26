@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# -*- coding:utf-8 -*-
+# encoding=utf-8
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
+
+from copy import deepcopy
 
 import torch
 import torch.nn as nn
 from thop import profile
-
-from copy import deepcopy
 
 __all__ = [
     "fuse_conv_and_bn",
@@ -16,19 +16,28 @@ __all__ = [
 ]
 
 
-def get_model_info(model, tsize):
-
+def get_model_info(model, t_size):
+    """
+    :param model:
+    :param t_size:
+    :return:
+    """
     stride = 64
     img = torch.zeros((1, 3, stride, stride), device=next(model.parameters()).device)
     flops, params = profile(deepcopy(model), inputs=(img,), verbose=False)
     params /= 1e6
     flops /= 1e9
-    flops *= tsize[0] * tsize[1] / stride / stride * 2  # Gflops
+    flops *= t_size[0] * t_size[1] / stride / stride * 2  # Gflops
     info = "Params: {:.2f}M, Gflops: {:.2f}".format(params, flops)
     return info
 
 
 def fuse_conv_and_bn(conv, bn):
+    """
+    :param conv:
+    :param bn:
+    :return:
+    """
     # Fuse convolution and batchnorm layers https://tehnokv.com/posts/fusing-batchnorm-and-conv/
     fusedconv = (
         nn.Conv2d(
@@ -40,8 +49,8 @@ def fuse_conv_and_bn(conv, bn):
             groups=conv.groups,
             bias=True,
         )
-        .requires_grad_(False)
-        .to(conv.weight.device)
+            .requires_grad_(False)
+            .to(conv.weight.device)
     )
 
     # prepare filters
@@ -64,6 +73,10 @@ def fuse_conv_and_bn(conv, bn):
 
 
 def fuse_model(model):
+    """
+    :param model:
+    :return:
+    """
     from yolox.models.network_blocks import BaseConv
 
     for m in model.modules():
@@ -77,7 +90,6 @@ def fuse_model(model):
 def replace_module(module, replaced_module_type, new_module_type, replace_func=None):
     """
     Replace given type in module to a new type. mostly used in deploy.
-
     Args:
         module (nn.Module): model to apply replace operation.
         replaced_module_type (Type): module type to be replaced.

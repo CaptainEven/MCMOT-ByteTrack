@@ -91,16 +91,14 @@ class Exp(MyExp):
         #     ),
         # )
 
-        dataset = VOCDetection(
-            data_dir=data_dir,
-            f_list_path=self.train_f_list_path,
-            img_size=(768, 448),
-            preproc=TrainTransform(
-                rgb_means=(0.485, 0.456, 0.406),
-                std=(0.229, 0.224, 0.225),
-                max_labels=50,
-            ),
-        )
+        dataset = VOCDetection(data_dir=data_dir,
+                               f_list_path=self.train_f_list_path,
+                               img_size=(768, 448),
+                               preproc=TrainTransform(
+                                   rgb_means=(0.485, 0.456, 0.406),
+                                   std=(0.229, 0.224, 0.225),
+                                   max_labels=50,
+                               ), )
 
         # dataset = MosaicDetection(
         #     dataset,
@@ -172,21 +170,17 @@ class Exp(MyExp):
         #     ),
         # )
 
-        valdataset = VOCDetection(
-            data_dir=data_dir,
-            f_list_path=self.test_f_list_path,
-            img_size=(768, 448),
-            preproc=ValTransform(
-                rgb_means=(0.485, 0.456, 0.406),
-                std=(0.229, 0.224, 0.225),
-            ),
-        )
+        valdataset = VOCDetection(data_dir=data_dir,
+                                  f_list_path=self.test_f_list_path,
+                                  img_size=(768, 448),
+                                  preproc=ValTransform(
+                                      rgb_means=(0.485, 0.456, 0.406),
+                                      std=(0.229, 0.224, 0.225),
+                                  ), )
 
         if is_distributed:
             batch_size = batch_size // dist.get_world_size()
-            sampler = torch.utils.data.distributed.DistributedSampler(
-                valdataset, shuffle=False
-            )
+            sampler = torch.utils.data.distributed.DistributedSampler(valdataset, shuffle=False)
         else:
             sampler = torch.utils.data.SequentialSampler(valdataset)
 
@@ -217,13 +211,11 @@ class Exp(MyExp):
         from yolox.evaluators import COCOEvaluator
 
         val_loader = self.get_eval_loader(batch_size, is_distributed, data_dir, name, testdev=testdev)
-        evaluator = COCOEvaluator(
-            dataloader=val_loader,
-            img_size=self.test_size,
-            confthre=self.test_conf,
-            nmsthre=self.nmsthre,
-            num_classes=self.num_classes,
-            testdev=testdev,
-        )
+        evaluator = COCOEvaluator(dataloader=val_loader,
+                                  img_size=self.test_size,
+                                  confthre=self.test_conf,
+                                  nmsthre=self.nmsthre,
+                                  num_classes=self.num_classes,
+                                  testdev=testdev, )
 
         return evaluator

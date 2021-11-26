@@ -73,7 +73,8 @@ class Trainer:
 
         try:
             self.train_in_epoch()
-        except Exception:
+        except Exception as e:
+            print(e)
             raise
         finally:
             self.after_train()
@@ -134,12 +135,13 @@ class Trainer:
 
     def before_train(self):
         """
+        The preparations before training
         :return:
         """
         logger.info("args: {}".format(self.args))
         logger.info("exp value:\n{}".format(self.exp))
 
-        # model related init
+        ## ----- model related init
         torch.cuda.set_device(self.local_rank)
         model = self.exp.get_model()
         logger.info("Model Summary: {}"
@@ -179,7 +181,7 @@ class Trainer:
             self.ema_model.updates = self.max_iter * self.start_epoch
 
         self.model = model
-        self.model.train()
+        self.model.train()  # train mode
 
         self.evaluator = self.exp.get_evaluator(batch_size=self.args.batch_size,
                                                 is_distributed=self.is_distributed,
@@ -194,6 +196,9 @@ class Trainer:
         # logger.info("\n{}".format(model))
 
     def after_train(self):
+        """
+        :return:
+        """
         logger.info(
             "Training of experiment is done and the best AP is {:.2f}".format(
                 self.best_ap * 100
@@ -201,13 +206,16 @@ class Trainer:
         )
 
     def before_epoch(self):
+        """
+        :return:
+        """
         logger.info("---> start train epoch{}".format(self.epoch + 1))
 
         if self.epoch + 1 == self.max_epoch - self.exp.no_aug_epochs or self.no_aug:
-
             logger.info("--->No mosaic aug now!")
             self.train_loader.close_mosaic()
             logger.info("--->Add additional L1 loss now!")
+
             if self.is_distributed:
                 self.model.module.head.use_l1 = True
             else:

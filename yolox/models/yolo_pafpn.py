@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# encoding=utf-8
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
 import torch
@@ -98,9 +98,9 @@ class YOLOPAFPN(nn.Module):
         Returns:
             Tuple[Tensor]: FPN feature.
         """
-
-        #  backbone
+        ## ----- backbone
         out_features = self.backbone(input)
+
         features = [out_features[f] for f in self.in_features]
         [x2, x1, x0] = features
 
