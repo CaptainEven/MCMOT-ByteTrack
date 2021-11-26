@@ -207,6 +207,7 @@ class Predictor(object):
         self.test_size = exp.test_size
         self.device = device
         self.fp16 = fp16
+
         if trt_file is not None:
             from torch2trt import TRTModule
 
@@ -216,6 +217,7 @@ class Predictor(object):
             x = torch.ones(1, 3, exp.test_size[0], exp.test_size[1]).cuda()
             self.model(x)
             self.model = model_trt
+
         self.rgb_means = (0.485, 0.456, 0.406)
         self.std = (0.229, 0.224, 0.225)
 
@@ -226,6 +228,7 @@ class Predictor(object):
         :return:
         """
         img_info = {"id": 0}
+
         if isinstance(img, str):
             img_info["file_name"] = os.path.basename(img)
             img = cv2.imread(img)
@@ -241,6 +244,7 @@ class Predictor(object):
         img_info["ratio"] = ratio
         img = torch.from_numpy(img).unsqueeze(0)
         img = img.float()
+
         if self.device == "gpu":
             img = img.cuda()
             if self.fp16:
@@ -253,6 +257,7 @@ class Predictor(object):
                 outputs = self.decoder(outputs, dtype=outputs.type())
             outputs = postprocess(outputs, self.num_classes, self.confthre, self.nmsthre)
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+
         return outputs, img_info
 
 
@@ -526,7 +531,9 @@ def run(exp, args):
         trt_file = None
         decoder = None
 
+    ## ---------- Define the predictor
     predictor = Predictor(model, exp, trt_file, decoder, args.device, args.fp16)
+    ## ----------
 
     current_time = time.localtime()
     if args.demo == "image":
