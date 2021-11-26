@@ -53,6 +53,7 @@ class Trainer:
         # metric record
         self.meter = MeterBuffer(window_size=exp.print_interval)
         self.file_name = os.path.join(exp.output_dir, args.experiment_name)
+        print("file path: ", self.file_name)
 
         if self.rank == 0:
             os.makedirs(self.file_name, exist_ok=True)
@@ -217,6 +218,9 @@ class Trainer:
                 self.save_ckpt(ckpt_name="last_mosaic_epoch")
 
     def after_epoch(self):
+        """
+        :return:
+        """
         if self.use_model_ema:
             self.ema_model.update_attr(self.model)
 
@@ -275,9 +279,16 @@ class Trainer:
 
     @property
     def progress_in_iter(self):
+        """
+        :return:
+        """
         return self.epoch * self.max_iter + self.iter
 
     def resume_train(self, model):
+        """
+        :param model:
+        :return:
+        """
         if self.args.resume:
             logger.info("resume training")
             if self.args.ckpt is None:
@@ -286,20 +297,16 @@ class Trainer:
                 ckpt_path = self.args.ckpt
 
             ckpt = torch.load(ckpt_path, map_location=self.device)
-            # resume the model/optimizer state dict
+
+            ## ---- resume the model/optimizer state dict
             model.load_state_dict(ckpt["model"])
             self.optimizer.load_state_dict(ckpt["optimizer"])
-            start_epoch = (
-                self.args.start_epoch - 1
-                if self.args.start_epoch is not None
-                else ckpt["start_epoch"]
-            )
+            start_epoch = (self.args.start_epoch - 1
+                           if self.args.start_epoch is not None
+                           else ckpt["start_epoch"])
             self.start_epoch = start_epoch
-            logger.info(
-                "loaded checkpoint '{}' (epoch {})".format(
-                    self.args.resume, self.start_epoch
-                )
-            )  # noqa
+            logger.info("loaded checkpoint '{}' (epoch {})"
+                        .format(self.args.resume, self.start_epoch))  # noqa
         else:
             if self.args.ckpt is not None:
                 logger.info("loading checkpoint for fine tuning...")
@@ -312,10 +319,11 @@ class Trainer:
         return model
 
     def evaluate_and_save_model(self):
+        """
+        :return:
+        """
         evalmodel = self.ema_model.ema if self.use_model_ema else self.model
-        ap50_95, ap50, summary = self.exp.eval(
-            evalmodel, self.evaluator, self.is_distributed
-        )
+        ap50_95, ap50, summary = self.exp.eval(evalmodel, self.evaluator, self.is_distributed)
         self.model.train()
         if self.rank == 0:
             self.tblogger.add_scalar("val/COCOAP50", ap50, self.epoch + 1)
@@ -328,17 +336,18 @@ class Trainer:
         self.best_ap = max(self.best_ap, ap50)
 
     def save_ckpt(self, ckpt_name, update_best_ckpt=False):
+        """
+        :param ckpt_name:
+        :param update_best_ckpt:
+        :return:
+        """
         if self.rank == 0:
             save_model = self.ema_model.ema if self.use_model_ema else self.model
+
             logger.info("Save weights to {}".format(self.file_name))
             ckpt_state = {
                 "start_epoch": self.epoch + 1,
                 "model": save_model.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
             }
-            save_checkpoint(
-                ckpt_state,
-                update_best_ckpt,
-                self.file_name,
-                ckpt_name,
-            )
+            save_checkpoint(ckpt_state, update_best_ckpt, self.file_name, ckpt_name, )

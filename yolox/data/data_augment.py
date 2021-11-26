@@ -350,7 +350,6 @@ class TrainTransformTrack:
         """
         boxes = targets[:, :4].copy()
         labels = targets[:, 4].copy()
-
         ids = targets[:, 5].copy()
 
         if len(boxes) == 0:
@@ -401,7 +400,6 @@ class TrainTransformTrack:
         ids_t = np.expand_dims(ids_t, 1)
 
         targets_t = np.hstack((labels_t, boxes_t, ids_t))
-
         padded_labels = np.zeros((self.max_labels, 6))
 
         padded_labels[range(len(targets_t))[: self.max_labels]] = targets_t[: self.max_labels]

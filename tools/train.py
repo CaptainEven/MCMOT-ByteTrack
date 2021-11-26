@@ -81,7 +81,7 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=16,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
+                        default=20,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
     parser.add_argument("-d",
                         "--devices",
