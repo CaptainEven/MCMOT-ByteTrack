@@ -336,6 +336,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
 
 def video_tracking(predictor, cap, save_path, args):
     """
+    online or offline tracking
     :param predictor:
     :param cap:
     :param save_path:
