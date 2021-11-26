@@ -22,6 +22,7 @@ def make_parser():
     :return:
     """
     parser = argparse.ArgumentParser("YOLOX train parser")
+
     parser.add_argument("-expn",
                         "--experiment-name",
                         type=str,
@@ -80,7 +81,7 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=1,  # 4, 8, 16, 18, 24, 32, 48, 64
+                        default=16,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
     parser.add_argument("-d",
                         "--devices",

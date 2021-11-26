@@ -68,12 +68,13 @@ class Exp(MyExp):
         :return:
         """
         from yolox.data import (
+            # MOTDataset,
+            VOCDetection,
+            TrainTransform,
             YoloBatchSampler,
             DataLoader,
             InfiniteSampler,
         )
-        from yolox.evaluators import voc_evaluator
-        from yolox.data.datasets.voc import VOCDetection  ## VOC C5 dataset
 
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mix_det")
@@ -94,9 +95,10 @@ class Exp(MyExp):
             data_dir=data_dir,
             f_list_path=self.train_f_list_path,
             img_size=(768, 448),
-            preproc=ValTransform(
+            preproc=TrainTransform(
                 rgb_means=(0.485, 0.456, 0.406),
                 std=(0.229, 0.224, 0.225),
+                max_labels=50,
             ),
         )
 
@@ -154,16 +156,26 @@ class Exp(MyExp):
         :param testdev:
         :return:
         """
-        from yolox.data import MOTDataset, ValTransform
+        from yolox.data import VOCDetection, ValTransform
 
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mot")
 
-        valdataset = MOTDataset(
+        # valdataset = MOTDataset(
+        #     data_dir=data_dir,
+        #     json_file=self.val_ann,
+        #     img_size=self.test_size,
+        #     name=name,
+        #     preproc=ValTransform(
+        #         rgb_means=(0.485, 0.456, 0.406),
+        #         std=(0.229, 0.224, 0.225),
+        #     ),
+        # )
+
+        valdataset = VOCDetection(
             data_dir=data_dir,
-            json_file=self.val_ann,
-            img_size=self.test_size,
-            name=name,
+            f_list_path=self.test_f_list_path,
+            img_size=(768, 448),
             preproc=ValTransform(
                 rgb_means=(0.485, 0.456, 0.406),
                 std=(0.229, 0.224, 0.225),

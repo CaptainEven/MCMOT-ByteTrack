@@ -102,7 +102,10 @@ class VOCDetection(Dataset):
 
         self.root = data_dir
         self.f_list_path = f_list_path
+
+        ## -----image size: (width, height)
         self.img_size = img_size
+
         self.preproc = preproc
         self.target_transform = target_transform
 
@@ -154,11 +157,10 @@ class VOCDetection(Dataset):
         return target
 
     def pull_item(self, idx):
-        """Returns the original image and target at an index for mixup
-
+        """
+        Returns the original image and target at an index for mixup
         Note: not using self.__getitem__(), as any transformations passed in
         could mess up this functionality.
-
         Argument:
             index (int): index of img to show
         Return:
@@ -166,11 +168,13 @@ class VOCDetection(Dataset):
         """
         ## ----- load image
         img_id = self.ids[idx]
-        img = cv2.imread(self._imgpath % img_id, cv2.IMREAD_COLOR)
+        img_path = self._imgpath % img_id
+        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
         height, width, _ = img.shape
 
         ## ----- load label
         target = self.load_anno(idx)
+        # print(target.shape)
 
         img_info = (height, width)
 

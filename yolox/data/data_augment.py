@@ -220,7 +220,7 @@ def _mirror(image, boxes):
 def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
     """
     :param image:
-    :param input_size:
+    :param input_size: (H, W)
     :param mean:
     :param std:
     :param swap:
@@ -232,26 +232,100 @@ def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
         padded_img = np.ones(input_size) * 114.0
 
     img = np.array(image)
-    r = min(input_size[0] / img.shape[0], input_size[1] / img.shape[1])
 
+    ## ----- Resize
+    r = min(input_size[0] / img.shape[0], input_size[1] / img.shape[1])
     resized_img = cv2.resize(img,
                              (int(img.shape[1] * r), int(img.shape[0] * r)),
                              interpolation=cv2.INTER_LINEAR).astype(np.float32)
-
+    ## ----- Padding
     padded_img[: int(img.shape[0] * r), : int(img.shape[1] * r)] = resized_img
 
+    ## ----- BGR to RGB
     padded_img = padded_img[:, :, ::-1]
+
+    ## ----- normalize to [0, 1]
     padded_img /= 255.0
+
     if mean is not None:
         padded_img -= mean
     if std is not None:
         padded_img /= std
+
     padded_img = padded_img.transpose(swap)
     padded_img = np.ascontiguousarray(padded_img, dtype=np.float32)
+
     return padded_img, r
 
 
 class TrainTransform:
+    def __init__(self, p=0.5, rgb_means=None, std=None, max_labels=50):
+        """
+        :param p:
+        :param rgb_means:
+        :param std:
+        :param max_labels:
+        """
+        self.means = rgb_means
+        self.std = std
+        self.p = p
+        self.max_labels = max_labels
+
+    def __call__(self, image, targets, input_dim):
+        """
+        :param image:
+        :param targets:
+        :param input_dim:
+        :return:
+        """
+        boxes = targets[:, :4].copy()
+        labels = targets[:, 4].copy()
+        if len(boxes) == 0:
+            targets = np.zeros((self.max_labels, 5), dtype=np.float32)
+            image, r_o = preproc(image, input_dim, self.means, self.std)
+            image = np.ascontiguousarray(image, dtype=np.float32)
+            return image, targets
+
+        image_o = image.copy()
+        targets_o = targets.copy()
+        height_o, width_o, _ = image_o.shape
+        boxes_o = targets_o[:, :4]
+        labels_o = targets_o[:, 4]
+        # bbox_o: [xyxy] to [c_x,c_y,w,h]
+        boxes_o = xyxy2cxcywh(boxes_o)
+
+        image_t = _distort(image)
+        image_t, boxes = _mirror(image_t, boxes)
+        height, width, _ = image_t.shape
+        image_t, r_ = preproc(image_t, input_dim, self.means, self.std)
+        # boxes [xyxy] 2 [cx,cy,w,h]
+        boxes = xyxy2cxcywh(boxes)
+        boxes *= r_
+
+        mask_b = np.minimum(boxes[:, 2], boxes[:, 3]) > 8
+        boxes_t = boxes[mask_b]
+        labels_t = labels[mask_b]
+
+        if len(boxes_t) == 0:
+            image_t, r_o = preproc(image_o, input_dim, self.means, self.std)
+            boxes_o *= r_o
+            boxes_t = boxes_o
+            labels_t = labels_o
+
+        labels_t = np.expand_dims(labels_t, 1)
+
+        targets_t = np.hstack((labels_t, boxes_t))
+        padded_labels = np.zeros((self.max_labels, 5))
+        padded_labels[range(len(targets_t))[: self.max_labels]] = targets_t[
+                                                                  : self.max_labels
+                                                                  ]
+        padded_labels = np.ascontiguousarray(padded_labels, dtype=np.float32)
+        image_t = np.ascontiguousarray(image_t, dtype=np.float32)
+
+        return image_t, padded_labels
+
+
+class TrainTransformTrack:
     def __init__(self, p=0.5, rgb_means=None, std=None, max_labels=100):
         """
         :param p:
@@ -273,7 +347,10 @@ class TrainTransform:
         """
         boxes = targets[:, :4].copy()
         labels = targets[:, 4].copy()
-        ids = targets[:, 5].copy()
+
+        if targets.shape[1] > 5:
+            ids = targets[:, 5].copy()
+
         if len(boxes) == 0:
             targets = np.zeros((self.max_labels, 6), dtype=np.float32)
             image, r_o = preproc(image, input_dim, self.means, self.std)
@@ -285,14 +362,21 @@ class TrainTransform:
         height_o, width_o, _ = image_o.shape
         boxes_o = targets_o[:, :4]
         labels_o = targets_o[:, 4]
-        ids_o = targets_o[:, 5]
+
+        if targets.shape[1] > 5:
+            ids_o = targets_o[:, 5]
+
         # bbox_o: [xyxy] to [c_x,c_y,w,h]
         boxes_o = xyxy2cxcywh(boxes_o)
 
         image_t = _distort(image)
         image_t, boxes = _mirror(image_t, boxes)
         height, width, _ = image_t.shape
+
+        ## ----- resize, pad, BGR2RGB, normalize
         image_t, r_ = preproc(image_t, input_dim, self.means, self.std)
+
+        ## ----- Resize box
         # boxes [xyxy] 2 [cx,cy,w,h]
         boxes = xyxy2cxcywh(boxes)
         boxes *= r_
@@ -300,20 +384,34 @@ class TrainTransform:
         mask_b = np.minimum(boxes[:, 2], boxes[:, 3]) > 1
         boxes_t = boxes[mask_b]
         labels_t = labels[mask_b]
-        ids_t = ids[mask_b]
+
+        if targets.shape[1] > 5:
+            ids_t = ids[mask_b]
 
         if len(boxes_t) == 0:
             image_t, r_o = preproc(image_o, input_dim, self.means, self.std)
             boxes_o *= r_o
             boxes_t = boxes_o
             labels_t = labels_o
-            ids_t = ids_o
+
+            if targets.shape[1] > 5:
+                ids_t = ids_o
 
         labels_t = np.expand_dims(labels_t, 1)
-        ids_t = np.expand_dims(ids_t, 1)
 
-        targets_t = np.hstack((labels_t, boxes_t, ids_t))
-        padded_labels = np.zeros((self.max_labels, 6))
+        if targets.shape[1] > 5:
+            ids_t = np.expand_dims(ids_t, 1)
+
+        if targets.shape[1] > 5:
+            targets_t = np.hstack((labels_t, boxes_t, ids_t))
+        else:
+            targets_t = np.hstack((labels_t, boxes_t))
+
+        if targets.shape[1] > 5:
+            padded_labels = np.zeros((self.max_labels, 6))
+        else:
+            padded_labels = np.zeros((self.max_labels, 5))
+
         padded_labels[range(len(targets_t))[: self.max_labels]] = targets_t[: self.max_labels]
         padded_labels = np.ascontiguousarray(padded_labels, dtype=np.float32)
         image_t = np.ascontiguousarray(image_t, dtype=np.float32)

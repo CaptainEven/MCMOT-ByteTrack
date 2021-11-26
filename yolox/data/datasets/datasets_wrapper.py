@@ -67,14 +67,17 @@ class MixConcatDataset(torchConcatDataset):
 
 
 class Dataset(torchDataset):
-    """ This class is a subclass of the base :class:`torch.utils.data.Dataset`,
-    that enables on the fly resizing of the ``input_dim``.
-
-    Args:
-        input_dimension (tuple): (width,height) tuple with default dimensions of the network
     """
-
+    This class is a subclass of the base :class:`torch.utils.data.Dataset`,
+    that enables on the fly resizing of the ``input_dim``.
+    Args:
+        input_dimension (tuple): (width, height) tuple with default dimensions of the network
+    """
     def __init__(self, input_dimension, mosaic=True):
+        """
+        :param input_dimension:
+        :param mosaic:
+        """
         super().__init__()
         self.__input_dim = input_dimension[:2]
         self.enable_mosaic = mosaic
@@ -85,9 +88,9 @@ class Dataset(torchDataset):
         Dimension that can be used by transforms to set the correct image size, etc.
         This allows transforms to have a single source of truth
         for the input dimension of the network.
-
         Return:
-            list: Tuple containing the current width,height
+            # list: Tuple containing the current width, height
+            list: Tuple containing the current height, width
         """
         if hasattr(self, "_input_dim"):
             return self._input_dim
