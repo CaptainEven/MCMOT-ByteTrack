@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# encoding=utf-8
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
 import torch.nn as nn
@@ -16,7 +16,12 @@ class YOLOX(nn.Module):
     """
 
     def __init__(self, backbone=None, head=None):
+        """
+        :param backbone:
+        :param head:
+        """
         super().__init__()
+
         if backbone is None:
             backbone = YOLOPAFPN()
         if head is None:
@@ -26,14 +31,17 @@ class YOLOX(nn.Module):
         self.head = head
 
     def forward(self, x, targets=None):
+        """
+        :param x:
+        :param targets:
+        :return:
+        """
         # fpn output content features of [dark3, dark4, dark5]
         fpn_outs = self.backbone(x)
 
         if self.training:
             assert targets is not None
-            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = self.head(
-                fpn_outs, targets, x
-            )
+            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = self.head(fpn_outs, targets, x)
             outputs = {
                 "total_loss": loss,
                 "iou_loss": iou_loss,

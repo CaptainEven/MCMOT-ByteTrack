@@ -59,9 +59,15 @@ def make_parser():
     ## ----- checkpoing file path, eg: bytetrack_x_mot17.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/c5_tiny_latest_ckpt.pth",
+                        default="../pretrained/c5_tiny_latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
+
+    ## ----- videos dir's path
+    parser.add_argument("--videos_dir",
+                        type=str,
+                        default="../videos",
+                        help="")
 
     ## "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
     parser.add_argument("--path",
@@ -479,25 +485,27 @@ def run(exp, args):
     if args.tsize is not None:
         exp.test_size = (args.tsize, args.tsize)
 
+    ## ----- Define the network
     model = exp.get_model()
     logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
 
     if args.device == "gpu":
         model.cuda()
     model.eval()
+    ## -----
 
     if not args.trt:
         if args.ckpt is None:
-            ckpt_file = os.path.join(file_name, "best_ckpt.pth.tar")
+            ckpt_file_path = os.path.join(file_name, "best_ckpt.pth.tar")
         else:
-            ckpt_file = args.ckpt
+            ckpt_file_path = args.ckpt
 
-        logger.info("loading checkpoint...")
-        ckpt = torch.load(ckpt_file, map_location="cpu")
+        logger.info("Loading checkpoint...")
+        ckpt = torch.load(ckpt_file_path, map_location="cpu")
 
         # load the model state dict
         model.load_state_dict(ckpt["model"])
-        logger.info("loaded checkpoint done.")
+        logger.info("Checkpoint {:s} loaded done.".format(ckpt_file_path))
 
     if args.fuse:
         logger.info("\tFusing model...")

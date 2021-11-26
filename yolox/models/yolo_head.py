@@ -14,19 +14,20 @@ from .network_blocks import BaseConv, DWConv
 
 
 class YOLOXHead(nn.Module):
-    def __init__(
-            self,
-            num_classes,
-            width=1.0,
-            strides=[8, 16, 32],
-            in_channels=[256, 512, 1024],
-            act="silu",
-            depthwise=False,
-    ):
+    def __init__(self,
+                 num_classes,
+                 width=1.0,
+                 strides=[8, 16, 32],
+                 in_channels=[256, 512, 1024],
+                 act="silu",
+                 depthwise=False, ):
         """
-        Args:
-            act (str): activation type of conv. Defalut value: "silu".
-            depthwise (bool): wheather apply depthwise conv in conv branch. Defalut value: False.
+        :param num_classes:
+        :param width:
+        :param strides:
+        :param in_channels:
+        :param act(str): activation type of conv. Defalut value: "silu".
+        :param depthwise (bool): wheather apply depthwise conv in conv branch. Defalut value: False.
         """
         super().__init__()
 
