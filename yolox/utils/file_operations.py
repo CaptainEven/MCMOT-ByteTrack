@@ -3,6 +3,7 @@
 import os
 
 import cv2
+import numpy as np
 
 
 def cmp2VideosDir(src_dir1, src_dir2, dst_dir, ext=".mp4"):
@@ -13,8 +14,11 @@ def cmp2VideosDir(src_dir1, src_dir2, dst_dir, ext=".mp4"):
     :param ext:
     :return:
     """
-    if not (os.path.isdir(src_dir1) and os.path.isdir(src_dir2)):
-        print("[Err]: invalid src dirs!")
+    if not os.path.isdir(src_dir1):
+        print("[Err]: invalid src dir 1!")
+        return
+    if not os.path.isdir(src_dir2):
+        print("[Err]: invalid src dir 2!")
         return
 
     if not os.path.isdir(dst_dir):
@@ -39,6 +43,55 @@ def cmp2VideosDir(src_dir1, src_dir2, dst_dir, ext=".mp4"):
         assert vid_name1 == vid_name2
 
         ## ---------- Processing
+        ## ----- 读取视频
+        cap1 = cv2.VideoCapture(vid_path1)
+        cap2 = cv2.VideoCapture(vid_path2)
+
+        # 获取视频所有帧数
+        FRAME_NUM1 = int(cap1.get(cv2.CAP_PROP_FRAME_COUNT))
+        FRAME_NUM2 = int(cap2.get(cv2.CAP_PROP_FRAME_COUNT))
+        assert FRAME_NUM1 == FRAME_NUM2
+        print('Total {:d} frames'.format(FRAME_NUM1))
+
+        if FRAME_NUM1 == 0:
+            break
+
+        for i in range(0, FRAME_NUM1):
+            success1, frame1 = cap1.read()
+            success2, frame2 = cap2.read()
+
+            if not (success1 and success2):  # 判断当前帧是否存在
+                print("[Warning]: read frame-pair failed @frame{:d}!".format(i))
+                break
+
+            assert frame1.shape == frame2.shape
+
+            ## ----- 设置输出帧
+            H, W, C = frame1.shape
+            if W >= H:
+                res = np.zeros((H * 2, W, 3), dtype=np.uint8)
+                res[:H, :, :] = frame1
+                res[H:2 * H, :, :] = frame2
+            else:
+                res = np.zeros((H, W * 2, 3), dtype=np.uint8)
+                res[:, :W, :] = frame1
+                res[:, W:2 * W, :] = frame2
+
+            ## ----- 输出到tmp目录
+            res_sv_path = dst_dir + "/{:04d}.jpg".format(i)
+            cv2.imwrite(res_sv_path, res)
+            print("{:s} saved.".format(res_sv_path))
+
+        ## ---------- 输出视频结果
+        vid_sv_path = dst_dir + "/" + vid_name[:-len(ext)] + "cmp" + ext
+        cmd_str = 'ffmpeg -f image2 -r 6 -i {:s}/%04d.jpg -b 5000k -c:v mpeg4 {}' \
+            .format(tmp_dir, vid_sv_path)
+        print(cmd_str)
+        os.system(cmd_str)
+
+        cmd_str = "rm -rf {:s}/*.jpg".format(dst_dir)
+        prrint(cmd_str)
+        os.system(cmd_str)
 
 
 def cmp2VideosExt(src_root, dst_root,
@@ -132,3 +185,11 @@ def cmp2VideosExt(src_root, dst_root,
             .format(tmp_dir, vid_sv_path)
         print(cmd_str)
         os.system(cmd_str)
+
+
+
+if __name__ == "__main__":
+    cmp2VideosDir(src_dir1="/mnt/diskc/even/ByteTrack/YOLOX_outputs/output/vx",
+                  src_dir2="/mnt/diskc/even/ByteTrack/YOLOX_outputs/output/v4",
+                  dst_dir="/mnt/diskc/even/ByteTrack/output",
+                  ext=".mp4")
