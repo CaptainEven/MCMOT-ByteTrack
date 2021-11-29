@@ -26,7 +26,7 @@ def cmp2VideosDir(src_dir1, src_dir2, dst_dir, ext=".mp4"):
         print("{:s} made.".format(dst_dir))
 
     video_paths1 = [src_dir1 + "/" + x for x in os.listdir(src_dir1) if x.endswith(ext)]
-    video_paths2 = [src_dir1 + "/" + x for x in os.listdir(src_dir2) if x.endswith(ext)]
+    video_paths2 = [src_dir2 + "/" + x for x in os.listdir(src_dir2) if x.endswith(ext)]
     video_paths1.sort()
     video_paths2.sort()
 
@@ -85,12 +85,12 @@ def cmp2VideosDir(src_dir1, src_dir2, dst_dir, ext=".mp4"):
         ## ---------- 输出视频结果
         vid_sv_path = dst_dir + "/" + vid_name1[:-len(ext)] + "cmp" + ext
         cmd_str = 'ffmpeg -f image2 -r 6 -i {:s}/%04d.jpg -b 5000k -c:v mpeg4 {}' \
-            .format(tmp_dir, vid_sv_path)
+            .format(dst_dir, vid_sv_path)
         print(cmd_str)
         os.system(cmd_str)
 
         cmd_str = "rm -rf {:s}/*.jpg".format(dst_dir)
-        prrint(cmd_str)
+        print(cmd_str)
         os.system(cmd_str)
 
 
