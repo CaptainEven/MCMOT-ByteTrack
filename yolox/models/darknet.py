@@ -127,7 +127,10 @@ class CSPDarknet(nn.Module):
         :param act:
         """
         super().__init__()
+
         assert out_features, "please provide output features of Darknet"
+
+        ## ----- feature names
         self.out_features = out_features
         Conv = DWConv if depthwise else BaseConv
 
@@ -138,60 +141,45 @@ class CSPDarknet(nn.Module):
         self.stem = Focus(3, base_channels, ksize=3, act=act)
 
         # dark2
-        self.dark2 = nn.Sequential(
-            Conv(base_channels, base_channels * 2, 3, 2, act=act),
-            CSPLayer(
-                base_channels * 2,
-                base_channels * 2,
-                n=base_depth,
-                depthwise=depthwise,
-                act=act,
-            ),
-        )
+        self.dark2 = nn.Sequential(Conv(base_channels, base_channels * 2, 3, 2, act=act),
+                                   CSPLayer(base_channels * 2,
+                                            base_channels * 2,
+                                            n=base_depth,
+                                            depthwise=depthwise,
+                                            act=act, ), )
 
         # dark3
-        self.dark3 = nn.Sequential(
-            Conv(base_channels * 2, base_channels * 4, 3, 2, act=act),
-            CSPLayer(
-                base_channels * 4,
-                base_channels * 4,
-                n=base_depth * 3,
-                depthwise=depthwise,
-                act=act,
-            ),
-        )
+        self.dark3 = nn.Sequential(Conv(base_channels * 2, base_channels * 4, 3, 2, act=act),
+                                   CSPLayer(base_channels * 4,
+                                            base_channels * 4,
+                                            n=base_depth * 3,
+                                            depthwise=depthwise,
+                                            act=act, ), )
 
         # dark4
-        self.dark4 = nn.Sequential(
-            Conv(base_channels * 4, base_channels * 8, 3, 2, act=act),
-            CSPLayer(
-                base_channels * 8,
-                base_channels * 8,
-                n=base_depth * 3,
-                depthwise=depthwise,
-                act=act,
-            ),
-        )
+        self.dark4 = nn.Sequential(Conv(base_channels * 4, base_channels * 8, 3, 2, act=act),
+                                   CSPLayer(base_channels * 8,
+                                            base_channels * 8,
+                                            n=base_depth * 3,
+                                            depthwise=depthwise,
+                                            act=act, ), )
 
         # dark5
-        self.dark5 = nn.Sequential(
-            Conv(base_channels * 8, base_channels * 16, 3, 2, act=act),
-            SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
-            CSPLayer(
-                base_channels * 16,
-                base_channels * 16,
-                n=base_depth,
-                shortcut=False,
-                depthwise=depthwise,
-                act=act,
-            ),
-        )
+        self.dark5 = nn.Sequential(Conv(base_channels * 8, base_channels * 16, 3, 2, act=act),
+                                   SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
+                                   CSPLayer(base_channels * 16,
+                                            base_channels * 16,
+                                            n=base_depth,
+                                            shortcut=False,
+                                            depthwise=depthwise,
+                                            act=act, ), )
 
     def forward(self, x):
         """
         :param x:
         :return:
         """
+        ## ----- output dict
         outputs = {}
 
         x = self.stem(x)

@@ -22,6 +22,7 @@ class YOLOXHead(nn.Module):
                  act="silu",
                  depthwise=False, ):
         """
+        compute loss in Head
         :param num_classes:
         :param width:
         :param strides:
@@ -37,89 +38,62 @@ class YOLOXHead(nn.Module):
 
         self.cls_convs = nn.ModuleList()
         self.reg_convs = nn.ModuleList()
+
+        ## ---- outputs
         self.cls_preds = nn.ModuleList()
         self.reg_preds = nn.ModuleList()
         self.obj_preds = nn.ModuleList()
+
         self.stems = nn.ModuleList()
+
         Conv = DWConv if depthwise else BaseConv
 
         for i in range(len(in_channels)):
-            self.stems.append(
-                BaseConv(
-                    in_channels=int(in_channels[i] * width),
-                    out_channels=int(256 * width),
-                    ksize=1,
-                    stride=1,
-                    act=act,
-                )
-            )
-            self.cls_convs.append(
-                nn.Sequential(
-                    *[
-                        Conv(
-                            in_channels=int(256 * width),
-                            out_channels=int(256 * width),
-                            ksize=3,
-                            stride=1,
-                            act=act,
-                        ),
-                        Conv(
-                            in_channels=int(256 * width),
-                            out_channels=int(256 * width),
-                            ksize=3,
-                            stride=1,
-                            act=act,
-                        ),
-                    ]
-                )
-            )
-            self.reg_convs.append(
-                nn.Sequential(
-                    *[
-                        Conv(
-                            in_channels=int(256 * width),
-                            out_channels=int(256 * width),
-                            ksize=3,
-                            stride=1,
-                            act=act,
-                        ),
-                        Conv(
-                            in_channels=int(256 * width),
-                            out_channels=int(256 * width),
-                            ksize=3,
-                            stride=1,
-                            act=act,
-                        ),
-                    ]
-                )
-            )
-            self.cls_preds.append(
-                nn.Conv2d(
-                    in_channels=int(256 * width),
-                    out_channels=self.n_anchors * self.num_classes,
-                    kernel_size=1,
-                    stride=1,
-                    padding=0,
-                )
-            )
-            self.reg_preds.append(
-                nn.Conv2d(
-                    in_channels=int(256 * width),
-                    out_channels=4,
-                    kernel_size=1,
-                    stride=1,
-                    padding=0,
-                )
-            )
-            self.obj_preds.append(
-                nn.Conv2d(
-                    in_channels=int(256 * width),
-                    out_channels=self.n_anchors * 1,
-                    kernel_size=1,
-                    stride=1,
-                    padding=0,
-                )
-            )
+            self.stems.append(BaseConv(in_channels=int(in_channels[i] * width),
+                                       out_channels=int(256 * width),
+                                       ksize=1,
+                                       stride=1,
+                                       act=act, ))
+
+            self.cls_convs.append(nn.Sequential(*[Conv(in_channels=int(256 * width),
+                                                       out_channels=int(256 * width),
+                                                       ksize=3,
+                                                       stride=1,
+                                                       act=act, ),
+                                                  Conv(in_channels=int(256 * width),
+                                                       out_channels=int(256 * width),
+                                                       ksize=3,
+                                                       stride=1,
+                                                       act=act, ), ]))
+
+            self.reg_convs.append(nn.Sequential(*[Conv(in_channels=int(256 * width),
+                                                       out_channels=int(256 * width),
+                                                       ksize=3,
+                                                       stride=1,
+                                                       act=act, ),
+                                                  Conv(in_channels=int(256 * width),
+                                                       out_channels=int(256 * width),
+                                                       ksize=3,
+                                                       stride=1,
+                                                       act=act, ), ]))
+
+            ## ---------- Predictions
+            self.cls_preds.append(nn.Conv2d(in_channels=int(256 * width),
+                                            out_channels=self.n_anchors * self.num_classes,
+                                            kernel_size=1,
+                                            stride=1,
+                                            padding=0, ))
+
+            self.reg_preds.append(nn.Conv2d(in_channels=int(256 * width),
+                                            out_channels=4,
+                                            kernel_size=1,
+                                            stride=1,
+                                            padding=0, ))
+            self.obj_preds.append(nn.Conv2d(in_channels=int(256 * width),
+                                            out_channels=self.n_anchors * 1,
+                                            kernel_size=1,
+                                            stride=1,
+                                            padding=0, ))
 
         self.use_l1 = False
         self.l1_loss = nn.L1Loss(reduction="none")
@@ -130,6 +104,10 @@ class YOLOXHead(nn.Module):
         self.expanded_strides = [None] * len(in_channels)
 
     def initialize_biases(self, prior_prob):
+        """
+        :param prior_prob:
+        :return:
+        """
         for conv in self.cls_preds:
             b = conv.bias.view(self.n_anchors, -1)
             b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
@@ -141,6 +119,12 @@ class YOLOXHead(nn.Module):
             conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
     def forward(self, xin, labels=None, imgs=None):
+        """
+        :param xin:
+        :param labels:
+        :param imgs:
+        :return:
+        """
         outputs = []
         origin_preds = []
         x_shifts = []
@@ -154,44 +138,42 @@ class YOLOXHead(nn.Module):
             cls_x = x
             reg_x = x
 
+            ## ----- classification output
             cls_feat = cls_conv(cls_x)
             cls_output = self.cls_preds[k](cls_feat)
 
+            ## ----- regression output
             reg_feat = reg_conv(reg_x)
             reg_output = self.reg_preds[k](reg_feat)
+
+            ## ----- objectness output
             obj_output = self.obj_preds[k](reg_feat)
 
             if self.training:
+                ## ----- concatenate different branche of outputs
                 output = torch.cat([reg_output, obj_output, cls_output], 1)
-                output, grid = self.get_output_and_grid(
-                    output, k, stride_this_level, xin[0].type()
-                )
+
+                output, grid = self.get_output_and_grid(output, k, stride_this_level, xin[0].type())
                 x_shifts.append(grid[:, :, 0])
                 y_shifts.append(grid[:, :, 1])
-                expanded_strides.append(
-                    torch.zeros(1, grid.shape[1])
-                        .fill_(stride_this_level)
-                        .type_as(xin[0])
-                )
+                expanded_strides.append(torch.zeros(1, grid.shape[1])
+                                        .fill_(stride_this_level)
+                                        .type_as(xin[0]))
                 if self.use_l1:
                     batch_size = reg_output.shape[0]
                     hsize, wsize = reg_output.shape[-2:]
-                    reg_output = reg_output.view(
-                        batch_size, self.n_anchors, 4, hsize, wsize
-                    )
-                    reg_output = reg_output.permute(0, 1, 3, 4, 2).reshape(
-                        batch_size, -1, 4
-                    )
+                    reg_output = reg_output.view(batch_size, self.n_anchors, 4, hsize, wsize)
+                    reg_output = reg_output.permute(0, 1, 3, 4, 2).reshape(batch_size, -1, 4)
                     origin_preds.append(reg_output.clone())
 
             else:
-                output = torch.cat(
-                    [reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1
-                )
+                ## ----- concatenate different branche of outputs
+                output = torch.cat([reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1)
 
             outputs.append(output)
 
         if self.training:
+            ## ---------- compute losses in the head
             return self.get_losses(
                 imgs,
                 x_shifts,
@@ -205,15 +187,20 @@ class YOLOXHead(nn.Module):
         else:
             self.hw = [x.shape[-2:] for x in outputs]
             # [batch, n_anchors_all, 85]
-            outputs = torch.cat(
-                [x.flatten(start_dim=2) for x in outputs], dim=2
-            ).permute(0, 2, 1)
+            outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
             if self.decode_in_inference:
                 return self.decode_outputs(outputs, dtype=xin[0].type())
             else:
                 return outputs
 
     def get_output_and_grid(self, output, k, stride, dtype):
+        """
+        :param output:
+        :param k:
+        :param stride:
+        :param dtype:
+        :return:
+        """
         grid = self.grids[k]
 
         batch_size = output.shape[0]
@@ -256,22 +243,31 @@ class YOLOXHead(nn.Module):
         outputs[..., 2:4] = torch.exp(outputs[..., 2:4]) * strides
         return outputs
 
-    def get_losses(
-            self,
-            imgs,
-            x_shifts,
-            y_shifts,
-            expanded_strides,
-            labels,
-            outputs,
-            origin_preds,
-            dtype,
-    ):
+    def get_losses(self,
+                   imgs,
+                   x_shifts,
+                   y_shifts,
+                   expanded_strides,
+                   labels,
+                   outputs,
+                   origin_preds,
+                   dtype, ):
+        """
+        :param imgs:
+        :param x_shifts:
+        :param y_shifts:
+        :param expanded_strides:
+        :param labels:
+        :param outputs:
+        :param origin_preds:
+        :param dtype:
+        :return:
+        """
         bbox_preds = outputs[:, :, :4]  # [batch, n_anchors_all, 4]
         obj_preds = outputs[:, :, 4].unsqueeze(-1)  # [batch, n_anchors_all, 1]
         cls_preds = outputs[:, :, 5:]  # [batch, n_anchors_all, n_cls]
 
-        # calculate targets
+        ## ----- calculate targets
         mixup = labels.shape[2] > 5
         if mixup:
             label_cut = labels[..., :5]
@@ -399,17 +395,10 @@ class YOLOXHead(nn.Module):
             l1_targets = torch.cat(l1_targets, 0)
 
         num_fg = max(num_fg, 1)
-        loss_iou = (
-                       self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)
-                   ).sum() / num_fg
-        loss_obj = (
-                       self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)
-                   ).sum() / num_fg
-        loss_cls = (
-                       self.bcewithlog_loss(
-                           cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets
-                       )
-                   ).sum() / num_fg
+        loss_iou = (self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)).sum() / num_fg
+        loss_obj = (self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)).sum() / num_fg
+        loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum() \
+                   / num_fg
         if self.use_l1:
             loss_l1 = (
                           self.l1_loss(origin_preds.view(-1, 4)[fg_masks], l1_targets)
@@ -437,24 +426,40 @@ class YOLOXHead(nn.Module):
         return l1_target
 
     @torch.no_grad()
-    def get_assignments(
-            self,
-            batch_idx,
-            num_gt,
-            total_num_anchors,
-            gt_bboxes_per_image,
-            gt_classes,
-            bboxes_preds_per_image,
-            expanded_strides,
-            x_shifts,
-            y_shifts,
-            cls_preds,
-            bbox_preds,
-            obj_preds,
-            labels,
-            imgs,
-            mode="gpu",
-    ):
+    def get_assignments(self,
+                        batch_idx,
+                        num_gt,
+                        total_num_anchors,
+                        gt_bboxes_per_image,
+                        gt_classes,
+                        bboxes_preds_per_image,
+                        expanded_strides,
+                        x_shifts,
+                        y_shifts,
+                        cls_preds,
+                        bbox_preds,
+                        obj_preds,
+                        labels,
+                        imgs,
+                        mode="gpu", ):
+        """
+        :param batch_idx:
+        :param num_gt:
+        :param total_num_anchors:
+        :param gt_bboxes_per_image:
+        :param gt_classes:
+        :param bboxes_preds_per_image:
+        :param expanded_strides:
+        :param x_shifts:
+        :param y_shifts:
+        :param cls_preds:
+        :param bbox_preds:
+        :param obj_preds:
+        :param labels:
+        :param imgs:
+        :param mode:
+        :return:
+        """
 
         if mode == "cpu":
             print("------------CPU Mode for This Batch-------------")
@@ -499,10 +504,8 @@ class YOLOXHead(nn.Module):
             cls_preds_, obj_preds_ = cls_preds_.cpu(), obj_preds_.cpu()
 
         with torch.cuda.amp.autocast(enabled=False):
-            cls_preds_ = (
-                    cls_preds_.float().unsqueeze(0).repeat(num_gt, 1, 1).sigmoid_()
-                    * obj_preds_.float().unsqueeze(0).repeat(num_gt, 1, 1).sigmoid_()
-            )
+            cls_preds_ = (cls_preds_.float().unsqueeze(0).repeat(num_gt, 1, 1).sigmoid_()
+                          * obj_preds_.float().unsqueeze(0).repeat(num_gt, 1, 1).sigmoid_())
             pair_wise_cls_loss = F.binary_cross_entropy(
                 cls_preds_.sqrt_(), gt_cls_per_image, reduction="none"
             ).sum(-1)
@@ -628,6 +631,14 @@ class YOLOXHead(nn.Module):
         return is_in_boxes_anchor, is_in_boxes_and_center
 
     def dynamic_k_matching(self, cost, pair_wise_ious, gt_classes, num_gt, fg_mask):
+        """
+        :param cost:
+        :param pair_wise_ious:
+        :param gt_classes:
+        :param num_gt:
+        :param fg_mask:
+        :return:
+        """
         # Dynamic K
         # ---------------------------------------------------------------
         matching_matrix = torch.zeros_like(cost)
@@ -636,6 +647,7 @@ class YOLOXHead(nn.Module):
         n_candidate_k = min(10, ious_in_boxes_matrix.size(1))
         topk_ious, _ = torch.topk(ious_in_boxes_matrix, n_candidate_k, dim=1)
         dynamic_ks = torch.clamp(topk_ious.sum(1).int(), min=1)
+
         for gt_idx in range(num_gt):
             _, pos_idx = torch.topk(
                 cost[gt_idx], k=dynamic_ks[gt_idx].item(), largest=False
@@ -660,4 +672,5 @@ class YOLOXHead(nn.Module):
         pred_ious_this_matching = (matching_matrix * pair_wise_ious).sum(0)[
             fg_mask_inboxes
         ]
+
         return num_fg, gt_matched_classes, pred_ious_this_matching, matched_gt_inds
