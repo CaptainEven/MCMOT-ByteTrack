@@ -68,7 +68,7 @@ class Exp(MyExp):
         :return:
         """
         from yolox.data import (
-            # MOTDataset,
+            MOTDataset,
             VOCDetection,
             TrainTransform,
             YoloBatchSampler,

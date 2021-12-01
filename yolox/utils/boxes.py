@@ -94,7 +94,7 @@ def bboxes_iou(bboxes_a, bboxes_b, xyxy=True):
         br = torch.min(bboxes_a[:, None, 2:], bboxes_b[:, 2:])
         area_a = torch.prod(bboxes_a[:, 2:] - bboxes_a[:, :2], 1)
         area_b = torch.prod(bboxes_b[:, 2:] - bboxes_b[:, :2], 1)
-    else:
+    else:  # cxcywh
         tl = torch.max((bboxes_a[:, None, :2] - bboxes_a[:, None, 2:] / 2),
                        (bboxes_b[:, :2] - bboxes_b[:, 2:] / 2), )
         br = torch.min((bboxes_a[:, None, :2] + bboxes_a[:, None, 2:] / 2),
