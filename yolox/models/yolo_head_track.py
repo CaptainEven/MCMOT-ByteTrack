@@ -20,7 +20,8 @@ class YOLOXHead(nn.Module):
                  strides=[8, 16, 32],
                  in_channels=[256, 512, 1024],
                  act="silu",
-                 depthwise=False):
+                 depthwise=False,
+                 reid=False):
         """
         compute loss in Head
         :param num_classes:
@@ -29,6 +30,7 @@ class YOLOXHead(nn.Module):
         :param in_channels:
         :param act(str): activation type of conv. Defalut value: "silu".
         :param depthwise (bool): wheather apply depthwise conv in conv branch. Defalut value: False.
+        :param reid:
         """
         super().__init__()
 
@@ -43,6 +45,11 @@ class YOLOXHead(nn.Module):
         self.cls_preds = nn.ModuleList()
         self.reg_preds = nn.ModuleList()
         self.obj_preds = nn.ModuleList()
+
+        ## ----- @even
+        self.reid = reid
+        if self.reid:
+            self.reid_preds = nn.ModuleList()
 
         self.stems = nn.ModuleList()
 
@@ -139,6 +146,9 @@ class YOLOXHead(nn.Module):
             cls_x = x
             reg_x = x
 
+            if self.reid:
+                reid_x = x
+
             ## ----- classification output
             cls_feat = cls_conv(cls_x)
             cls_output = self.cls_preds[k](cls_feat)
@@ -149,6 +159,10 @@ class YOLOXHead(nn.Module):
 
             ## ----- objectness output
             obj_output = self.obj_preds[k](reg_feat)
+
+            ## ----- feature map output
+            if self.reid:
+                feature_output = self.reid_preds.forward(reid_x)
 
             if self.training:
                 ## ----- concatenate different branche of outputs
