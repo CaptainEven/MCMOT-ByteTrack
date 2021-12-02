@@ -171,7 +171,7 @@ class MosaicDetection(Dataset):
         cp_labels = []
         while len(cp_labels) == 0:
             cp_index = random.randint(0, self.__len__() - 1)
-            cp_labels = self._dataset.load_anno(cp_index)
+            cp_labels = self._dataset.load_label(cp_index)
         img, cp_labels, _, _ = self._dataset.pull_item(cp_index)
 
         if len(img.shape) == 3:

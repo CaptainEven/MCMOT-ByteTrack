@@ -12,7 +12,7 @@ import numpy as np
 from yolox.evaluators.voc_eval import voc_eval
 
 from .datasets_wrapper import Dataset
-from .voc_classes import VOC_CLASSES
+from .voc_classes import C5_CLASSES
 
 
 class AnnotationTransform(object):
@@ -32,7 +32,7 @@ class AnnotationTransform(object):
         :param class_to_ind:
         :param keep_difficult:
         """
-        self.class_to_ind = class_to_ind or dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
+        self.class_to_ind = class_to_ind or dict(zip(C5_CLASSES, range(len(C5_CLASSES))))
         self.keep_difficult = keep_difficult
 
     def __call__(self, target):
@@ -113,16 +113,8 @@ class VOCDetection(Dataset):
         # self._imgpath = os.path.join("%s", "JPEGImages", "%s.jpg")
         self._annopath = os.path.join(self.root + "/", "%s", "Annotations", "%s.xml")
         self._imgpath = os.path.join(self.root + "/", "%s", "JPEGImages", "%s.jpg")
-        self._classes = VOC_CLASSES
+        self._classes = C5_CLASSES
         self.ids = list()
-
-        # for (year, name) in image_sets:
-        #     self._year = year
-        #     rootpath = os.path.join(self.root, "VOC" + year)
-        #     for line in open(
-        #         os.path.join(rootpath, "ImageSets", "Main", name + ".txt")
-        #     ):
-        #         self.ids.append((rootpath, line.strip()))
 
         if not os.path.isfile(self.f_list_path):
             print("[Err]: invalid file list path!")
@@ -238,7 +230,7 @@ class VOCDetection(Dataset):
             filename = '/users/duanyou/c5/experiments/YOLOX-main/YOLOX_outputs/yolox_tiny/results_5000/' + index1 + '.txt'
             with open(filename, "wt")as f:
                 f.write("class scores x y w h total= \n")
-                for cls_ind, cls in enumerate(VOC_CLASSES):
+                for cls_ind, cls in enumerate(C5_CLASSES):
                     if cls == "__background__":
                         continue
                     dets = all_boxes[cls_ind][im_ind]
@@ -288,7 +280,7 @@ class VOCDetection(Dataset):
         :param all_boxes:
         :return:
         """
-        for cls_ind, cls in enumerate(VOC_CLASSES):
+        for cls_ind, cls in enumerate(C5_CLASSES):
             cls_ind = cls_ind
             if cls == "__background__":
                 continue
@@ -342,7 +334,7 @@ class VOCDetection(Dataset):
             xml_name = image_name.replace('JPEGImages', 'Annotations').replace('.jpg', '.xml')
             annopath.append(xml_name)
             imagesetfile.append(image_name)
-        for i, cls in enumerate(VOC_CLASSES):
+        for i, cls in enumerate(C5_CLASSES):
 
             if cls == "__background__":
                 continue

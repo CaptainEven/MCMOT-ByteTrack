@@ -20,15 +20,21 @@ def clip_boxes(boxes, im_shape):
     boxes = np.asarray(boxes)
     if boxes.shape[0] == 0:
         return boxes
+
     boxes = np.copy(boxes)
+
     # x1 >= 0
     boxes[:, 0::4] = np.maximum(np.minimum(boxes[:, 0::4], im_shape[1] - 1), 0)
+
     # y1 >= 0
     boxes[:, 1::4] = np.maximum(np.minimum(boxes[:, 1::4], im_shape[0] - 1), 0)
+
     # x2 < im_shape[1]
     boxes[:, 2::4] = np.maximum(np.minimum(boxes[:, 2::4], im_shape[1] - 1), 0)
+
     # y2 < im_shape[0]
     boxes[:, 3::4] = np.maximum(np.minimum(boxes[:, 3::4], im_shape[0] - 1), 0)
+
     return boxes
 
 
@@ -219,6 +225,10 @@ class Model(nn.Module):
             setattr(self, 'linear_feature{}'.format(i + 1), nn.Linear(512, 64))
 
     def forward(self, x):
+        """
+        :param x:
+        :return:
+        """
         feature = self.feat_conv(x)
         feature = self.conv_input_feat(feature)
 
@@ -239,6 +249,10 @@ class Model(nn.Module):
 
 
 def load_reid_model(ckpt):
+    """
+    :param ckpt:
+    :return:
+    """
     model = Model(n_parts=8)
     model.inp_size = (80, 160)
     load_net(ckpt, model)
@@ -250,6 +264,10 @@ def load_reid_model(ckpt):
 
 
 def im_preprocess(image):
+    """
+    :param image:
+    :return:
+    """
     image = np.asarray(image, np.float32)
     image -= np.array([104, 117, 123], dtype=np.float32).reshape(1, 1, -1)
     image = image.transpose((2, 0, 1))
@@ -257,6 +275,11 @@ def im_preprocess(image):
 
 
 def extract_image_patches(image, bboxes):
+    """
+    :param image:
+    :param bboxes:
+    :return:
+    """
     bboxes = np.round(bboxes).astype(np.int)
     bboxes = clip_boxes(bboxes, image.shape)
     patches = [image[box[1]:box[3], box[0]:box[2]] for box in bboxes]
@@ -264,6 +287,12 @@ def extract_image_patches(image, bboxes):
 
 
 def extract_reid_features(reid_model, image, tlbrs):
+    """
+    :param reid_model:
+    :param image:
+    :param tlbrs:
+    :return:
+    """
     if len(tlbrs) == 0:
         return torch.FloatTensor()
 
