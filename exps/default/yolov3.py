@@ -23,9 +23,9 @@ class Exp(MyExp):
                     m.eps = 1e-3
                     m.momentum = 0.03
         if "model" not in self.__dict__:
-            from yolox.models import YOLOX, YOLOFPN, YOLOXHead
+            from yolox.models import YOLOX, YOLOFPN, YOLOXTrackHead
             backbone = YOLOFPN()
-            head = YOLOXHead(self.num_classes, self.width, in_channels=[128, 256, 512], act="lrelu")
+            head = YOLOXTrackHead(self.num_classes, self.width, in_channels=[128, 256, 512], act="lrelu")
             self.model = YOLOX(backbone, head)
         self.model.apply(init_yolo)
         self.model.head.initialize_biases(1e-2)
