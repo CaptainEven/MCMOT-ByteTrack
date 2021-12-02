@@ -68,8 +68,7 @@ class Exp(MyExp):
         :return:
         """
         from yolox.data import (
-            MOTDataset,
-            VOCDetection,
+            MCMOT,
             TrainTransform,
             YoloBatchSampler,
             DataLoader,
@@ -91,14 +90,13 @@ class Exp(MyExp):
         #     ),
         # )
 
-        dataset = VOCDetection(data_dir=data_dir,
-                               f_list_path=self.train_f_list_path,
-                               img_size=(768, 448),
-                               preproc=TrainTransform(
-                                   rgb_means=(0.485, 0.456, 0.406),
-                                   std=(0.229, 0.224, 0.225),
-                                   max_labels=50,
-                               ), )
+        dataset = MCMOT(data_dir=data_dir,
+                        img_size=(768, 448),
+                        preproc=TrainTransform(
+                            rgb_means=(0.485, 0.456, 0.406),
+                            std=(0.229, 0.224, 0.225),
+                            max_labels=50,
+                        ), )
 
         # dataset = MosaicDetection(
         #     dataset,

@@ -14,23 +14,6 @@ from .voc_classes import C5_CLASSES
 
 
 class MCMOT(Dataset):
-    """
-    MCMOT Dataset Object
-
-    input is image, target is annotation
-
-    Args:
-        root (string): filepath to VOCdevkit folder.
-        image_set (string): imageset to use (eg. 'train', 'val', 'test')
-        transform (callable, optional): transformation to perform on the
-            input image
-        target_transform (callable, optional): transformation to perform on the
-            target `annotation`
-            (eg: take in caption string, return tensor of word indices)
-        dataset_name (string, optional): which dataset to load
-            (default: 'VOC2007')
-    """
-
     def __init__(self,
                  data_dir,
                  img_size=(768, 448),
@@ -77,18 +60,15 @@ class MCMOT(Dataset):
         for img_dir in self.img_dirs:
             for img_path in img_dir:
                 if img_path.endswith(".jpg"):
-                    txt_path = img_path.replace("JPEGImages", "labels_with_ids")
+                    txt_path = img_path.replace("JPEGImages", "labels_with_ids") \
+                        .replace(".jpg", ".txt")
                     if os.path.isfile(img_path) and os.path.isfile(txt_path):
                         self.img_paths.append(img_path)
                         self.txt_paths.append(txt_path)
-
         print("Total {:d} samples.".format(len(self.img_paths)))
 
-    def __len__(self):
-        """
-        :return:
-        """
-        return len(self.img_paths)
+        if caching_labels:
+            self.labels = [np.zeros((0, 6), dtype=np.float32)] * len(self.img_paths)
 
     def load_label(self, idx, img_info):
         """
@@ -161,3 +141,9 @@ class MCMOT(Dataset):
             img, target = self.preproc(img, target, self.input_dim)
 
         return img, target, img_info, img_id
+
+    def __len__(self):
+        """
+        :return:
+        """
+        return len(self.img_paths)
