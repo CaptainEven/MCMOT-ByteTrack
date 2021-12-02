@@ -397,6 +397,7 @@ class TrainTransformTrack:
 
         ids_t = np.expand_dims(ids_t, 1)
 
+        ## ----- concatenate class, bbox, id
         targets_t = np.hstack((labels_t, boxes_t, ids_t))
         padded_labels = np.zeros((self.max_labels, 6))
 

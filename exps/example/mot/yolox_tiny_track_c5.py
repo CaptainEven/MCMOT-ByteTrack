@@ -67,7 +67,6 @@ class Exp(MyExp):
         """
         from yolox.data import (
             MCMOTDataset,
-            TrainTransform,
             TrainTransformTrack,
             YoloBatchSampler,
             DataLoader,

@@ -39,10 +39,12 @@ class YOLOXHead(nn.Module):
         self.cls_convs = nn.ModuleList()
         self.reg_convs = nn.ModuleList()
 
-        ## ---- outputs
+        ## ----- outputs
         self.cls_preds = nn.ModuleList()
         self.reg_preds = nn.ModuleList()
         self.obj_preds = nn.ModuleList()
+
+        ## -----
 
         self.stems = nn.ModuleList()
 
