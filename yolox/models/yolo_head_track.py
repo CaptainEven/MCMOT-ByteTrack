@@ -105,10 +105,10 @@ class YOLOXTrackHead(nn.Module):
             ## ----- @even: feature map output
             if self.reid and i == 0:
                 self.reid_preds = nn.Conv2d(in_channels=int(256 * width),
-                                                 out_channels=128,
-                                                 kernel_size=1,
-                                                 stride=1,
-                                                 padding=0, )
+                                            out_channels=128,
+                                            kernel_size=1,
+                                            stride=1,
+                                            padding=0, )
 
         self.use_l1 = False
         self.l1_loss = nn.L1Loss(reduction="none")
@@ -132,6 +132,9 @@ class YOLOXTrackHead(nn.Module):
             b = conv.bias.view(self.n_anchors, -1)
             b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
             conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
+
+        if self.reid:
+            pass
 
     def forward(self, xin, labels=None, imgs=None):
         """
@@ -200,16 +203,28 @@ class YOLOXTrackHead(nn.Module):
 
         if self.training:
             ## ---------- compute losses in the head
-            return self.get_losses(
-                imgs,
-                x_shifts,
-                y_shifts,
-                expanded_strides,
-                labels,
-                torch.cat(outputs, 1),
-                origin_preds,
-                dtype=xin[0].dtype,
-            )
+            if self.reid:
+                return self.get_losses_with_reid(
+                    imgs,
+                    x_shifts,
+                    y_shifts,
+                    expanded_strides,
+                    labels,
+                    torch.cat(outputs, 1), feature_output,
+                    origin_preds,
+                    dtype=xin[0].dtype,
+                )
+            else:
+                return self.get_losses(
+                    imgs,
+                    x_shifts,
+                    y_shifts,
+                    expanded_strides,
+                    labels,
+                    torch.cat(outputs, 1),
+                    origin_preds,
+                    dtype=xin[0].dtype,
+                )
         else:
             self.hw = [x.shape[-2:] for x in outputs]
 
@@ -296,6 +311,9 @@ class YOLOXTrackHead(nn.Module):
         bbox_preds = outputs[:, :, :4]  # [batch, n_anchors_all, 4]
         obj_preds = outputs[:, :, 4].unsqueeze(-1)  # [batch, n_anchors_all, 1]
         cls_preds = outputs[:, :, 5:]  # [batch, n_anchors_all, n_cls]
+
+        ## ----- @even: feature output using for ReID
+        feature_preds = feature_output
 
         ## ----- calculate targets
         mixup = labels.shape[2] > 5
