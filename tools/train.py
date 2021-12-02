@@ -41,16 +41,20 @@ def make_parser():
                         default="test",  # ""
                         help="model name")
 
-    ## ----- data root dir, eg: /mnt/diskd/even/MOT17
+    ## ----- data root dir, eg: /mnt/diskd/even/MOT17, /mnt/diskb/maqiao/multiClass
     parser.add_argument("--data_dir",
                         type=str,
-                        default="/mnt/diskb/maqiao/multiClass",
+                        default="/mnt/diskb/even/dataset/MCMOT_TEST",
+                        help="")
+    parser.add_argument("--train_root",
+                        type=str,
+                        default="",
                         help="")
 
     ## ---------- expiriment file path, eg: ../exps/example/mot/yolox_tiny_det.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5.py",
+                        default="../exps/example/mot/yolox_tiny_track_c5.py",
                         type=str,
                         help="plz input your expriment description file")
 

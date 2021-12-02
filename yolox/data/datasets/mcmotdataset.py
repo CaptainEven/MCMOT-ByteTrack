@@ -13,17 +13,15 @@ from .datasets_wrapper import Dataset
 from .voc_classes import C5_CLASSES
 
 
-class MCMOT(Dataset):
+class MCMOTDataset(Dataset):
     def __init__(self,
                  data_dir,
                  img_size=(768, 448),
-                 preproc=None,
-                 caching_labels=True):
+                 preproc=None):
         """
         :param data_dir:
         :param img_size:
         :param preproc:
-        :param caching_labels:
         """
         super().__init__(img_size)
 
@@ -66,9 +64,6 @@ class MCMOT(Dataset):
                         self.img_paths.append(img_path)
                         self.txt_paths.append(txt_path)
         print("Total {:d} samples.".format(len(self.img_paths)))
-
-        if caching_labels:
-            self.labels = [np.zeros((0, 6), dtype=np.float32)] * len(self.img_paths)
 
     def load_label(self, idx, img_info):
         """

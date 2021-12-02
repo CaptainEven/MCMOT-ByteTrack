@@ -57,18 +57,16 @@ class Exp(MyExp):
                         batch_size,
                         is_distributed,
                         data_dir=None,
-                        name="",
                         no_aug=False):
         """
         :param batch_size:
         :param is_distributed:
         :param data_dir:
-        :param name:
         :param no_aug:
         :return:
         """
         from yolox.data import (
-            MCMOT,
+            MCMOTDataset,
             TrainTransform,
             YoloBatchSampler,
             DataLoader,
@@ -78,25 +76,13 @@ class Exp(MyExp):
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mix_det")
 
-        # dataset = MOTDataset(
-        #     data_dir=data_dir,
-        #     json_file=self.train_ann,
-        #     name=name,
-        #     img_size=self.input_size,
-        #     preproc=TrainTransform(
-        #         rgb_means=(0.485, 0.456, 0.406),
-        #         std=(0.229, 0.224, 0.225),
-        #         max_labels=500,
-        #     ),
-        # )
-
-        dataset = MCMOT(data_dir=data_dir,
-                        img_size=(768, 448),
-                        preproc=TrainTransform(
-                            rgb_means=(0.485, 0.456, 0.406),
-                            std=(0.229, 0.224, 0.225),
-                            max_labels=50,
-                        ), )
+        dataset = MCMOTDataset(data_dir=data_dir,
+                               img_size=(768, 448),
+                               preproc=TrainTransform(
+                                   rgb_means=(0.485, 0.456, 0.406),
+                                   std=(0.229, 0.224, 0.225),
+                                   max_labels=50,
+                               ), )
 
         # dataset = MosaicDetection(
         #     dataset,
@@ -142,34 +128,20 @@ class Exp(MyExp):
                         batch_size,
                         is_distributed,
                         data_dir=None,
-                        name="",
                         testdev=False):
         """
         :param batch_size:
         :param is_distributed:
         :param data_dir:
-        :param name:
         :param testdev:
         :return:
         """
-        from yolox.data import VOCDetection, ValTransform
+        from yolox.data import MCMOTDataset, ValTransform
 
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mot")
 
-        # valdataset = MOTDataset(
-        #     data_dir=data_dir,
-        #     json_file=self.val_ann,
-        #     img_size=self.test_size,
-        #     name=name,
-        #     preproc=ValTransform(
-        #         rgb_means=(0.485, 0.456, 0.406),
-        #         std=(0.229, 0.224, 0.225),
-        #     ),
-        # )
-
-        valdataset = VOCDetection(data_dir=data_dir,
-                                  f_list_path=self.test_f_list_path,
+        valdataset = MCMOTDataset(data_dir=data_dir,
                                   img_size=(768, 448),
                                   preproc=ValTransform(
                                       rgb_means=(0.485, 0.456, 0.406),
@@ -196,19 +168,17 @@ class Exp(MyExp):
                       batch_size,
                       is_distributed,
                       data_dir=None,
-                      name="",
                       testdev=False):
         """
         :param batch_size:
         :param is_distributed:
         :param data_dir:
-        :param name:
         :param testdev:
         :return:
         """
         from yolox.evaluators import COCOEvaluator
 
-        val_loader = self.get_eval_loader(batch_size, is_distributed, data_dir, name, testdev=testdev)
+        val_loader = self.get_eval_loader(batch_size, is_distributed, data_dir, testdev=testdev)
         evaluator = COCOEvaluator(dataloader=val_loader,
                                   img_size=self.test_size,
                                   confthre=self.test_conf,
