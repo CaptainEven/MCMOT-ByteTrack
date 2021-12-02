@@ -2,6 +2,7 @@
 import os
 
 import torch
+import torch.nn as nn
 import torch.distributed as dist
 
 from yolox.data import get_yolox_datadir
@@ -9,11 +10,12 @@ from yolox.exp import Exp as MyExp
 
 
 class Exp(MyExp):
-    def __init__(self, n_workers=4, debug=False):
+    def __init__(self, n_workers=4, debug=False, reid=False):
         """
         YOLOX Tiny
         :param n_workers:
         :param debug:
+        :param reid: Do reid or not
         """
         super(Exp, self).__init__()
 
@@ -52,6 +54,42 @@ class Exp(MyExp):
         self.no_aug_epochs = 10
         self.basic_lr_per_img = 0.001 / 64.0
         self.warmup_epochs = 1
+
+        self.reid = reid
+
+    def get_model(self):
+        """
+        :return:
+        """
+        from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead, YOLOXTrackHead
+
+        def init_yolo(M):
+            """
+            :param M:
+            :return:
+            """
+            for m in M.modules():
+                if isinstance(m, nn.BatchNorm2d):
+                    m.eps = 1e-3
+                    m.momentum = 0.03
+
+        if getattr(self, "model", None) is None:
+            in_channels = [256, 512, 1024]
+
+            ## ----- backbone and head
+            backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels)
+            if self.reid:
+                head = YOLOXTrackHead(self.num_classes, self.width, in_channels=in_channels)
+            else:
+                head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels)
+
+            ## ----- combine backbone abd head
+            self.model = YOLOX(backbone, head)
+
+        self.model.apply(init_yolo)
+        self.model.head.initialize_biases(1e-2)
+
+        return self.model
 
     def get_data_loader(self,
                         batch_size,

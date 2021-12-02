@@ -64,7 +64,7 @@ class Exp(BaseExp):
         """
         :return:
         """
-        from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead, YOLOXTrackHead
+        from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead
 
         def init_yolo(M):
             """
