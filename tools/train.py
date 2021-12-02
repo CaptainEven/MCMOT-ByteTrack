@@ -44,11 +44,15 @@ def make_parser():
     ## ----- data root dir, eg: /mnt/diskd/even/MOT17, /mnt/diskb/maqiao/multiClass
     parser.add_argument("--data_dir",
                         type=str,
-                        default="/mnt/diskb/even/dataset/MCMOT_TEST",
+                        default="",
                         help="")
     parser.add_argument("--train_root",
                         type=str,
-                        default="",
+                        default="/mnt/diskb/even/dataset/MCMOT",
+                        help="")
+    parser.add_argument("--val_root",
+                        type=str,
+                        default="/mnt/diskb/even/dataset/MCMOT_TEST",
                         help="")
 
     ## ---------- expiriment file path, eg: ../exps/example/mot/yolox_tiny_det.py

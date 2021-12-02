@@ -2,13 +2,13 @@
 # encoding=utf-8
 # Copyright (c) Megvii, Inc. and its affiliates.
 
+import itertools
+from typing import Optional
+
 import torch
 import torch.distributed as dist
 from torch.utils.data.sampler import BatchSampler as torchBatchSampler
 from torch.utils.data.sampler import Sampler
-
-import itertools
-from typing import Optional
 
 
 class YoloBatchSampler(torchBatchSampler):
@@ -60,14 +60,12 @@ class InfiniteSampler(Sampler):
     or `range(size) + range(size) + ...` (if shuffle is False)
     """
 
-    def __init__(
-        self,
-        size: int,
-        shuffle: bool = True,
-        seed: Optional[int] = 0,
-        rank=0,
-        world_size=1,
-    ):
+    def __init__(self,
+                 size: int,
+                 shuffle: bool = True,
+                 seed: Optional[int] = 0,
+                 rank=0,
+                 world_size=1, ):
         """
         Args:
             size (int): the total number of data of the underlying dataset to sample from

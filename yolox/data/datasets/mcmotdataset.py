@@ -56,8 +56,9 @@ class MCMOTDataset(Dataset):
         self.img_paths = []
         self.txt_paths = []
         for img_dir in self.img_dirs:
-            for img_path in img_dir:
-                if img_path.endswith(".jpg"):
+            for img_name in os.listdir(img_dir):
+                if img_name.endswith(".jpg"):
+                    img_path = img_dir + "/" + img_name
                     txt_path = img_path.replace("JPEGImages", "labels_with_ids") \
                         .replace(".jpg", ".txt")
                     if os.path.isfile(img_path) and os.path.isfile(txt_path):
@@ -73,6 +74,7 @@ class MCMOTDataset(Dataset):
         """
         H, W = img_info
         label_path = self.txt_paths[idx]
+        label = []
         with open(label_path, "r", encoding="utf-8") as f:
             for line in f.readlines():
                 line = line.strip()

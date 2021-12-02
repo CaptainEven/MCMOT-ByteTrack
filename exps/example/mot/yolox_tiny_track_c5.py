@@ -68,6 +68,7 @@ class Exp(MyExp):
         from yolox.data import (
             MCMOTDataset,
             TrainTransform,
+            TrainTransformTrack,
             YoloBatchSampler,
             DataLoader,
             InfiniteSampler,
@@ -78,7 +79,7 @@ class Exp(MyExp):
 
         dataset = MCMOTDataset(data_dir=data_dir,
                                img_size=(768, 448),
-                               preproc=TrainTransform(
+                               preproc=TrainTransformTrack(
                                    rgb_means=(0.485, 0.456, 0.406),
                                    std=(0.229, 0.224, 0.225),
                                    max_labels=50,
