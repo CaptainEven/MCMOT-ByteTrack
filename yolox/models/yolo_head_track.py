@@ -48,8 +48,8 @@ class YOLOXTrackHead(nn.Module):
 
         ## ----- @even
         self.reid = reid
-        if self.reid:
-            self.reid_preds = nn.ModuleList()
+        # if self.reid:
+        #     self.reid_preds = nn.ModuleList()
 
         self.stems = nn.ModuleList()
 
@@ -102,6 +102,14 @@ class YOLOXTrackHead(nn.Module):
                                             stride=1,
                                             padding=0, ))
 
+            ## ----- @even: feature map output
+            if self.reid and i == 0:
+                self.reid_preds = nn.Conv2d(in_channels=int(256 * width),
+                                                 out_channels=128,
+                                                 kernel_size=1,
+                                                 stride=1,
+                                                 padding=0, )
+
         self.use_l1 = False
         self.l1_loss = nn.L1Loss(reduction="none")
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
@@ -146,8 +154,8 @@ class YOLOXTrackHead(nn.Module):
             cls_x = x
             reg_x = x
 
-            ## @even ----- reid feature map
-            if self.reid:
+            ## @even ----- reid feature map(only 1/8 scale)
+            if self.reid and k == 0:
                 reid_x = x
 
             ## ----- classification output
@@ -162,7 +170,7 @@ class YOLOXTrackHead(nn.Module):
             obj_output = self.obj_preds[k](reg_feat)
 
             ## @even: ----- feature map output
-            if self.reid:
+            if self.reid and k == 0:  # 18×128×56×96
                 feature_output = self.reid_preds.forward(reid_x)
 
             if self.training:

@@ -38,10 +38,20 @@ def get_activation(name="silu", inplace=True):
 class BaseConv(nn.Module):
     """A Conv2d -> Batchnorm -> silu/leaky relu block"""
 
-    def __init__(
-            self, in_channels, out_channels, ksize, stride, groups=1, bias=False, act="silu"
-    ):
+    def __init__(self, in_channels, out_channels,
+                 ksize, stride, groups=1,
+                 bias=False, act="silu"):
+        """
+        :param in_channels:
+        :param out_channels:
+        :param ksize:
+        :param stride:
+        :param groups:
+        :param bias:
+        :param act:
+        """
         super().__init__()
+
         # same padding
         pad = (ksize - 1) // 2
         self.conv = nn.Conv2d(
@@ -57,9 +67,17 @@ class BaseConv(nn.Module):
         self.act = get_activation(act, inplace=True)
 
     def forward(self, x):
+        """
+        :param x:
+        :return:
+        """
         return self.act(self.bn(self.conv(x)))
 
     def fuseforward(self, x):
+        """
+        :param x:
+        :return:
+        """
         return self.act(self.conv(x))
 
 

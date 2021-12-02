@@ -10,7 +10,7 @@ from yolox.exp import Exp as MyExp
 
 
 class Exp(MyExp):
-    def __init__(self, n_workers=4, debug=False, reid=False):
+    def __init__(self, n_workers=4, debug=False, reid=True):
         """
         YOLOX Tiny
         :param n_workers:
@@ -79,7 +79,7 @@ class Exp(MyExp):
             ## ----- backbone and head
             backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels)
             if self.reid:
-                head = YOLOXTrackHead(self.num_classes, self.width, in_channels=in_channels)
+                head = YOLOXTrackHead(self.num_classes, self.width, in_channels=in_channels, reid=True)
             else:
                 head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels)
 
