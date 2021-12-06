@@ -476,7 +476,7 @@ class YOLOXTrackHead(nn.Module):
 
                 feature = feature_output[batch_idx, :, Ys, Xs]
                 feature.transpose_(0, 1)
-                reid_feature_targets.append(feature)
+                reid_feature_targets.append(feature)  # N×128
                 ## ----------
 
                 if self.use_l1:
