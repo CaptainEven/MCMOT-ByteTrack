@@ -8,7 +8,7 @@ from .yolo_head import YOLOXHead
 from .yolo_pafpn import YOLOPAFPN
 
 
-class YOLOX(nn.Module):
+class YOLOXReID(nn.Module):
     """
     YOLOX model module. The module list is defined by create_yolov3_modules function.
     The network returns loss values from three YOLO layers during training
@@ -41,14 +41,16 @@ class YOLOX(nn.Module):
 
         if self.training:
             assert targets is not None
-
-            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = self.head.forward(fpn_outs, targets, x)
+            
+            loss, iou_loss, conf_loss, cls_loss, l1_loss, loss_reid, num_fg = \
+                self.head.forward(fpn_outs, targets, x)
             outputs = {
                 "total_loss": loss,
                 "iou_loss": iou_loss,
                 "l1_loss": l1_loss,
                 "conf_loss": conf_loss,
                 "cls_loss": cls_loss,
+                "reid_loss": loss_reid,
                 "num_fg": num_fg,
             }
         else:

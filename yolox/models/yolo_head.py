@@ -310,7 +310,7 @@ class YOLOXHead(nn.Module):
             else:
                 ## ----- Get ground truths
                 gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:5]  # reg
-                gt_classes = labels[batch_idx, :num_gt, 0]             # cls
+                gt_classes = labels[batch_idx, :num_gt, 0]  # cls
                 bboxes_preds_per_image = bbox_preds[batch_idx]
 
                 try:  # noqa

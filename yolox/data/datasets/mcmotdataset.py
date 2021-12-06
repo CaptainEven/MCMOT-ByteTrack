@@ -83,7 +83,8 @@ class MCMOTDataset(Dataset):
 
                 ## ----- parsing
                 cls_id = items[0]
-                tr_id = items[1] - 1  # track id should start with 0
+                tr_id = items[1]
+                # tr_id = items[1] - 1  # track id should start with 0
 
                 cx = items[2] * W
                 cy = items[3] * H
@@ -95,7 +96,7 @@ class MCMOTDataset(Dataset):
                 y1 = cy - bh * 0.5
                 y2 = cy + bh * 0.5
 
-                ## -----
+                ## ----- 0   1   2   3      4      5
                 items = [x1, y1, x2, y2, cls_id, tr_id]
                 label.append(items)
                 target = np.array(label, dtype=np.float32)

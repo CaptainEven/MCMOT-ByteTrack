@@ -126,12 +126,10 @@ class Trainer:
             param_group["lr"] = lr
 
         iter_end_time = time.time()
-        self.meter.update(
-            iter_time=iter_end_time - iter_start_time,
-            data_time=data_end_time - iter_start_time,
-            lr=lr,
-            **outputs,
-        )
+        self.meter.update(iter_time=iter_end_time - iter_start_time,
+                          data_time=data_end_time - iter_start_time,
+                          lr=lr,
+                          **outputs, )
 
     def before_train(self):
         """
@@ -238,6 +236,9 @@ class Trainer:
             self.evaluate_and_save_model()
 
     def before_iter(self):
+        """
+        :return:
+        """
         pass
 
     def after_iter(self):
@@ -248,34 +249,31 @@ class Trainer:
         """
         # log needed information
         if (self.iter + 1) % self.exp.print_interval == 0:
-            # TODO check ETA logic
+            ## TODO check ETA logic
             left_iters = self.max_iter * self.max_epoch - (self.progress_in_iter + 1)
             eta_seconds = self.meter["iter_time"].global_avg * left_iters
             eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
 
-            progress_str = "epoch: {}/{}, iter: {}/{}".format(
-                self.epoch + 1, self.max_epoch, self.iter + 1, self.max_iter
-            )
+            progress_str = "epoch: {}/{}, iter: {}/{}".format(self.epoch + 1,
+                                                              self.max_epoch,
+                                                              self.iter + 1,
+                                                              self.max_iter)
             loss_meter = self.meter.get_filtered_meter("loss")
-            loss_str = ", ".join(
-                ["{}: {:.3f}".format(k, v.latest) for k, v in loss_meter.items()]
-            )
+            loss_str = ", ".join(["{}: {:.3f}".format(k, v.latest)
+                                  for k, v in loss_meter.items()])
 
             time_meter = self.meter.get_filtered_meter("time")
             time_str = ", ".join(
                 ["{}: {:.3f}s".format(k, v.avg) for k, v in time_meter.items()]
             )
 
-            logger.info(
-                "{}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}".format(
-                    progress_str,
-                    gpu_mem_usage(),
-                    time_str,
-                    loss_str,
-                    self.meter["lr"].latest,
-                )
-                + (", size: {:d}, {}".format(self.input_size[0], eta_str))
-            )
+            logger.info("{}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}"
+                        .format(progress_str,
+                                gpu_mem_usage(),
+                                time_str,
+                                loss_str,
+                                self.meter["lr"].latest, )
+                        + (", size: {:d}, {}".format(self.input_size[0], eta_str)))
             self.meter.clear_meters()
 
         # random resizing

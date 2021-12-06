@@ -21,7 +21,9 @@ class YOLOXTrackHead(nn.Module):
                  in_channels=[256, 512, 1024],
                  act="silu",
                  depthwise=False,
-                 reid=False):
+                 reid=False,
+                 max_id_dict=None,
+                 net_size=(448, 768)):
         """
         compute loss in Head
         :param num_classes:
@@ -31,11 +33,20 @@ class YOLOXTrackHead(nn.Module):
         :param act(str): activation type of conv. Defalut value: "silu".
         :param depthwise (bool): wheather apply depthwise conv in conv branch. Defalut value: False.
         :param reid:
+        :param max_id_dict:
+        :param net_size: net_H, net_W
         """
         super().__init__()
 
         self.n_anchors = 1
         self.num_classes = num_classes
+
+        self.net_size = net_size
+        print("Net size: ", self.net_size)
+
+        self.scale_1st = 0.125  # 1/8
+        self.scale_1st_size = (56, 96)  # eg: 18×96×56×96
+
         self.decode_in_inference = True  # for deploy, set to False
 
         self.cls_convs = nn.ModuleList()
@@ -48,8 +59,13 @@ class YOLOXTrackHead(nn.Module):
 
         ## ----- @even
         self.reid = reid
-        # if self.reid:
-        #     self.reid_preds = nn.ModuleList()
+        if self.reid:
+            # ----- Define ReID classifiers
+            if max_id_dict is not None:
+                self.max_id_dict = max_id_dict
+                self.reid_classifiers = nn.ModuleList()  # num_classes layers of FC
+                for cls_id, nID in self.max_id_dict.items():
+                    self.reid_classifiers.append(nn.Linear(128, nID))  # normal FC layers
 
         self.stems = nn.ModuleList()
 
@@ -111,9 +127,13 @@ class YOLOXTrackHead(nn.Module):
                                             padding=0, )
 
         self.use_l1 = False
+
+        ## ---------- Define loss fuctions
         self.l1_loss = nn.L1Loss(reduction="none")
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
         self.iou_loss = IOUloss(reduction="none")
+        self.reid_loss = nn.CrossEntropyLoss()
+
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(in_channels)
         self.expanded_strides = [None] * len(in_channels)
@@ -148,6 +168,12 @@ class YOLOXTrackHead(nn.Module):
         x_shifts = []
         y_shifts = []
         expanded_strides = []
+
+        ## --------- recoard first scale(max scale)'s feature map size
+        # self.scale_1st_size = xin[0].size()
+
+        ## --------- recoard first scale(max scale)'s scale
+        # self.scale_1st = self.scale_1st_size[2] / self.net_size[0]
 
         ## ---------- processing 3 scales: 1/8, 1/16, 1/32
         for k, (cls_conv, reg_conv, stride_this_level, x) in enumerate(
@@ -204,16 +230,23 @@ class YOLOXTrackHead(nn.Module):
         if self.training:
             ## ---------- compute losses in the head
             if self.reid:
-                return self.get_losses_with_reid(
-                    imgs,
-                    x_shifts,
-                    y_shifts,
-                    expanded_strides,
-                    labels,
-                    torch.cat(outputs, 1), feature_output,
-                    origin_preds,
-                    dtype=xin[0].dtype,
-                )
+                # return self.get_losses_with_reid(imgs,
+                #                                  x_shifts,
+                #                                  y_shifts,
+                #                                  expanded_strides,
+                #                                  labels,
+                #                                  torch.cat(outputs, 1), feature_output,
+                #                                  origin_preds,
+                #                                  dtype=xin[0].dtype, )
+                loss_items = self.get_losses_with_reid(imgs,
+                                                       x_shifts,
+                                                       y_shifts,
+                                                       expanded_strides,
+                                                       labels,
+                                                       torch.cat(outputs, 1), feature_output,
+                                                       origin_preds,
+                                                       dtype=xin[0].dtype, )
+                return loss_items
             else:
                 return self.get_losses(
                     imgs,
@@ -308,6 +341,7 @@ class YOLOXTrackHead(nn.Module):
         :param dtype:
         :return:
         """
+        ## ---------- Get net outputs
         bbox_preds = outputs[:, :, :4]  # [batch, n_anchors_all, 4]
         obj_preds = outputs[:, :, 4].unsqueeze(-1)  # [batch, n_anchors_all, 1]
         cls_preds = outputs[:, :, 5:]  # [batch, n_anchors_all, n_cls]
@@ -327,13 +361,16 @@ class YOLOXTrackHead(nn.Module):
         x_shifts = torch.cat(x_shifts, 1)  # [1, n_anchors_all]
         y_shifts = torch.cat(y_shifts, 1)  # [1, n_anchors_all]
         expanded_strides = torch.cat(expanded_strides, 1)
-        if self.use_l1:
+        if self.use_l1:  # False
             origin_preds = torch.cat(origin_preds, 1)
 
         cls_targets = []
         reg_targets = []
-        l1_targets = []
         obj_targets = []
+        reid_id_targets = []  # track ids, using for ReID loss
+        reid_feature_targets = []
+        gt_cls_id_targets = []
+        l1_targets = []
         fg_masks = []
 
         num_fg = 0.0
@@ -352,8 +389,11 @@ class YOLOXTrackHead(nn.Module):
             else:
                 ## ----- Get ground truths
                 gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:5]  # reg
-                gt_classes = labels[batch_idx, :num_gt, 0]  # cls
-                bboxes_preds_per_image = bbox_preds[batch_idx]
+                gt_classes = labels[batch_idx, :num_gt, 0]  # class ids
+                gt_ids = labels[batch_idx, :num_gt, 5]  # track ids
+
+                ## ----- Get bbox(reg) predictions
+                bboxes_preds_per_image = bbox_preds[batch_idx]  #
 
                 try:  # noqa
                     (
@@ -418,6 +458,24 @@ class YOLOXTrackHead(nn.Module):
                              * pred_ious_this_matching.unsqueeze(-1)
                 obj_target = fg_mask.unsqueeze(-1)
                 reg_target = gt_bboxes_per_image[matched_gt_inds]
+                reid_target = gt_ids[matched_gt_inds]
+
+                gt_cls_id_targets.append(gt_matched_classes.to(torch.int64))
+
+                ## ----- Get feature vector for each GT bbox
+                YXs = reg_target[:, :2] * self.scale_1st  ##  + 0.5
+                YXs = YXs.long()
+
+                Ys = YXs[:, 0]
+                Xs = YXs[:, 1]
+
+                ## ----- avoid exceed reid feature map's range
+                Xs.clamp_(min=0, max=feature_output.shape[3] - 1)
+                Ys.clamp_(min=0, max=feature_output.shape[2] - 1)
+
+                feature = feature_output[batch_idx, :, Ys, Xs]
+                feature.transpose_(0, 1)
+                reid_feature_targets.append(feature)
                 ## ----------
 
                 if self.use_l1:
@@ -430,15 +488,21 @@ class YOLOXTrackHead(nn.Module):
             cls_targets.append(cls_target)
             reg_targets.append(reg_target)
             obj_targets.append(obj_target.to(dtype))
+            reid_id_targets.append(reid_target)
             fg_masks.append(fg_mask)
+
             if self.use_l1:
                 l1_targets.append(l1_target)
 
         cls_targets = torch.cat(cls_targets, 0)
         reg_targets = torch.cat(reg_targets, 0)
         obj_targets = torch.cat(obj_targets, 0)
+        reid_id_targets = torch.cat(reid_id_targets, 0)
+        reid_feature_targets = torch.cat(reid_feature_targets, 0)
+        gt_cls_id_targets = torch.cat(gt_cls_id_targets, 0)
         fg_masks = torch.cat(fg_masks, 0)
-        if self.use_l1:
+
+        if self.use_l1:  # False
             l1_targets = torch.cat(l1_targets, 0)
 
         num_fg = max(num_fg, 1)
@@ -446,15 +510,34 @@ class YOLOXTrackHead(nn.Module):
         loss_obj = (self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)).sum() / num_fg
         loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum() \
                    / num_fg
+
+        ## ----- compute ReID loss
+        loss_reid = 0.0
+        for cls_id, id_num in self.max_id_dict.items():
+            inds = torch.where(gt_cls_id_targets == cls_id)
+            if inds[0].shape[0] == 0:
+                # print('skip class id', cls_id)
+                continue
+
+            cls_features = reid_feature_targets[inds]
+            # print(cls_features.shape)
+
+            ## ----- L2 normalize the feature vector
+            cls_features = F.normalize(cls_features, dim=1)
+
+            ## ----- pass through the FC layer
+            cls_fc_preds = self.reid_classifiers[cls_id].forward(cls_features).contiguous()
+
+            ## ----- compute loss
+            loss_reid += self.reid_loss(cls_fc_preds, gt_cls_id_targets[inds])
+
         if self.use_l1:
-            loss_l1 = (
-                          self.l1_loss(origin_preds.view(-1, 4)[fg_masks], l1_targets)
-                      ).sum() / num_fg
+            loss_l1 = (self.l1_loss(origin_preds.view(-1, 4)[fg_masks], l1_targets)).sum() / num_fg
         else:
             loss_l1 = 0.0
 
         reg_weight = 5.0
-        loss = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1
+        loss = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1 + loss_reid
 
         return (
             loss,
@@ -462,6 +545,7 @@ class YOLOXTrackHead(nn.Module):
             loss_obj,
             loss_cls,
             loss_l1,
+            loss_reid,
             num_fg / max(num_gts, 1),
         )
 
@@ -909,3 +993,32 @@ class YOLOXTrackHead(nn.Module):
         pred_ious_this_matching = (matching_matrix * pair_wise_ious).sum(0)[fg_mask_inboxes]
 
         return num_fg, gt_matched_classes, pred_ious_this_matching, matched_gt_inds
+
+# Xs = torch.clamp(Xs, min=0, max=feature_output.shape[3] - 1)
+# Ys = torch.clamp(Ys, min=0, max=feature_output.shape[2] - 1)
+
+# for cls_id, id_num in self.max_id_dict.items():
+#     inds = torch.where(gt_matched_classes.long() == cls_id)
+#     print(inds)
+#     cls_reg_target = reg_target[inds]
+#     YXs = cls_reg_target[:2] * self.scale_1st
+#     YXs = YXs.long()
+#     feature = feature_output[batch_idx, :, YXs[0], YXs[1]]
+
+# feature = torch.zeros((YXs.shape[0], 128), dtype=feature_output.dtype).to(feature_output.device)
+# for box_i, (center_y, center_x) in enumerate(zip(Ys, Xs)):
+#     feature[box_i] = feature_output[batch_idx, :, center_y, center_x]
+
+# for box_i, bbox in enumerate(reg_target):
+#     center_x, center_y = bbox[:2]
+#     # print(center_x, center_y)
+
+#     center_x = center_x * self.scale_1st  ##  + 0.5
+#     center_y = center_y * self.scale_1st  ##  + 0.5
+#
+#     center_x = center_x.long()
+#     center_y = center_y.long()
+
+#     feature = feature_output[batch_idx, :, center_y, center_x]
+#     print(feature)
+#     reid_feature_targets.append(feature)

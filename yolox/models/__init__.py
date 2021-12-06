@@ -9,3 +9,4 @@ from .yolo_head import YOLOXHead
 from .yolo_head_track import YOLOXTrackHead
 from .yolo_pafpn import YOLOPAFPN
 from .yolox import YOLOX
+from .yolox_reid import YOLOXReID

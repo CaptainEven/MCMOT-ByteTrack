@@ -3,7 +3,7 @@
 import os
 
 os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '7'
 
 import argparse
 import random
@@ -89,7 +89,7 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=18,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
+                        default=12,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
     parser.add_argument("-d",
                         "--devices",

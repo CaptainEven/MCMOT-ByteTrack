@@ -4,6 +4,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.distributed as dist
+import numpy as np
 
 from yolox.data import get_yolox_datadir
 from yolox.exp import Exp as MyExp
@@ -31,6 +32,13 @@ class Exp(MyExp):
         self.train_f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
         self.test_f_list_path = "/users/duanyou/c5/data_all/test5000.txt"
         ## -----
+
+        ## ----- Define
+        self.max_id_dict_f_path = "/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz"
+        if os.path.isfile(self.max_id_dict_f_path):
+            load_dict = np.load(self.max_id_dict_f_path, allow_pickle=True)
+            self.max_id_dict = load_dict['max_id_dict'][()]
+            print(self.max_id_dict)
 
         if debug:
             self.data_num_workers = 0
@@ -61,7 +69,7 @@ class Exp(MyExp):
         """
         :return:
         """
-        from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead, YOLOXTrackHead
+        from yolox.models import YOLOPAFPN, YOLOX, YOLOXReID, YOLOXHead, YOLOXTrackHead
 
         def init_yolo(M):
             """
@@ -79,12 +87,18 @@ class Exp(MyExp):
             ## ----- backbone and head
             backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels)
             if self.reid:
-                head = YOLOXTrackHead(self.num_classes, self.width, in_channels=in_channels, reid=True)
+                head = YOLOXTrackHead(self.num_classes,
+                                      self.width,
+                                      in_channels=in_channels,
+                                      reid=True,
+                                      max_id_dict=self.max_id_dict,
+                                      net_size=(448, 768))
             else:
                 head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels)
 
             ## ----- combine backbone abd head
-            self.model = YOLOX(backbone, head)
+            # self.model = YOLOX(backbone, head)
+            self.model = YOLOXReID(backbone, head)
 
         self.model.apply(init_yolo)
         self.model.head.initialize_biases(1e-2)
