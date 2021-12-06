@@ -458,12 +458,13 @@ class YOLOXTrackHead(nn.Module):
                              * pred_ious_this_matching.unsqueeze(-1)
                 obj_target = fg_mask.unsqueeze(-1)
                 reg_target = gt_bboxes_per_image[matched_gt_inds]
-                reid_target = gt_ids[matched_gt_inds]
 
+                # ----- ReID targets
+                reid_target = gt_ids[matched_gt_inds]
                 gt_cls_id_targets.append(gt_matched_classes.to(torch.int64))
 
                 ## ----- Get feature vector for each GT bbox
-                YXs = reg_target[:, :2] * self.scale_1st  ##  + 0.5
+                YXs = reg_target[:, :2] * self.scale_1st + 0.5
                 YXs = YXs.long()
 
                 Ys = YXs[:, 0]
