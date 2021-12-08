@@ -52,6 +52,9 @@ class YOLOXTrackHead(nn.Module):
         self.cls_convs = nn.ModuleList()
         self.reg_convs = nn.ModuleList()
 
+        ## ----- @even: add ReID convs for decoupled head
+        self.reid_convs = nn.ModuleList()
+
         ## ----- outputs
         self.cls_preds = nn.ModuleList()
         self.reg_preds = nn.ModuleList()
@@ -99,6 +102,18 @@ class YOLOXTrackHead(nn.Module):
                                                        ksize=3,
                                                        stride=1,
                                                        act=act, ), ]))
+
+            if i == 0:
+                self.reid_convs.append(nn.Sequential(*[Conv(in_channels=int(256 * width),
+                                                            out_channels=int(256 * width),
+                                                            ksize=3,
+                                                            stride=1,
+                                                            act=act, ),
+                                                       Conv(in_channels=int(256 * width),
+                                                            out_channels=int(256 * width),
+                                                            ksize=3,
+                                                            stride=1,
+                                                            act=act, ), ]))
 
             ## ---------- Predictions
             self.cls_preds.append(nn.Conv2d(in_channels=int(256 * width),
@@ -176,8 +191,8 @@ class YOLOXTrackHead(nn.Module):
         # self.scale_1st = self.scale_1st_size[2] / self.net_size[0]
 
         ## ---------- processing 3 scales: 1/8, 1/16, 1/32
-        for k, (cls_conv, reg_conv, stride_this_level, x) in enumerate(
-                zip(self.cls_convs, self.reg_convs, self.strides, xin)
+        for k, (cls_conv, reg_conv, reid_conv, stride_this_level, x) in enumerate(
+                zip(self.cls_convs, self.reg_convs, self.reid_convs, self.strides, xin)
         ):
             x = self.stems[k](x)
             cls_x = x
@@ -200,7 +215,8 @@ class YOLOXTrackHead(nn.Module):
 
             ## @even: ----- feature map output
             if self.reid and k == 0:  # 18×128×56×96
-                feature_output = self.reid_preds.forward(reid_x)
+                reid_feat = reid_conv(reid_x)
+                feature_output = self.reid_preds.forward(reid_feat)
 
             if self.training:
                 ## ----- concatenate different branche of outputs
