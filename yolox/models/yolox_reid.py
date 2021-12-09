@@ -14,7 +14,6 @@ class YOLOXReID(nn.Module):
     The network returns loss values from three YOLO layers during training
     and detection results during test.
     """
-
     def __init__(self, backbone=None, head=None):
         """
         :param backbone:
