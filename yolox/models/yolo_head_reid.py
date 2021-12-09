@@ -246,23 +246,14 @@ class YOLOXHeadReID(nn.Module):
         if self.training:
             ## ---------- compute losses in the head
             if self.reid:
-                # return self.get_losses_with_reid(imgs,
-                #                                  x_shifts,
-                #                                  y_shifts,
-                #                                  expanded_strides,
-                #                                  labels,
-                #                                  torch.cat(outputs, 1), feature_output,
-                #                                  origin_preds,
-                #                                  dtype=xin[0].dtype, )
-                loss_items = self.get_losses_with_reid(imgs,
-                                                       x_shifts,
-                                                       y_shifts,
-                                                       expanded_strides,
-                                                       labels,
-                                                       torch.cat(outputs, 1), feature_output,
-                                                       origin_preds,
-                                                       dtype=xin[0].dtype, )
-                return loss_items
+                return self.get_losses_with_reid(imgs,
+                                                 x_shifts,
+                                                 y_shifts,
+                                                 expanded_strides,
+                                                 labels,
+                                                 torch.cat(outputs, 1), feature_output,
+                                                 origin_preds,
+                                                 dtype=xin[0].dtype, )
             else:
                 return self.get_losses(
                     imgs,
