@@ -355,7 +355,7 @@ class YOLOXHeadReID(nn.Module):
         cls_preds = outputs[:, :, 5:]  # [batch, n_anchors_all, n_cls]
 
         ## ----- @even: feature output using for ReID
-        feature_preds = feature_output
+        # feature_preds = feature_output
 
         ## ----- calculate targets
         mixup = labels.shape[2] > 5
