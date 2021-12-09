@@ -28,10 +28,10 @@ class Exp(MyExp):
         self.depth = 0.33
         self.width = 0.5
 
-        ## ----- Define file list path(imgs and txts(labels) path)
-        self.train_f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
-        self.test_f_list_path = "/users/duanyou/c5/data_all/test5000.txt"
-        ## -----
+        # ## ----- Define file list path(imgs and txts(labels) path)
+        # self.train_f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
+        # self.test_f_list_path = "/users/duanyou/c5/data_all/test5000.txt"
+        # ## -----
 
         ## ----- Define
         self.max_id_dict_f_path = "/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz"

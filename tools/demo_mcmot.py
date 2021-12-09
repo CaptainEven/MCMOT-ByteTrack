@@ -51,14 +51,14 @@ def make_parser():
     ## ----- exp file, eg: yolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5.py",
+                        default="../exps/example/mot/yolox_tiny_track_c5.py",
                         type=str,
                         help="pls input your expriment description file")
 
     ## ----- checkpoing file path, eg: bytetrack_x_mot17.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/c5_tiny_latest_ckpt.pth.tar",
+                        default="../pretrained/track_latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
 
@@ -101,7 +101,7 @@ def make_parser():
                         help="test img size")
     parser.add_argument("--fp16",
                         dest="fp16",
-                        default=False,
+                        default=False,  # False
                         action="store_true",
                         help="Adopting mix precision evaluating.")
     parser.add_argument("--fuse",
@@ -231,7 +231,7 @@ class Predictor(object):
 
         if isinstance(img, str):
             img_info["file_name"] = os.path.basename(img)
-            img = cv2.imread(img)
+            img = cv2.imread(img, cv2.IMREAD_UNCHANGED)
         else:
             img_info["file_name"] = None
 
