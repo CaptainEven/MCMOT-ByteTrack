@@ -61,10 +61,36 @@ class MCMOTDataset(Dataset):
                     img_path = img_dir + "/" + img_name
                     txt_path = img_path.replace("JPEGImages", "labels_with_ids") \
                         .replace(".jpg", ".txt")
+
                     if os.path.isfile(img_path) and os.path.isfile(txt_path):
+                        ## ----- Add img-label path pair
                         self.img_paths.append(img_path)
                         self.txt_paths.append(txt_path)
         print("Total {:d} samples.".format(len(self.img_paths)))
+
+        ## ---------- max ID dict initialization
+        self.max_id_dict = {}
+        for cls_id in range(len(self._classes)):
+            self.max_id_dict[cls_id] = 0
+        for label_path in self.txt_paths:
+            with open(label_path, "r", encoding="utf-8") as f:
+                for line in f.readlines():
+                    line = line.strip()
+                    items = line.split(" ")
+
+                    ## ----- map string to float
+                    items = list(map(lambda x: float(x), items))
+
+                    ## ----- parsing
+                    cls_id = items[0]
+                    tr_id = items[1]
+
+                    if tr_id > self.max_id_dict[cls_id]:
+                        self.max_id_dict[cls_id] = tr_id if tr_id >= 0 else 0
+
+        for cls_id in range(len(self._classes)):
+            self.max_id_dict[cls_id] = int(self.max_id_dict[cls_id]) + 1
+        print("MCMOT dataset initialized!")
 
     def load_label(self, idx, img_info):
         """
@@ -79,6 +105,8 @@ class MCMOTDataset(Dataset):
             for line in f.readlines():
                 line = line.strip()
                 items = line.split(" ")
+
+                ## ----- map string to float
                 items = list(map(lambda x: float(x), items))
 
                 ## ----- parsing

@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from loguru import logger
 
 from yolox.utils import bboxes_iou
-from .losses import IOUloss
+from .losses import IOUloss, GHMC
 from .network_blocks import BaseConv, DWConv
 
 
@@ -68,7 +68,7 @@ class YOLOXHeadReID(nn.Module):
                 self.max_id_dict = max_id_dict
                 self.reid_classifiers = nn.ModuleList()  # num_classes layers of FC
                 for cls_id, nID in self.max_id_dict.items():
-                    self.reid_classifiers.append(nn.Linear(128, nID + 10))  # normal FC layers
+                    self.reid_classifiers.append(nn.Linear(128, nID + 5))  # normal FC layers
 
         self.stems = nn.ModuleList()
 
@@ -148,6 +148,7 @@ class YOLOXHeadReID(nn.Module):
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
         self.iou_loss = IOUloss(reduction="none")
         self.reid_loss = nn.CrossEntropyLoss()
+        self.ghm_c = GHMC(bins=100)
 
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(in_channels)
@@ -533,13 +534,18 @@ class YOLOXHeadReID(nn.Module):
             ## ----- L2 normalize the feature vector
             cls_features = F.normalize(cls_features, dim=1)
 
-            ## ----- pass through the FC layer
+            ## ----- pass through the FC layer:
             cls_fc_preds = self.reid_classifiers[cls_id].forward(cls_features).contiguous()
 
             ## ----- compute loss
             cls_reid_id_target = reid_id_targets[inds]
             cls_reid_id_target = cls_reid_id_target.to(torch.int64)
-            loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
+            # loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
+
+            target = torch.zeros_like(cls_fc_preds)
+            target.scatter_(1, cls_reid_id_target.view(-1, 1).long(), 1)
+            label_weight = torch.ones_like(cls_fc_preds)
+            loss_reid += self.ghm_c.forward(cls_fc_preds, target, label_weight)
 
         if self.use_l1:
             loss_l1 = (self.l1_loss(origin_preds.view(-1, 4)[fg_masks], l1_targets)).sum() / num_fg

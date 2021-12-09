@@ -33,7 +33,7 @@ class Exp(MyExp):
         # self.test_f_list_path = "/users/duanyou/c5/data_all/test5000.txt"
         # ## -----
 
-        ## ----- Define
+        ## ----- Define max id dict
         self.max_id_dict_f_path = "/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz"
         if os.path.isfile(self.max_id_dict_f_path):
             load_dict = np.load(self.max_id_dict_f_path, allow_pickle=True)
@@ -137,6 +137,7 @@ class Exp(MyExp):
                                    std=(0.229, 0.224, 0.225),
                                    max_labels=50,
                                ), )
+        self.max_id_dict = dataset.max_id_dict
 
         # dataset = MosaicDetection(
         #     dataset,

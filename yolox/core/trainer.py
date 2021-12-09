@@ -158,7 +158,7 @@ class Trainer:
         self.train_loader = self.exp.get_data_loader(batch_size=self.args.batch_size,
                                                      is_distributed=self.is_distributed,
                                                      data_dir=self.args.train_root,
-                                                     no_aug=self.no_aug, )
+                                                     no_aug=self.no_aug)
 
         logger.info("Init prefetcher, this might take one minute or less...")
         self.prefetcher = DataPrefetcher(self.train_loader)
