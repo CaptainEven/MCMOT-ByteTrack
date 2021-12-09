@@ -218,7 +218,7 @@ class Predictor(object):
             self.model(x)
             self.model = model_trt
 
-        self.rgb_means = (0.485, 0.456, 0.406)
+        self.mean = (0.485, 0.456, 0.406)
         self.std = (0.229, 0.224, 0.225)
 
     def inference(self, img, timer):
@@ -240,7 +240,7 @@ class Predictor(object):
         img_info["width"] = width
         img_info["raw_img"] = img
 
-        img, ratio = preproc(img, self.test_size, self.rgb_means, self.std)
+        img, ratio = preproc(img, self.test_size, self.mean, self.std)
         img_info["ratio"] = ratio
         img = torch.from_numpy(img).unsqueeze(0)
         img = img.float()
@@ -646,14 +646,13 @@ def run(exp, args):
     os.makedirs(file_name, exist_ok=True)
 
     if args.save_result:
-        vis_folder = os.path.join(file_name, "track_vis")
-        os.makedirs(vis_folder, exist_ok=True)
+        vis_dir = os.path.join(file_name, "track_vis")
+        os.makedirs(vis_dir, exist_ok=True)
 
     if args.trt:
         args.device = "gpu"
 
     logger.info("Args: {}".format(args))
-
     if args.conf is not None:
         exp.test_conf = args.conf
     if args.nms is not None:
@@ -664,10 +663,8 @@ def run(exp, args):
     ## ----- Define the network
     model = exp.get_model()
     logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
-
     if args.device == "gpu":
         model.cuda()
-
     model.eval()
     ## -----
 
@@ -709,9 +706,9 @@ def run(exp, args):
 
     current_time = time.localtime()
     if args.demo == "image":
-        image_demo(predictor, vis_folder, args.path, current_time, args.save_result)
+        image_demo(predictor, vis_dir, args.path, current_time, args.save_result)
     elif args.demo == "video" or args.demo == "videos" or args.demo == "webcam":
-        imageflow_demo(predictor, vis_folder, current_time, args)
+        imageflow_demo(predictor, vis_dir, current_time, args)
 
 
 if __name__ == "__main__":
