@@ -39,7 +39,7 @@ def make_parser():
                         help="model name")
     parser.add_argument("-debug",
                         type=bool,
-                        default=True,
+                        default=False,  # True
                         help="")
 
     ## ----- object classes

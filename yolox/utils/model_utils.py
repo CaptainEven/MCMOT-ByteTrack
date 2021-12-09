@@ -16,19 +16,22 @@ __all__ = [
 ]
 
 
-def get_model_info(model, t_size):
+def get_model_info(model, t_size, stride=64):
     """
     :param model:
     :param t_size:
+    :param stride:
     :return:
     """
-    stride = 64
+    # stride = 64
     img = torch.zeros((1, 3, stride, stride), device=next(model.parameters()).device)
+
     flops, params = profile(deepcopy(model), inputs=(img,), verbose=False)
     params /= 1e6
     flops /= 1e9
     flops *= t_size[0] * t_size[1] / stride / stride * 2  # Gflops
     info = "Params: {:.2f}M, Gflops: {:.2f}".format(params, flops)
+
     return info
 
 
