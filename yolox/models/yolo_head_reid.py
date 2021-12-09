@@ -529,7 +529,6 @@ class YOLOXHeadReID(nn.Module):
                 continue
 
             cls_features = reid_feature_targets[inds]
-            # print(cls_features.shape)
 
             ## ----- L2 normalize the feature vector
             cls_features = F.normalize(cls_features, dim=1)
@@ -538,7 +537,8 @@ class YOLOXHeadReID(nn.Module):
             cls_fc_preds = self.reid_classifiers[cls_id].forward(cls_features).contiguous()
 
             ## ----- compute loss
-            loss_reid += self.reid_loss(cls_fc_preds, gt_cls_id_targets[inds])
+            cls_reid_id_target = reid_id_targets[inds].to(torch.int64)
+            loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
 
         if self.use_l1:
             loss_l1 = (self.l1_loss(origin_preds.view(-1, 4)[fg_masks], l1_targets)).sum() / num_fg
