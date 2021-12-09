@@ -68,7 +68,7 @@ class YOLOXHeadReID(nn.Module):
                 self.max_id_dict = max_id_dict
                 self.reid_classifiers = nn.ModuleList()  # num_classes layers of FC
                 for cls_id, nID in self.max_id_dict.items():
-                    self.reid_classifiers.append(nn.Linear(128, nID))  # normal FC layers
+                    self.reid_classifiers.append(nn.Linear(128, nID + 10))  # normal FC layers
 
         self.stems = nn.ModuleList()
 
@@ -397,8 +397,8 @@ class YOLOXHeadReID(nn.Module):
             else:
                 ## ----- Get ground truths
                 gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:5]  # reg
-                gt_classes = labels[batch_idx, :num_gt, 0]  # class ids
-                gt_ids = labels[batch_idx, :num_gt, 5]  # track ids
+                gt_classes = labels[batch_idx, :num_gt, 0]             # class ids
+                gt_ids = labels[batch_idx, :num_gt, 5]                 # track ids
 
                 ## ----- Get bbox(reg) predictions
                 bboxes_preds_per_image = bbox_preds[batch_idx]  #
@@ -537,7 +537,8 @@ class YOLOXHeadReID(nn.Module):
             cls_fc_preds = self.reid_classifiers[cls_id].forward(cls_features).contiguous()
 
             ## ----- compute loss
-            cls_reid_id_target = reid_id_targets[inds].to(torch.int64)
+            cls_reid_id_target = reid_id_targets[inds]
+            cls_reid_id_target = cls_reid_id_target.to(torch.int64)
             loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
 
         if self.use_l1:
