@@ -69,7 +69,7 @@ class Exp(MyExp):
         """
         :return:
         """
-        from yolox.models import YOLOPAFPN, YOLOX, YOLOXReID, YOLOXHead, YOLOXTrackHead
+        from yolox.models import YOLOPAFPN, YOLOX, YOLOXReID, YOLOXHead, YOLOXHeadReID
 
         def init_yolo(M):
             """
@@ -87,18 +87,20 @@ class Exp(MyExp):
             ## ----- backbone and head
             backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels)
             if self.reid:
-                head = YOLOXTrackHead(self.num_classes,
-                                      self.width,
-                                      in_channels=in_channels,
-                                      reid=True,
-                                      max_id_dict=self.max_id_dict,
-                                      net_size=(448, 768))
+                head = YOLOXHeadReID(self.num_classes,
+                                     self.width,
+                                     in_channels=in_channels,
+                                     reid=True,
+                                     max_id_dict=self.max_id_dict,
+                                     net_size=(448, 768))
             else:
                 head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels)
 
             ## ----- combine backbone abd head
-            # self.model = YOLOX(backbone, head)
-            self.model = YOLOXReID(backbone, head)
+            if self.reid:
+                self.model = YOLOXReID(backbone, head)
+            else:
+                self.model = YOLOX(backbone, head)
 
         self.model.apply(init_yolo)
         self.model.head.initialize_biases(1e-2)

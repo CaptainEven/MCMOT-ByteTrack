@@ -65,7 +65,7 @@ def make_parser():
     ## ---------- checkpoint file path
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/track_latest_ckpt.pth.tar",  # yolox_tiny_32.8.pth
+                        default="../pretrained/c5_tiny_latest_ckpt.pth",  # yolox_tiny_32.8.pth
                         type=str,
                         help="checkpoint file")
     ## ----------

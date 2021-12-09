@@ -37,6 +37,10 @@ def make_parser():
                         type=str,
                         default=None,
                         help="model name")
+    parser.add_argument("-debug",
+                        type=bool,
+                        default=True,
+                        help="")
 
     ## ----- object classes
     parser.add_argument("--n_classes",
@@ -662,7 +666,8 @@ def run(exp, args):
 
     ## ----- Define the network
     model = exp.get_model()
-    logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
+    if not args.debug:
+        logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
     if args.device == "gpu":
         model.cuda()
     model.eval()
