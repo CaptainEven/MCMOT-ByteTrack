@@ -175,9 +175,6 @@ class YOLOXHeadReID(nn.Module):
             b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
             conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
-        if self.reid:
-            pass
-
     def forward(self, xin, labels=None, imgs=None):
         """
         :param xin:
