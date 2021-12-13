@@ -1,4 +1,3 @@
-import numpy as np
 import lap
 import numpy as np
 import scipy
@@ -9,6 +8,12 @@ from yolox.tracker import kalman_filter
 
 
 def merge_matches(m1, m2, shape):
+    """
+    :param m1:
+    :param m2:
+    :param shape:
+    :return:
+    """
     O, P, Q = shape
     m1 = np.asarray(m1)
     m2 = np.asarray(m2)
@@ -209,5 +214,46 @@ def fuse_score(cost_matrix, detections):
     det_scores = np.expand_dims(det_scores, axis=0).repeat(cost_matrix.shape[0], axis=0)
     fuse_sim = iou_sim * det_scores
     fuse_cost = 1 - fuse_sim
+
+    return fuse_cost
+
+
+def fuse_costs(cost_mat1, cost_mat2):
+    """
+    :param cost_mat1:
+    :param cost_mat2:
+    :return:
+    """
+    if cost_mat1.size == 0:
+        return cost_mat1
+    if cost_mat2.size == 0:
+        return cost_mat2
+
+    sim1 = 1.0 - cost_mat1
+    sim2 = 1.0 - cost_mat2
+
+    fuse_sim = sim1 * sim2
+    fuse_cost = 1.0 - fuse_sim
+
+    return fuse_cost
+
+
+def weight_sum_costs(cost_mat1, cost_mat2, alpha=0.5):
+    """
+    :param cost_mat1:
+    :param cost_mat2:
+    :param alpha:
+    :return:
+    """
+    if cost_mat1.size == 0:
+        return cost_mat1
+    if cost_mat2.size == 0:
+        return cost_mat2
+
+    sim1 = 1.0 - cost_mat1
+    sim2 = 1.0 - cost_mat2
+
+    fuse_sim = sim1 * alpha + (1.0 - alpha) * sim2
+    fuse_cost = 1.0 - fuse_sim
 
     return fuse_cost

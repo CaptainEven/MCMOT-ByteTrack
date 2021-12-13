@@ -409,7 +409,8 @@ def video_tracking(predictor, cap, save_path, args):
             if dets is not None:
                 ## ----- update the frame
                 # online_targets = tracker.update(dets, [img_info['height'], img_info['width']], exp.test_size)
-                online_dict = tracker.update_mcmot(dets, [img_info['height'], img_info['width']], exp.test_size)
+                # online_dict = tracker.update_mcmot(dets, [img_info['height'], img_info['width']], exp.test_size)
+                online_dict = tracker.update_mcmot_emb(dets, feature_map, [img_info['height'], img_info['width']], exp.test_size)
 
                 ## ----- plot single-class multi-object tracking results
                 if tracker.num_classes == 1:
