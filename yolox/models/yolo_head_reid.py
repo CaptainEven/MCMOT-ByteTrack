@@ -398,8 +398,8 @@ class YOLOXHeadReID(nn.Module):
             else:
                 ## ----- Get ground truths
                 gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:5]  # reg
-                gt_classes = labels[batch_idx, :num_gt, 0]             # class ids
-                gt_ids = labels[batch_idx, :num_gt, 5]                 # track ids
+                gt_classes = labels[batch_idx, :num_gt, 0]  # class ids
+                gt_ids = labels[batch_idx, :num_gt, 5]  # track ids
 
                 ## ----- Get bbox(reg) predictions
                 bboxes_preds_per_image = bbox_preds[batch_idx]  #
@@ -821,12 +821,10 @@ class YOLOXHeadReID(nn.Module):
         ## ----- cxcywh
         pair_wise_ious = bboxes_iou(gt_bboxes_per_image, bboxes_preds_per_image, False)
 
-        gt_cls_per_image = (
-            F.one_hot(gt_classes.to(torch.int64), self.num_classes)
-                .float()
-                .unsqueeze(1)
-                .repeat(1, num_in_boxes_anchor, 1)
-        )
+        gt_cls_per_image = (F.one_hot(gt_classes.to(torch.int64), self.num_classes)
+                            .float()
+                            .unsqueeze(1)
+                            .repeat(1, num_in_boxes_anchor, 1))
         pair_wise_ious_loss = -torch.log(pair_wise_ious + 1e-8)
 
         if mode == "cpu":

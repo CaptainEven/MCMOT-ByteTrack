@@ -316,8 +316,11 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
             # save results
             results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
             timer.toc()
-            online_im = plot_tracking_sc(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
-                                         fps=1. / timer.average_time)
+            online_im = plot_tracking_sc(img_info['raw_img'],
+                                         online_tlwhs,
+                                         online_ids,
+                                         frame_id=frame_id + 1,
+                                         fps=1.0 / timer.average_time)
         else:
             timer.toc()
             online_im = img_info['raw_img']
