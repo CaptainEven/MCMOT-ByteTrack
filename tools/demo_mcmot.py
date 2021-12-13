@@ -37,9 +37,13 @@ def make_parser():
                         type=str,
                         default=None,
                         help="model name")
+    parser.add_argument("--reid",
+                        type=bool,
+                        default=True,
+                        help="")
     parser.add_argument("-debug",
                         type=bool,
-                        default=False,  # True
+                        default=True,  # True
                         help="")
 
     ## ----- object classes
@@ -194,7 +198,8 @@ class Predictor(object):
                  trt_file=None,
                  decoder=None,
                  device="cpu",
-                 fp16=False):
+                 fp16=False,
+                 reid=False):
         """
         :param model:
         :param exp:
@@ -202,6 +207,7 @@ class Predictor(object):
         :param decoder:
         :param device:
         :param fp16:
+        :param reid:
         """
         self.model = model
         self.decoder = decoder
@@ -211,6 +217,7 @@ class Predictor(object):
         self.test_size = exp.test_size
         self.device = device
         self.fp16 = fp16
+        self.reid = reid
 
         if trt_file is not None:
             from torch2trt import TRTModule
@@ -263,10 +270,17 @@ class Predictor(object):
             if self.decoder is not None:
                 outputs = self.decoder(outputs, dtype=outputs.type())
 
-            outputs = postprocess(outputs, self.num_classes, self.confthre, self.nmsthre)
+            if self.reid:
+                outputs, feature_map = outputs[0], outputs[1]
+                outputs = postprocess(outputs, self.num_classes, self.confthre, self.nmsthre)
+            else:
+                outputs = postprocess(outputs, self.num_classes, self.confthre, self.nmsthre)
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
 
-        return outputs, img_info
+        if self.reid:
+            return outputs, feature_map, img_info
+        else:
+            return outputs, img_info
 
 
 def image_demo(predictor, vis_folder, path, current_time, save_result):
@@ -385,7 +399,11 @@ def video_tracking(predictor, cap, save_path, args):
         ret_val, frame = cap.read()
 
         if ret_val:
-            outputs, img_info = predictor.inference(frame, timer)
+            if args.reid:
+                outputs, feature_map, img_info = predictor.inference(frame, timer)
+            else:
+                outputs, img_info = predictor.inference(frame, timer)
+
             dets = outputs[0]
 
             if dets is not None:
@@ -667,6 +685,10 @@ def run(exp, args):
     if args.tsize is not None:
         exp.test_size = (args.tsize, args.tsize)
 
+    ## ---------- whether to do ReID
+    if hasattr(exp, "reid"):
+        exp.reid = args.reid
+
     ## ----- Define the network
     model = exp.get_model()
     if not args.debug:
@@ -709,7 +731,7 @@ def run(exp, args):
         decoder = None
 
     ## ---------- Define the predictor
-    predictor = Predictor(model, exp, trt_file, decoder, args.device, args.fp16)
+    predictor = Predictor(model, exp, trt_file, decoder, args.device, args.fp16, args.reid)
     ## ----------
 
     current_time = time.localtime()

@@ -247,6 +247,7 @@ class YOLOXHead(nn.Module):
 
         outputs[..., :2] = (outputs[..., :2] + grids) * strides
         outputs[..., 2:4] = torch.exp(outputs[..., 2:4]) * strides
+
         return outputs
 
     def get_losses(self,

@@ -170,7 +170,7 @@ class YOLOXHeadReID(nn.Module):
             conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
         if self.reid:
-            conv = self.reg_preds
+            conv = self.reid_preds
             b = conv.bias.view(self.n_anchors, -1)
             b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
             conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
@@ -275,7 +275,10 @@ class YOLOXHeadReID(nn.Module):
             # [batch, n_anchors_all, 85]
             outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
             if self.decode_in_inference:
-                return self.decode_outputs(outputs, dtype=xin[0].type())
+                if self.reid:
+                    return self.decode_outputs(outputs, dtype=xin[0].type()), feature_output
+                else:
+                    return self.decode_outputs(outputs, dtype=xin[0].type())
             else:
                 return outputs
 
@@ -298,9 +301,9 @@ class YOLOXHeadReID(nn.Module):
             self.grids[k] = grid
 
         output = output.view(batch_size, self.n_anchors, n_ch, hsize, wsize)
-        output = output.permute(0, 1, 3, 4, 2).reshape(
-            batch_size, self.n_anchors * hsize * wsize, -1
-        )  ## --- reshape here
+
+        ## --- reshape here
+        output = output.permute(0, 1, 3, 4, 2).reshape(batch_size, self.n_anchors * hsize * wsize, -1)
 
         grid = grid.view(1, -1, 2)
         output[..., :2] = (output[..., :2] + grid) * stride
@@ -327,8 +330,8 @@ class YOLOXHeadReID(nn.Module):
         grids = torch.cat(grids, dim=1).type(dtype)
         strides = torch.cat(strides, dim=1).type(dtype)
 
-        outputs[..., :2] = (outputs[..., :2] + grids) * strides
-        outputs[..., 2:4] = torch.exp(outputs[..., 2:4]) * strides
+        outputs[..., :2] = (outputs[..., :2] + grids) * strides     # cx, cy
+        outputs[..., 2:4] = torch.exp(outputs[..., 2:4]) * strides  # w, h
 
         return outputs
 
