@@ -170,6 +170,12 @@ class YOLOXHeadReID(nn.Module):
             conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
         if self.reid:
+            conv = self.reg_preds
+            b = conv.bias.view(self.n_anchors, -1)
+            b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
+            conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
+
+        if self.reid:
             pass
 
     def forward(self, xin, labels=None, imgs=None):
@@ -838,11 +844,9 @@ class YOLOXHeadReID(nn.Module):
                                                         reduction="none").sum(-1)
         del cls_preds_
 
-        cost = (
-                pair_wise_cls_loss
+        cost = (pair_wise_cls_loss
                 + 3.0 * pair_wise_ious_loss
-                + 100000.0 * (~is_in_boxes_and_center)
-        )
+                + 100000.0 * (~is_in_boxes_and_center))
 
         (
             num_fg,
