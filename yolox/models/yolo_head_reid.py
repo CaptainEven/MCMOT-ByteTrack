@@ -576,15 +576,26 @@ class YOLOXHeadReID(nn.Module):
         self.loss_dict["reid_loss"] = loss_reid
         loss_sum = self.mtl_loss.forward(self.loss_dict)
 
+        # return (
+        #     loss_sum,
+        #     reg_weight * loss_iou,
+        #     loss_obj,
+        #     loss_cls,
+        #     loss_l1,
+        #     loss_reid,
+        #     num_fg / max(num_gts, 1),
+        # )
+
         return (
             loss_sum,
-            reg_weight * loss_iou,
-            loss_obj,
-            loss_cls,
-            loss_l1,
-            loss_reid,
+            self.loss_dict["iou_loss"],
+            self.loss_dict["obj_loss"],
+            self.loss_dict["cls_loss"],
+            self.loss_dict["l1_loss"],
+            self.loss_dict["reid_loss"],
             num_fg / max(num_gts, 1),
         )
+
 
     def get_losses(self,
                    imgs,
