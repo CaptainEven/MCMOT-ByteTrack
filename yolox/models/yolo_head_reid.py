@@ -549,7 +549,7 @@ class YOLOXHeadReID(nn.Module):
             # loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
 
             target = torch.zeros_like(cls_fc_preds)
-            target.scatter_(1, cls_reid_id_target.view(-1, 1).int64(), 1)
+            target.scatter_(1, cls_reid_id_target.view(-1, 1).to(torch.int64), 1)
             label_weight = torch.ones_like(cls_fc_preds)
             loss_reid += self.ghm_c.forward(cls_fc_preds, target, label_weight)
 

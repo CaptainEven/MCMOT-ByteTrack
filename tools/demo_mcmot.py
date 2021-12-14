@@ -26,7 +26,7 @@ def make_parser():
     parser = argparse.ArgumentParser("ByteTrack Demo!")
 
     parser.add_argument("--demo",
-                        default="video",  # image
+                        default="videos",  # image
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("-expn",
                         "--experiment-name",
