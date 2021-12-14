@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from loguru import logger
 
 from yolox.utils import bboxes_iou
-from .losses import IOUloss, GHMC
+from .losses import IOUloss, GHMC, UncertaintyLoss
 from .network_blocks import BaseConv, DWConv
 
 
@@ -149,6 +149,13 @@ class YOLOXHeadReID(nn.Module):
         self.iou_loss = IOUloss(reduction="none")
         self.reid_loss = nn.CrossEntropyLoss()
         self.ghm_c = GHMC(bins=100)
+
+        ## --- multi-task learning
+        self.tasks = ["iou", "obj", "cls", "l1", "reid"]
+        self.loss_dict = dict()
+        for task in self.tasks:
+            self.loss_dict[task] = 0.0
+        self.mtl_loss = UncertaintyLoss(self.tasks)
 
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(in_channels)
@@ -560,10 +567,17 @@ class YOLOXHeadReID(nn.Module):
             loss_l1 = 0.0
 
         reg_weight = 5.0
-        loss = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1 + loss_reid
+        # loss_sum = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1 + loss_reid
+
+        self.loss_dict["iou_loss"] = loss_iou
+        self.loss_dict["obj_loss"] = loss_obj
+        self.loss_dict["cls_loss"] = loss_cls
+        self.loss_dict["l1_loss"] = loss_l1
+        self.loss_dict["reid_loss"] = loss_reid
+        loss_sum = self.mtl_loss.forward(self.loss_dict)
 
         return (
-            loss,
+            loss_sum,
             reg_weight * loss_iou,
             loss_obj,
             loss_cls,

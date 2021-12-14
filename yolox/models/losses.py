@@ -207,7 +207,10 @@ class UncertaintyLoss(nn.Module):
         no longer yields negative loss v
         """
         super().__init__()
-        self.tasks = tasks.split('_')
+        if isinstance(tasks, str):
+            self.tasks = tasks.split('_')
+        elif isinstance(tasks, list):
+            self.tasks = tasks
         self.sigma = nn.Parameter(torch.ones(len(self.tasks)), requires_grad=True)
 
     def forward(self, losses):
@@ -215,12 +218,12 @@ class UncertaintyLoss(nn.Module):
         :param losses:
         :return:
         """
-        loss = 0
+        loss = 0.0
 
-        for idx, current_task in enumerate(self.tasks):
-            loss += (1 / (2 * self.sigma[idx].pow(2))) * losses[f"{current_task}_loss"] \
+        for idx, task in enumerate(self.tasks):
+            loss += (1 / (2 * self.sigma[idx].pow(2))) * losses[f"{task}_loss"] \
                     + torch.log(1 + self.sigma[idx].pow(2))
-            losses[f"sigma/{current_task}"] = self.sigma[idx]
-            losses[f"sigma/{current_task}_weightage"] = 1 / (2 * self.sigma[idx].pow(2))
+            losses[f"sigma/{task}"] = self.sigma[idx]
+            losses[f"sigma/{task}_weightage"] = 1 / (2 * self.sigma[idx].pow(2))
 
         return loss
