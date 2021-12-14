@@ -26,7 +26,7 @@ def make_parser():
     parser = argparse.ArgumentParser("ByteTrack Demo!")
 
     parser.add_argument("--demo",
-                        default="videos",  # image
+                        default="video",  # image
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("-expn",
                         "--experiment-name",
@@ -78,7 +78,7 @@ def make_parser():
 
     ## "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
     parser.add_argument("--path",
-                        default="../videos/7.mp4",
+                        default="../videos/test_13.mp4",
                         help="path to images or video")
 
     ## ----- Web camera's id
@@ -411,8 +411,8 @@ def video_tracking(predictor, cap, save_path, args):
                 ## ----- update the frame
                 img_size = [img_info['height'], img_info['width']]
                 # online_targets = tracker.update(dets, img_size, exp.test_size)
-                # online_dict = tracker.update_mcmot(dets, img_size, exp.test_size)
-                online_dict = tracker.update_mcmot_emb(dets, feature_map, img_size, exp.test_size)
+                online_dict = tracker.update_mcmot(dets, img_size, exp.test_size)
+                # online_dict = tracker.update_mcmot_emb(dets, feature_map, img_size, exp.test_size)
 
                 ## ----- plot single-class multi-object tracking results
                 if tracker.num_classes == 1:
@@ -517,7 +517,7 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             args.path = os.path.abspath(args.path)
 
             ## ----- video capture
-            cap = cv2.VideoCapture(video_path)
+            cap = cv2.VideoCapture(args.path)
             ## -----
 
             save_dir = os.path.join(vis_dir, video_name)
