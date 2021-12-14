@@ -878,18 +878,18 @@ class BYTETracker(object):
                     track.re_activate(det, self.frame_id, new_id=False)
                     refind_tracks_dict[cls_id].append(track)
 
-            ## ------ @even: Match the lost tracks and the unmatched dets
-            cls_dets_1st = [cls_dets_1st[i] for i in u_det_1st]
+            ## ------ @even: Match the unmatched dets and the lost tracks
+            # cls_dets_1st = [cls_dets_1st[i] for i in u_det_1st]
             cls_dets_2nd = [cls_dets_2nd[i] for i in u_det_2nd]
-            cls_dets_remain = cls_dets_1st + cls_dets_2nd
+            # cls_dets_remain = cls_dets_1st + cls_dets_2nd
             cls_lost_tracks = self.lost_tracks_dict[cls_id]
-            dists_emb = matching.embedding_distance(cls_lost_tracks, cls_dets_remain)
+            dists_emb = matching.embedding_distance(cls_lost_tracks, cls_dets_2nd)
 
-            matches, u_track, u_det = matching.linear_assignment(dists_emb, thresh=0.98)
+            matches, u_track, u_det = matching.linear_assignment(dists_emb, thresh=0.995)
 
             for i_track, i_det in matches:
                 track = cls_lost_tracks[i_track]
-                det = cls_dets_remain[i_det]
+                det = cls_dets_2nd[i_det]
 
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
@@ -898,7 +898,7 @@ class BYTETracker(object):
                     track.re_activate(det, self.frame_id, new_id=False)
                     refind_tracks_dict[cls_id].append(track)
 
-            ## ----- process unmatched tracks for 2 rounds
+            ## ----- process unmatched tracks for 2 rounds: mark as lost
             for i in u_track_2nd:
                 track = r_tracked_tracks[i]
 
@@ -909,7 +909,10 @@ class BYTETracker(object):
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             ## ----- current frame's unmatched detection
-            cls_dets_unmatched = [cls_dets_remain[i] for i in u_det]
+            cls_dets_1st = [cls_dets_1st[i] for i in u_det_1st]
+            cls_dets_2nd = [cls_dets_2nd[i] for i in u_det]
+            cls_dets_unmatched = cls_dets_1st + cls_dets_2nd
+            # cls_dets_unmatched = [cls_dets_remain[i] for i in u_det]
 
             ## ----- IOU matching
             dists_iou = matching.iou_distance(unconfirmed_dict[cls_id], cls_dets_unmatched)
