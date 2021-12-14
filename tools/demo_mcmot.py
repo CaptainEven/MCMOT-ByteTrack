@@ -388,12 +388,13 @@ def video_tracking(predictor, cap, save_path, args):
     results = []
 
     while True:
-        if frame_id != 0:
-            logger.info('Processing frame {:03d}/{:03d} | fps {:.2f}'
-                        .format(frame_id, n_frames, 1.0 / max(1e-5, timer.average_time)))
-        else:
-            logger.info('Processing frame {:03d}/{:03d} | fps {:.2f}'
-                        .format(frame_id, n_frames, 30.0))
+        if frame_id % 30 == 0:
+            if frame_id != 0:
+                logger.info('Processing frame {:03d}/{:03d} | fps {:.2f}'
+                            .format(frame_id, n_frames, 1.0 / max(1e-5, timer.average_time)))
+            else:
+                logger.info('Processing frame {:03d}/{:03d} | fps {:.2f}'
+                            .format(frame_id, n_frames, 30.0))
 
         ## ----- read the video
         ret_val, frame = cap.read()
