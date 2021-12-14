@@ -411,7 +411,7 @@ def video_tracking(predictor, cap, save_path, args):
                 ## ----- update the frame
                 img_size = [img_info['height'], img_info['width']]
                 # online_targets = tracker.update(dets, img_size, exp.test_size)
-                online_dict = tracker.update_mcmot(dets, img_size, exp.test_size)
+                online_dict = tracker.update_mcmot_byte(dets, img_size, exp.test_size)
                 # online_dict = tracker.update_mcmot_emb(dets, feature_map, img_size, exp.test_size)
 
                 ## ----- plot single-class multi-object tracking results

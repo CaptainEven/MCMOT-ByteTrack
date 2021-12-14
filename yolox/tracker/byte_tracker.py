@@ -1214,8 +1214,9 @@ class BYTETracker(object):
         return output_tracks_dict
         #################### MCMOT end
 
-    def update_mcmot(self, dets, img_size, net_size):
+    def update_mcmot_byte(self, dets, img_size, net_size):
         """
+        Original byte tracking
         :param dets:
         :param img_size:
         :param net_size:

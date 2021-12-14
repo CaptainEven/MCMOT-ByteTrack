@@ -187,10 +187,12 @@ def cmp2VideosExt(src_root, dst_root,
         os.system(cmd_str)
 
 
-def cmp2VideosForOutput(src_dir, dst_dir, ext=".mp4"):
+def cmp2VideosForOutput(src_dir, dst_dir, ID0=0, ID1=1, ext=".mp4"):
     """
     :param src_dir:
     :param dst_dir:
+    :param ID0:
+    :param ID1:
     :param ext:
     :return:
     """
@@ -213,7 +215,7 @@ def cmp2VideosForOutput(src_dir, dst_dir, ext=".mp4"):
     for sub_dir_path in sub_dirs:
         video_path_pairs = [sub_dir_path + "/" + x for x in os.listdir(sub_dir_path)
                             if x.endswith(ext)]
-        if len(video_path_pairs) != 2:
+        if len(video_path_pairs) < 2:
             print("[Err]: invalid video path pair!")
             continue
 
@@ -223,8 +225,8 @@ def cmp2VideosForOutput(src_dir, dst_dir, ext=".mp4"):
         os.system(cmd_str)
 
         video_path_pairs.sort()
-        vid1_path = video_path_pairs[0]
-        vid2_path = video_path_pairs[1]
+        vid1_path = video_path_pairs[ID0]
+        vid2_path = video_path_pairs[ID1]
 
         vid_name = os.path.split(sub_dir_path)[-1]
 
