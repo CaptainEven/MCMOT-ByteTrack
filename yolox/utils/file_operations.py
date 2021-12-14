@@ -226,8 +226,7 @@ def cmp2VideosForOutput(src_dir, dst_dir, ext=".mp4"):
         vid1_path = video_path_pairs[0]
         vid2_path = video_path_pairs[1]
 
-        vid1_name = os.path.split(vid1_path)[-1]
-        vid_name = vid1_name.replace(flag1, "")
+        vid_name = os.path.split(sub_dir_path)[-1]
 
         ## ----- 读取视频
         cap1 = cv2.VideoCapture(vid1_path)
@@ -269,7 +268,7 @@ def cmp2VideosForOutput(src_dir, dst_dir, ext=".mp4"):
             print("{:s} saved.".format(res_sv_path))
 
         ## ---------- 输出视频结果
-        vid_sv_path = dst_root + "/" + vid_name[:-len(ext)] + "cmp" + ext
+        vid_sv_path = dst_dir + "/" + vid_name + "_cmp" + ext
         cmd_str = 'ffmpeg -f image2 -r 6 -i {:s}/%04d.jpg -b 5000k -c:v mpeg4 {}' \
             .format(tmp_dir, vid_sv_path)
         print(cmd_str)
@@ -277,7 +276,11 @@ def cmp2VideosForOutput(src_dir, dst_dir, ext=".mp4"):
 
 
 if __name__ == "__main__":
-    cmp2VideosDir(src_dir1="/mnt/diskc/even/ByteTrack/YOLOX_outputs/output/vx",
-                  src_dir2="/mnt/diskc/even/ByteTrack/YOLOX_outputs/output/v4",
-                  dst_dir="/mnt/diskc/even/ByteTrack/output",
-                  ext=".mp4")
+    # cmp2VideosDir(src_dir1="/mnt/diskc/even/ByteTrack/YOLOX_outputs/output/vx",
+    #               src_dir2="/mnt/diskc/even/ByteTrack/YOLOX_outputs/output/v4",
+    #               dst_dir="/mnt/diskc/even/ByteTrack/output",
+    #               ext=".mp4")
+
+    cmp2VideosForOutput(src_dir="/mnt/diskc/even/ByteTrack/YOLOX_outputs/yolox_tiny_track_c5/track_vis",
+                        dst_dir="/mnt/diskc/even/ByteTrack/YOLOX_outputs/",
+                        ext=".mp4")
