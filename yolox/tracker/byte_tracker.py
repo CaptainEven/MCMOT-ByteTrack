@@ -5,7 +5,7 @@ from collections import defaultdict, deque
 
 import numpy as np
 import torch
-
+import torch.nn.functional as F
 from yolox.tracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
@@ -675,7 +675,10 @@ class BYTETracker(object):
         img_h, img_w = img_size
         net_h, net_w = net_size
         feat_h, feat_w = feature_map.shape[2:]  # NCHW
-        scale = min(net_h / float(img_h), net_w / float(img_w))
+        # scale = min(net_h / float(img_h), net_w / float(img_w))
+
+        ## ----- L2 normalize the feature map(feature map scale(1/4 of net input size))
+        feature_map = F.normalize(feature_map, dim=1)
 
         ## ----- gpu ——> cpu
         with torch.no_grad():
@@ -694,8 +697,13 @@ class BYTETracker(object):
             elif det.size == 6:
                 x1, y1, x2, y2, score, cls_id = det  # 6
 
+            ## ----- bbox scaling
+            x1 = x1 / float(net_w) * float(img_w)
+            x2 = x2 / float(net_w) * float(img_w)
+            y1 = y1 / float(net_h) * float(img_h)
+            y2 = y2 / float(net_h) * float(img_h)
             box = np.array([x1, y1, x2, y2])
-            box /= scale
+            # box /= scale
 
             ## ----- Fill the bbox dict
             boxxes_dict[int(cls_id)].append(box)
@@ -723,7 +731,7 @@ class BYTETracker(object):
             center_y = center_y if center_y >= 0 else 0
             center_y = center_y if center_y < feat_h else feat_h - 1
 
-            # get reid feature vector and put into a dict
+            ## ----- Fill the feature dict
             id_feat_vect = feature_map[0, :, center_y, center_x]
             id_feat_vect = id_feat_vect.squeeze()
             feats_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
