@@ -11,7 +11,7 @@ from yolox.exp import Exp as MyExp
 
 
 class Exp(MyExp):
-    def __init__(self, n_workers=4, debug=False, reid=True):
+    def __init__(self, n_workers=8, debug=False, reid=True):
         """
         YOLOX Tiny
         :param n_workers:
@@ -55,7 +55,8 @@ class Exp(MyExp):
         self.test_size = (448, 768)  # (608, 1088)
         self.random_size = (12, 26)
         self.max_epoch = 100
-        self.print_interval = 20
+        self.print_interval = 30
+        self.save_ckpt_batch_interval = 100  # save ckpt every 100 iters
         self.eval_interval = 0  # 5
         self.test_conf = 0.001
         self.nmsthre = 0.7

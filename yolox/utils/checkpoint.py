@@ -47,6 +47,7 @@ def save_checkpoint(state, is_best, save_dir, model_name=""):
         os.makedirs(save_dir)
 
     file_path = os.path.join(save_dir, model_name + "_ckpt.pth.tar")
+    file_path = os.path.abspath(file_path)
     torch.save(state, file_path)
     print("{:s} saved.".format(file_path))
 

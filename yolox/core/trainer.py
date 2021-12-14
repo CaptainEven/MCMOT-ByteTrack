@@ -111,7 +111,8 @@ class Trainer:
 
         with torch.cuda.amp.autocast(enabled=self.amp_training):
             outputs = self.model.forward(inps, targets)
-        loss = outputs["total_loss"]
+        # loss = outputs["total_loss"]
+        loss = outputs["mtl_loss"]
 
         self.optimizer.zero_grad()
         self.scaler.scale(loss).backward()
@@ -197,7 +198,7 @@ class Trainer:
         :return:
         """
         logger.info("Training of experiment is done and the best AP is {:.2f}"
-            .format(self.best_ap * 100))
+                    .format(self.best_ap * 100))
 
     def before_epoch(self):
         """
@@ -247,7 +248,7 @@ class Trainer:
         """
         # log needed information
         if (self.iter + 1) % self.exp.print_interval == 0:
-            ## TODO check ETA logic
+            ## ----- TODO check ETA logic
             left_iters = self.max_iter * self.max_epoch - (self.progress_in_iter + 1)
             eta_seconds = self.meter["iter_time"].global_avg * left_iters
             eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
@@ -274,11 +275,17 @@ class Trainer:
                         + (", size: {:d}, {}".format(self.input_size[0], eta_str)))
             self.meter.clear_meters()
 
+        ## ----- @even: save ckpt during an epoch
+        if self.exp.save_ckpt_batch_interval != 0 \
+                and (self.iter + 1) % self.exp.save_ckpt_batch_interval == 0:
+            self.save_ckpt(ckpt_name="latest")
+
         # random resizing
         if self.exp.random_size is not None and (self.progress_in_iter + 1) % 10 == 0:
-            self.input_size = self.exp.random_resize(
-                self.train_loader, self.epoch, self.rank, self.is_distributed
-            )
+            self.input_size = self.exp.random_resize(self.train_loader,
+                                                     self.epoch,
+                                                     self.rank,
+                                                     self.is_distributed)
 
     @property
     def progress_in_iter(self):
