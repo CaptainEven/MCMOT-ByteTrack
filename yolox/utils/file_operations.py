@@ -187,7 +187,7 @@ def cmp2VideosExt(src_root, dst_root,
         os.system(cmd_str)
 
 
-def cmp2VideosForOutput(src_dir, dst_dir, ID0=0, ID1=1, ext=".mp4"):
+def cmp2VideosForOutput(src_dir, dst_dir, ID0=0, ID1=2, ext=".mp4"):
     """
     :param src_dir:
     :param dst_dir:
@@ -225,6 +225,8 @@ def cmp2VideosForOutput(src_dir, dst_dir, ID0=0, ID1=1, ext=".mp4"):
         os.system(cmd_str)
 
         video_path_pairs.sort()
+        if ID0 >= len(video_path_pairs) - 1 or ID1 > len(video_path_pairs) - 1:
+            continue
         vid1_path = video_path_pairs[ID0]
         vid2_path = video_path_pairs[ID1]
 

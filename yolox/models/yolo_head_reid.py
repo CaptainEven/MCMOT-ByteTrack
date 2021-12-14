@@ -546,8 +546,9 @@ class YOLOXHeadReID(nn.Module):
             ## ----- compute loss
             cls_reid_id_target = reid_id_targets[inds]
             cls_reid_id_target = cls_reid_id_target.to(torch.int64)
-            # loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
+            loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
 
+            # --- GHM-C loss
             target = torch.zeros_like(cls_fc_preds)
             target.scatter_(1, cls_reid_id_target.view(-1, 1).to(torch.int64), 1)
             label_weight = torch.ones_like(cls_fc_preds)
