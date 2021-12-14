@@ -885,7 +885,7 @@ class BYTETracker(object):
             cls_lost_tracks = self.lost_tracks_dict[cls_id]
             dists_emb = matching.embedding_distance(cls_lost_tracks, cls_dets_remain)
 
-            matches, u_track, u_det = matching.linear_assignment(dists_emb, thresh=0.95)
+            matches, u_track, u_det = matching.linear_assignment(dists_emb, thresh=0.98)
 
             for i_track, i_det in matches:
                 track = cls_lost_tracks[i_track]
