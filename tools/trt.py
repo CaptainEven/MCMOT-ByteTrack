@@ -82,16 +82,18 @@ def main():
     trt_save_path = os.path.abspath(os.path.join(file_path, "model_trt.pth"))
     print("Saving trt file to {:s}...".format(trt_save_path))
     torch.save(model_trt.state_dict(), trt_save_path)
+    print("{:s} saved.".format(trt_save_path))
     logger.info("Converted TensorRT model done.")
 
     engine_file_path = os.path.abspath(os.path.join(file_path, "model_trt.engine"))
     print("Engine file path: {:s}".format(engine_file_path))
 
-    engine_file_demo = os.path.join("deploy", "TensorRT", "cpp", "model_trt.engine")
+    engine_file_demo_path = os.path.join("../deploy", "TensorRT", "cpp", "model_trt.engine")
+    engine_file_demo_path = os.path.abspath(engine_file_demo_path)
     with open(engine_file_path, "wb") as f:
         f.write(model_trt.engine.serialize())
 
-    shutil.copyfile(engine_file_path, engine_file_demo)
+    shutil.copyfile(engine_file_path, engine_file_demo_path)
 
     logger.info("Converted TensorRT model engine file is saved for C++ inference.")
 
