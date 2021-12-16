@@ -63,10 +63,10 @@ def make_parser():
                         type=str,
                         help="pls input your expriment description file")
 
-    ## ----- checkpoing file path, eg: bytetrack_x_mot17.pth.tar, track_latest_ckpt.pth.tar
+    ## ----- checkpoing file path, eg: ../pretrained/latest_ckpt.pth.tar, track_latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/mtl_latest_ckpt.pth.tar",
+                        default="../YOLOX_outputs/yolox_tiny_track_c5/latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
 

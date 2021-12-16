@@ -148,7 +148,7 @@ class YOLOXHeadReID(nn.Module):
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
         self.iou_loss = IOUloss(reduction="none")
         self.reid_loss = nn.CrossEntropyLoss()
-        self.ghm_c = GHMC(bins=100)
+        self.ghm_c = GHMC(bins=50)
 
         ## --- multi-task learning
         self.tasks = ["iou", "obj", "cls", "l1", "reid"]
@@ -553,7 +553,7 @@ class YOLOXHeadReID(nn.Module):
             ## ----- compute loss
             cls_reid_id_target = reid_id_targets[inds]
             cls_reid_id_target = cls_reid_id_target.to(torch.int64)
-            loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
+            # loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
 
             # --- GHM-C loss
             target = torch.zeros_like(cls_fc_preds)

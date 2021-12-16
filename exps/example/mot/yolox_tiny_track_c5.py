@@ -56,12 +56,12 @@ class Exp(MyExp):
         self.random_size = (12, 26)
         self.max_epoch = 100
         self.print_interval = 30
-        self.save_ckpt_batch_interval = 100  # save ckpt every 100 iters
+        self.save_ckpt_batch_interval = 300  # save ckpt every 100 iters
         self.eval_interval = 0  # 5
         self.test_conf = 0.001
         self.nmsthre = 0.7
         self.no_aug_epochs = 10
-        self.basic_lr_per_img = 0.001 / 64.0
+        self.basic_lr_per_img = 0.001 / 64.0  # 0.001 / 64.0
         self.warmup_epochs = 1
 
         self.reid = reid

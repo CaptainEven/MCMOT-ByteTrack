@@ -103,8 +103,6 @@ class MCBaseTrack(object):
 
 
 class BaseTrack(object):
-    """
-    """
     _count = 0
 
     track_id = 0

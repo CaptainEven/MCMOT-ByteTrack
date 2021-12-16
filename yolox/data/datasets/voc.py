@@ -127,7 +127,7 @@ class VOCDetection(Dataset):
                 img_name = line.split('/')[-1].replace('.jpg', '').replace('\n', '')
                 self.ids.append((folder_name, img_name))
 
-        print("Total {:d} samples to be trained.".format(len(self.ids)))
+        print("Total {:d} VOC detection samples to be trained.".format(len(self.ids)))
 
     def __len__(self):
         """
@@ -207,13 +207,13 @@ class VOCDetection(Dataset):
         # print("--------------------------------------------------------------")
         return 0, 0  # np.mean(mAPs), mAPs[0]
 
-    def _get_voc_results_file_template(self):
+    def _get_voc_results_file_template(self): # not use.
         """
         :return:
         """
         filename = "comp4_det_test" + "_{:s}.txt"
         # filedir = os.path.join(self.root, "results", "VOC" + self._year, "Main")
-        filedir = os.path.join("/users/duanyou/c5/experiments/YOLOX-main/YOLOX_outputs/yolox-tiny")
+        filedir = os.path.join("/users/duanyou/c5/experiments/YOLOX-main-duan/YOLOX_outputs/yolox-tiny")
         if not os.path.exists(filedir):
             os.makedirs(filedir)
         path = os.path.join(filedir, filename)
@@ -227,7 +227,8 @@ class VOCDetection(Dataset):
         for im_ind, index in enumerate(self.ids):
             index0 = index[0]  # test_3000
             index1 = index[1]  # 10_2_XGTCTX00014_TX020127_20201222092014_866_0
-            filename = '/users/duanyou/c5/experiments/YOLOX-main/YOLOX_outputs/yolox_tiny/results_5000/' + index1 + '.txt'
+            filename = '/mnt/diskc/even/ByteTrack/YOLOX_outputs/yolox_nano_det_c5/results_3000/' + index1 + '.txt'
+            # filename = self.results_path + index1 + '.txt'
             with open(filename, "wt")as f:
                 f.write("class scores x y w h total= \n")
                 for cls_ind, cls in enumerate(C5_CLASSES):
@@ -323,7 +324,7 @@ class VOCDetection(Dataset):
         # print("Eval IoU : {:.2f}".format(iou))
         # if output_dir is not None and not os.path.isdir(output_dir):
         #     os.mkdir(output_dir)
-        cachedir = "/users/duanyou/c5/experiments/YOLOX-main/YOLOX_outputs/yolox-tiny"
+        cachedir = "/users/duanyou/c5/experiments/YOLOX-main-duan/YOLOX_outputs/yolox-tiny"
         annopath = []
         imagesetfile = []
         detall = [['name', 'obj_type', 'score', 0, 0, 0, 0]]

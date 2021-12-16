@@ -287,4 +287,5 @@ if __name__ == "__main__":
 
     cmp2VideosForOutput(src_dir="/mnt/diskc/even/ByteTrack/YOLOX_outputs/yolox_tiny_track_c5/track_vis",
                         dst_dir="/mnt/diskc/even/ByteTrack/YOLOX_outputs/",
+                        ID0=0, ID1=4,
                         ext=".mp4")
