@@ -58,12 +58,10 @@ class Trainer:
         if self.rank == 0:
             os.makedirs(self.file_name, exist_ok=True)
 
-        setup_logger(
-            self.file_name,
-            distributed_rank=self.rank,
-            filename="train_log.txt",
-            mode="a",
-        )
+        setup_logger(self.file_name,
+                     distributed_rank=self.rank,
+                     filename="train_log.txt",
+                     mode="a", )
 
     def train(self):
         """
@@ -111,8 +109,8 @@ class Trainer:
 
         with torch.cuda.amp.autocast(enabled=self.amp_training):
             outputs = self.model.forward(inps, targets)
-        # loss = outputs["total_loss"]
-        loss = outputs["mtl_loss"]
+        loss = outputs["total_loss"]
+        # loss = outputs["mtl_loss"]
 
         self.optimizer.zero_grad()
         self.scaler.scale(loss).backward()
@@ -363,7 +361,7 @@ class Trainer:
             save_checkpoint(ckpt_state, update_best_ckpt, self.file_name, ckpt_name, )
 
 
-class Trainer_det: # line 115. loss = outputs["total_loss"]
+class Trainer_det:  # line 115. loss = outputs["total_loss"]
     def __init__(self, exp, args):
         # init function only defines some basic attr, other attrs like model, optimizer are built in
         # before_train methods.

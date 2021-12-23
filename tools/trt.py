@@ -53,15 +53,16 @@ def main():
         args.experiment_name = exp.exp_name
 
     model = exp.get_model()
-    file_path = os.path.join(exp.output_dir, args.experiment_name)
-    os.makedirs(file_path, exist_ok=True)
+    dir_path = os.path.join(exp.output_dir, args.experiment_name)
+    os.makedirs(dir_path, exist_ok=True)
     if args.ckpt is None:
-        ckpt_file = os.path.join(file_path, "best_ckpt.pth.tar")
+        ckpt_file = os.path.join(dir_path, "best_ckpt.pth.tar")
     else:
         ckpt_file = args.ckpt
 
     if not os.path.isfile(ckpt_file):
         print("[Err]: invalid ckpt file path.".format(ckpt_file))
+        exit(-1)
     ckpt = torch.load(ckpt_file, map_location="cpu")
 
     ## ---------- load the model state dict
@@ -79,19 +80,21 @@ def main():
                           fp16_mode=True,
                           log_level=trt.Logger.INFO,
                           max_workspace_size=(1 << 32), )
-    trt_save_path = os.path.abspath(os.path.join(file_path, "model_trt.pth"))
+
+    trt_save_path = os.path.abspath(dir_path + "/" + exp.exp_name + "_trt.pth")
     print("Saving trt file to {:s}...".format(trt_save_path))
     torch.save(model_trt.state_dict(), trt_save_path)
     print("{:s} saved.".format(trt_save_path))
     logger.info("Converted TensorRT model done.")
 
-    engine_file_path = os.path.abspath(os.path.join(file_path, "model_trt.engine"))
+    engine_file_path = os.path.abspath(dir_path + "/" + exp.exp_name + "_trt.engine")
     print("Engine file path: {:s}".format(engine_file_path))
 
     engine_file_demo_path = os.path.join("../deploy", "TensorRT", "cpp", "model_trt.engine")
     engine_file_demo_path = os.path.abspath(engine_file_demo_path)
     with open(engine_file_path, "wb") as f:
         f.write(model_trt.engine.serialize())
+    print("{:s} saved.".format(engine_file_path))
 
     shutil.copyfile(engine_file_path, engine_file_demo_path)
 

@@ -25,9 +25,6 @@ def make_parser():
     """
     parser = argparse.ArgumentParser("ByteTrack Demo!")
 
-    parser.add_argument("--demo",
-                        default="videos",  # image
-                        help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("-expn",
                         "--experiment-name",
                         type=str,
@@ -70,6 +67,10 @@ def make_parser():
                         type=str,
                         help="ckpt for eval")
 
+    ## ---------- Input data
+    parser.add_argument("--demo",
+                        default="video",  # image
+                        help="demo type, eg. image, video, videos, and webcam")
     ## ----- videos dir's path
     parser.add_argument("--video_dir",
                         type=str,
@@ -78,7 +79,7 @@ def make_parser():
 
     ## "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
     parser.add_argument("--path",
-                        default="../videos/test_13.mp4",
+                        default="../videos/10.mp4",
                         help="path to images or video")
 
     ## ----- Web camera's id
@@ -341,9 +342,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
 
         # result_image = predictor.visual(outputs[0], img_info, predictor.confthre)
         if save_result:
-            save_folder = os.path.join(
-                vis_folder, time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
-            )
+            save_folder = os.path.join(vis_folder, time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
             os.makedirs(save_folder, exist_ok=True)
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
             cv2.imwrite(save_file_name, online_im)
@@ -411,8 +410,8 @@ def video_tracking(predictor, cap, save_path, args):
                 ## ----- update the frame
                 img_size = [img_info['height'], img_info['width']]
                 # online_targets = tracker.update(dets, img_size, exp.test_size)
-                online_dict = tracker.update_mcmot_byte(dets, img_size, exp.test_size)
-                # online_dict = tracker.update_mcmot_emb(dets, feature_map, img_size, exp.test_size)
+                # online_dict = tracker.update_mcmot_byte(dets, img_size, exp.test_size)
+                online_dict = tracker.update_mcmot_emb(dets, feature_map, img_size, exp.test_size)
 
                 ## ----- plot single-class multi-object tracking results
                 if tracker.num_classes == 1:

@@ -737,7 +737,8 @@ class BYTETracker(object):
             feats_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
 
         ## ---------- Update tracking results of this frame
-        online_targets = self.update_with_emb2(boxxes_dict, scores_dict, feats_dict)
+        online_targets = self.update_with_emb(boxxes_dict, scores_dict, feats_dict)
+        # online_targets = self.update_with_emb2(boxxes_dict, scores_dict, feats_dict)
         ## ----------
 
         ## return the frame's tracking results

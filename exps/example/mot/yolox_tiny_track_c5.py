@@ -11,7 +11,7 @@ from yolox.exp import Exp as MyExp
 
 
 class Exp(MyExp):
-    def __init__(self, n_workers=8, debug=False, reid=True):
+    def __init__(self, n_workers=8, debug=False, reid=False):
         """
         YOLOX Tiny
         :param n_workers:
@@ -65,6 +65,7 @@ class Exp(MyExp):
         self.warmup_epochs = 1
 
         self.reid = reid
+        print("ReID: ", self.reid)
 
     def get_model(self):
         """
