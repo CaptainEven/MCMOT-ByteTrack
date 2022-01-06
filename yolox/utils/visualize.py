@@ -109,7 +109,7 @@ def plot_tracking_mc(image,
             x1, y1, w, h = tlwh_i
             int_box = tuple(map(int, (x1, y1, x1 + w, y1 + h)))  # x1, y1, x2, y2
             obj_id = int(obj_ids[i])
-            id_text = '{}'.format(int(obj_id))
+            tr_id_text = '{}'.format(int(obj_id))
 
             _line_thickness = 1 if obj_id <= 0 else line_thickness
             color = get_color(abs(obj_id))
@@ -122,7 +122,7 @@ def plot_tracking_mc(image,
                           color=color,
                           thickness=line_thickness)
 
-            # draw class name and index
+            ## draw class name
             cv2.putText(img,
                         id2cls[cls_id],
                         (int(x1), int(y1)),
@@ -135,8 +135,9 @@ def plot_tracking_mc(image,
                                            fontFace=cv2.FONT_HERSHEY_PLAIN,
                                            fontScale=text_scale, thickness=text_thickness)
 
+            ## draw track id
             cv2.putText(img,
-                        id_text,
+                        tr_id_text,
                         (int(x1), int(y1) - txt_h),
                         cv2.FONT_HERSHEY_PLAIN,
                         text_scale * 1.2,
@@ -176,16 +177,20 @@ def plot_tracking_sc(image, tlwhs, obj_ids,
 
     for i, tlwh in enumerate(tlwhs):
         x1, y1, w, h = tlwh
-        intbox = tuple(map(int, (x1, y1, x1 + w, y1 + h)))
+        int_bbox = tuple(map(int, (x1, y1, x1 + w, y1 + h)))
         obj_id = int(obj_ids[i])
         id_text = '{}'.format(int(obj_id))
         if ids2 is not None:
             id_text = id_text + ', {}'.format(int(ids2[i]))
         color = get_color(abs(obj_id))
-        cv2.rectangle(im, intbox[0:2], intbox[2:4], color=color, thickness=line_thickness)
+        cv2.rectangle(im,
+                      int_bbox[0:2],
+                      int_bbox[2:4],
+                      color=color,
+                      thickness=line_thickness)
         cv2.putText(im,
                     id_text,
-                    (intbox[0], intbox[1]),
+                    (int_bbox[0], int_bbox[1]),
                     cv2.FONT_HERSHEY_PLAIN,
                     text_scale,
                     (0, 0, 255),

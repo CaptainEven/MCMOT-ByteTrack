@@ -26,7 +26,7 @@ def make_parser():
     parser = argparse.ArgumentParser("ByteTrack Demo!")
 
     parser.add_argument("--demo",
-                        default="videos",  # image
+                        default="video",  # image
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("-expn",
                         "--experiment-name",
@@ -39,7 +39,7 @@ def make_parser():
                         help="model name")
     parser.add_argument("--reid",
                         type=bool,
-                        default=True,
+                        default=False,  # True
                         help="")
     parser.add_argument("-debug",
                         type=bool,
@@ -59,14 +59,14 @@ def make_parser():
     ## ----- exp file, eg: yolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_track_c5.py",
+                        default="../exps/example/mot/yolox_tiny_det_c5.py",
                         type=str,
-                        help="pls input your expriment description file")
+                        help="pls input your experiment description file")
 
     ## ----- checkpoing file path, eg: ../pretrained/latest_ckpt.pth.tar, track_latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_tiny_track_c5/latest_ckpt.pth.tar",
+                        default="../pretrained/latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
 
@@ -266,6 +266,7 @@ class Predictor(object):
 
             ## ----- forward
             outputs = self.model.forward(img)
+            ## -----
 
             if self.decoder is not None:
                 outputs = self.decoder(outputs, dtype=outputs.type())
@@ -307,10 +308,12 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
         if frame_id % 30 == 0:
             if frame_id != 0:
                 logger.info('Processing frame {} ({:.2f} fps)'
-                            .format(frame_id, 1.0 / max(1e-5, timer.average_time)))
+                            .format(frame_id,
+                                    1.0 / max(1e-5, timer.average_time)))
             else:
                 logger.info('Processing frame {} ({:.2f} fps)'
-                            .format(frame_id, 30.0))
+                            .format(frame_id,
+                                    30.0))
 
         outputs, img_info = predictor.inference(image_name, timer)
         if outputs[0] is not None:
@@ -341,9 +344,8 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
 
         # result_image = predictor.visual(outputs[0], img_info, predictor.confthre)
         if save_result:
-            save_folder = os.path.join(
-                vis_folder, time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
-            )
+            save_folder = os.path.join(vis_folder,
+                                       time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
             os.makedirs(save_folder, exist_ok=True)
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
             cv2.imwrite(save_file_name, online_im)
@@ -369,7 +371,11 @@ def video_tracking(predictor, cap, save_path, args):
     fps = cap.get(cv2.CAP_PROP_FPS)
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
 
-    vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height)))
+    save_path = os.path.abspath(save_path)
+    vid_writer = cv2.VideoWriter(save_path,
+                                 cv2.VideoWriter_fourcc(*"mp4v"),
+                                 fps,
+                                 (int(width), int(height)))
 
     ## ---------- define the tracker
     tracker = BYTETracker(args, frame_rate=30)
@@ -391,10 +397,14 @@ def video_tracking(predictor, cap, save_path, args):
         if frame_id % 30 == 0:  ## logging per 30 frames
             if frame_id != 0:
                 logger.info('Processing frame {:03d}/{:03d} | fps {:.2f}'
-                            .format(frame_id, n_frames, 1.0 / max(1e-5, timer.average_time)))
+                            .format(frame_id,
+                                    n_frames,
+                                    1.0 / max(1e-5, timer.average_time)))
             else:
                 logger.info('Processing frame {:03d}/{:03d} | fps {:.2f}'
-                            .format(frame_id, n_frames, 30.0))
+                            .format(frame_id,
+                                    n_frames,
+                                    30.0))
 
         ## ----- read the video
         ret_val, frame = cap.read()
@@ -473,6 +483,8 @@ def video_tracking(predictor, cap, save_path, args):
         ## ----- update frame id
         frame_id += 1
 
+    print("{:s} saved.".format(save_path))
+
 
 def imageflow_demo(predictor, vis_dir, current_time, args):
     """
@@ -539,126 +551,6 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             video_name = args.path.split("/")[-1][:-4]
             save_dir = os.path.join(vis_dir, video_name)
             save_path = os.path.join(save_dir, "camera.mp4")
-
-    # width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
-    # height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
-    # fps = cap.get(cv2.CAP_PROP_FPS)
-    #
-    # # if os.path.isdir(vis_dir):
-    # #     shutil.rmtree(vis_dir)
-    #
-    # video_name = args.path.split("/")[-1][:-4]
-    # # save_dir = os.path.join(vis_dir, time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
-    # save_dir = os.path.join(vis_dir, video_name)
-    # os.makedirs(save_dir, exist_ok=True)
-    #
-    # if args.demo == "video":
-    #     # save_path = os.path.join(save_dir, args.path.split("/")[-1])
-    #
-    #     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
-    #     save_path = os.path.join(save_dir, current_time + ".mp4")
-    #     # save_path = os.path.join(save_dir, video_name + "_" + current_time + ".mp4")
-    # else:
-    #     save_path = os.path.join(save_dir, "camera.mp4")
-    # save_path = os.path.abspath(save_path)
-    # logger.info("video save_path is {:s}".format(save_path))
-    #
-    # vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height)))
-    #
-    # ## ---------- define the tracker
-    # tracker = BYTETracker(args, frame_rate=30)
-    # ## ----------
-    #
-    # ## ----- class name to class id and class id to class name
-    # id2cls = defaultdict(str)
-    # cls2id = defaultdict(int)
-    # for cls_id, cls_name in enumerate(tracker.class_names):
-    #     id2cls[cls_id] = cls_name
-    #     cls2id[cls_name] = cls_id
-    #
-    # timer = Timer()
-    #
-    # frame_id = 0
-    # results = []
-    #
-    # while True:
-    #     if frame_id != 0:
-    #         logger.info('Processing frame {} ({:.2f} fps)'
-    #                     .format(frame_id, 1.0 / max(1e-5, timer.average_time)))
-    #     else:
-    #         logger.info('Processing frame {} ({:.2f} fps)'
-    #                     .format(frame_id, 30.0))
-    #
-    #     ## ----- read the video
-    #     ret_val, frame = cap.read()
-    #
-    #     if ret_val:
-    #         outputs, img_info = predictor.inference(frame, timer)
-    #         dets = outputs[0]
-    #
-    #         if dets is not None:
-    #             ## ----- update the frame
-    #             # online_targets = tracker.update(dets, [img_info['height'], img_info['width']], exp.test_size)
-    #             online_dict = tracker.update_mcmot(dets, [img_info['height'], img_info['width']], exp.test_size)
-    #
-    #             ## ----- plot single-class multi-object tracking results
-    #             if tracker.num_classes == 1:
-    #                 online_tlwhs = []
-    #                 online_ids = []
-    #                 online_scores = []
-    #                 for t in online_targets:
-    #                     tlwh = t.tlwh
-    #                     tid = t.track_id
-    #                     vertical = tlwh[2] / tlwh[3] > 1.6
-    #                     if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
-    #                         online_tlwhs.append(tlwh)
-    #                         online_ids.append(tid)
-    #                         online_scores.append(t.score)
-    #
-    #                 results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
-    #
-    #                 timer.toc()
-    #                 online_im = plot_tracking_sc(img_info['raw_img'],
-    #                                              online_tlwhs,
-    #                                              online_ids,
-    #                                              frame_id=frame_id + 1,
-    #                                              fps=1.0 / timer.average_time)
-    #
-    #             ## ----- plot multi-class multi-object tracking results
-    #             elif tracker.num_classes > 1:
-    #                 ## ---------- aggregate current frame's results for each object class
-    #                 online_tlwhs_dict = defaultdict(list)
-    #                 online_ids_dict = defaultdict(list)
-    #                 for cls_id in range(tracker.num_classes):  # process each object class
-    #                     online_targets = online_dict[cls_id]
-    #                     for track in online_targets:
-    #                         online_tlwhs_dict[cls_id].append(track.tlwh)
-    #                         online_ids_dict[cls_id].append(track.track_id)
-    #
-    #                 timer.toc()
-    #                 online_im = plot_tracking_mc(image=img_info['raw_img'],
-    #                                              tlwhs_dict=online_tlwhs_dict,
-    #                                              obj_ids_dict=online_ids_dict,
-    #                                              num_classes=tracker.num_classes,
-    #                                              frame_id=frame_id + 1,
-    #                                              fps=1.0 / timer.average_time,
-    #                                              id2cls=id2cls)
-    #         else:
-    #             timer.toc()
-    #             online_im = img_info['raw_img']
-    #
-    #         if args.save_result:
-    #             vid_writer.write(online_im)
-    #
-    #         ch = cv2.waitKey(1)
-    #         if ch == 27 or ch == ord("q") or ch == ord("Q"):
-    #             break
-    #     else:
-    #         print("Read frame {:d} failed!".format(frame_id))
-    #         break
-    #
-    #     ## ----- update frame id
-    #     frame_id += 1
 
 
 def run(exp, args):

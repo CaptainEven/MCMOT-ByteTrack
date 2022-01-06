@@ -52,6 +52,6 @@ class YOLOX(nn.Module):
                 "num_fg": num_fg,
             }
         else:
-            outputs = self.head(fpn_outs)
+            outputs = self.head.forward(fpn_outs)
 
         return outputs
