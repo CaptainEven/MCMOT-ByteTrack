@@ -10,6 +10,7 @@ import torch
 from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 
+
 def parse_model_cfg(path):
     """
     :param path:

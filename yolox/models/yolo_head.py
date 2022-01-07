@@ -170,7 +170,7 @@ class YOLOXHead(nn.Module):
                     origin_preds.append(reg_output.clone())
 
             else:
-                ## ----- concatenate different branche of outputs
+                ## ----- concatenate different branch of outputs
                 output = torch.cat([reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1)
 
             outputs.append(output)
