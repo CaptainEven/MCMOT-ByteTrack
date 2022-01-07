@@ -2,7 +2,9 @@
 import os
 
 import torch
+import torch.nn as nn
 import torch.distributed as dist
+import numpy as np
 
 from yolox.data import get_yolox_datadir
 from yolox.exp import Exp as MyExp
@@ -21,6 +23,15 @@ class Exp(MyExp):
         self.num_classes = 5  # 1, 5, 80
         ## -----
 
+        ## ----- net size?
+        self.depth = 0.33
+        self.width = 0.5
+
+        ## ----- Define file list path(imgs and txts(labels) path)
+        self.train_f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
+        self.test_f_list_path = "/users/duanyou/c5/data_all/test5000.txt"
+        ## -----
+
         if debug:
             self.data_num_workers = 0
         else:
@@ -32,8 +43,8 @@ class Exp(MyExp):
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
         self.train_ann = "train.json"
         self.val_ann = "train.json"
-        self.input_size = (608, 1088)
-        self.test_size = (608, 1088)
+        self.input_size = (448, 768)  # (608, 1088)
+        self.test_size = (448, 768)  # (608, 1088)
         self.random_size = (12, 26)
         self.max_epoch = 100
         self.print_interval = 20
@@ -44,7 +55,6 @@ class Exp(MyExp):
         self.basic_lr_per_img = 0.001 / 64.0
         self.warmup_epochs = 1
 
-
     def get_model(self):
         """
         :return:
@@ -52,7 +62,6 @@ class Exp(MyExp):
         from yolox.models.yolox_darknet import YOLOXDarknet
 
         if getattr(self, "model", None) is None:
-            ## ----- combine backbone abd head
             self.model = YOLOXDarknet(cfg="../cfg/yolox_darknet_tiny.cfg",
                                       net_size=(768, 448),
                                       strides=[8, 16, 32],
@@ -77,44 +86,53 @@ class Exp(MyExp):
         """
         from yolox.data import (
             MOTDataset,
+            VOCDetection,
             TrainTransform,
             YoloBatchSampler,
             DataLoader,
             InfiniteSampler,
-            MosaicDetection,
         )
 
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mix_det")
 
-        dataset = MOTDataset(
-            data_dir=data_dir,
-            json_file=self.train_ann,
-            name=name,
-            img_size=self.input_size,
-            preproc=TrainTransform(
-                rgb_means=(0.485, 0.456, 0.406),
-                std=(0.229, 0.224, 0.225),
-                max_labels=500,
-            ),
-        )
+        # dataset = MOTDataset(
+        #     data_dir=data_dir,
+        #     json_file=self.train_ann,
+        #     name=name,
+        #     img_size=self.input_size,
+        #     preproc=TrainTransform(
+        #         rgb_means=(0.485, 0.456, 0.406),
+        #         std=(0.229, 0.224, 0.225),
+        #         max_labels=500,
+        #     ),
+        # )
 
-        dataset = MosaicDetection(
-            dataset,
-            mosaic=not no_aug,
-            img_size=self.input_size,
-            preproc=TrainTransform(
-                rgb_means=(0.485, 0.456, 0.406),
-                std=(0.229, 0.224, 0.225),
-                max_labels=1000,
-            ),
-            degrees=self.degrees,
-            translate=self.translate,
-            scale=self.scale,
-            shear=self.shear,
-            perspective=self.perspective,
-            enable_mixup=self.enable_mixup,
-        )
+        dataset = VOCDetection(data_dir=data_dir,
+                               f_list_path=self.train_f_list_path,
+                               img_size=(768, 448),
+                               preproc=TrainTransform(
+                                   rgb_means=(0.485, 0.456, 0.406),
+                                   std=(0.229, 0.224, 0.225),
+                                   max_labels=50,
+                               ), )
+
+        # dataset = MosaicDetection(
+        #     dataset,
+        #     mosaic=not no_aug,
+        #     img_size=self.input_size,
+        #     preproc=TrainTransform(
+        #         rgb_means=(0.485, 0.456, 0.406),
+        #         std=(0.229, 0.224, 0.225),
+        #         max_labels=1000,
+        #     ),
+        #     degrees=self.degrees,
+        #     translate=self.translate,
+        #     scale=self.scale,
+        #     shear=self.shear,
+        #     perspective=self.perspective,
+        #     enable_mixup=self.enable_mixup,
+        # )
 
         self.dataset = dataset
 
@@ -153,26 +171,33 @@ class Exp(MyExp):
         :param testdev:
         :return:
         """
-        from yolox.data import MOTDataset, ValTransform
+        from yolox.data import VOCDetection, ValTransform
 
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mot")
-        valdataset = MOTDataset(
-            data_dir=data_dir,
-            json_file=self.val_ann,
-            img_size=self.test_size,
-            name=name,
-            preproc=ValTransform(
-                rgb_means=(0.485, 0.456, 0.406),
-                std=(0.229, 0.224, 0.225),
-            ),
-        )
+
+        # valdataset = MOTDataset(
+        #     data_dir=data_dir,
+        #     json_file=self.val_ann,
+        #     img_size=self.test_size,
+        #     name=name,
+        #     preproc=ValTransform(
+        #         rgb_means=(0.485, 0.456, 0.406),
+        #         std=(0.229, 0.224, 0.225),
+        #     ),
+        # )
+
+        valdataset = VOCDetection(data_dir=data_dir,
+                                  f_list_path=self.test_f_list_path,
+                                  img_size=(768, 448),
+                                  preproc=ValTransform(
+                                      rgb_means=(0.485, 0.456, 0.406),
+                                      std=(0.229, 0.224, 0.225),
+                                  ), )
 
         if is_distributed:
             batch_size = batch_size // dist.get_world_size()
-            sampler = torch.utils.data.distributed.DistributedSampler(
-                valdataset, shuffle=False
-            )
+            sampler = torch.utils.data.distributed.DistributedSampler(valdataset, shuffle=False)
         else:
             sampler = torch.utils.data.SequentialSampler(valdataset)
 
@@ -203,13 +228,11 @@ class Exp(MyExp):
         from yolox.evaluators import COCOEvaluator
 
         val_loader = self.get_eval_loader(batch_size, is_distributed, data_dir, name, testdev=testdev)
-        evaluator = COCOEvaluator(
-            dataloader=val_loader,
-            img_size=self.test_size,
-            confthre=self.test_conf,
-            nmsthre=self.nmsthre,
-            num_classes=self.num_classes,
-            testdev=testdev,
-        )
+        evaluator = COCOEvaluator(dataloader=val_loader,
+                                  img_size=self.test_size,
+                                  confthre=self.test_conf,
+                                  nmsthre=self.nmsthre,
+                                  num_classes=self.num_classes,
+                                  testdev=testdev, )
 
         return evaluator

@@ -158,14 +158,14 @@ The COCO pretrained YOLOX model can be downloaded from their [model zoo](https:/
 
 ```shell
 cd <ByteTrack_HOME>
-python3 tools/train.py -f exps/example/mot/yolox_x_ablation.py -d 8 -b 48 --fp16 -o -c pretrained/yolox_x.pth
+python3 tools/train_track.py -f exps/example/mot/yolox_x_ablation.py -d 8 -b 48 --fp16 -o -c pretrained/yolox_x.pth
 ```
 
 * **Train MOT17 test model (MOT17 train, CrowdHuman, Cityperson and ETHZ)**
 
 ```shell
 cd <ByteTrack_HOME>
-python3 tools/train.py -f exps/example/mot/yolox_x_mix_det.py -d 8 -b 48 --fp16 -o -c pretrained/yolox_x.pth
+python3 tools/train_track.py -f exps/example/mot/yolox_x_mix_det.py -d 8 -b 48 --fp16 -o -c pretrained/yolox_x.pth
 ```
 
 * **Train MOT20 test model (MOT20 train, CrowdHuman)**
@@ -176,7 +176,7 @@ Add clip operation in [line 134-135 in data_augment.py](https://github.com/ifzha
 
 ```shell
 cd <ByteTrack_HOME>
-python3 tools/train.py -f exps/example/mot/yolox_x_mix_mot20_ch.py -d 8 -b 48 --fp16 -o -c pretrained/yolox_x.pth
+python3 tools/train_track.py -f exps/example/mot/yolox_x_mix_mot20_ch.py -d 8 -b 48 --fp16 -o -c pretrained/yolox_x.pth
 ```
 
 * **Train custom dataset**
@@ -185,7 +185,7 @@ First, you need to prepare your dataset in COCO format. You can refer to [MOT-to
 
 ```shell
 cd <ByteTrack_HOME>
-python3 tools/train.py -f exps/example/mot/your_exp_file.py -d 8 -b 48 --fp16 -o -c pretrained/yolox_x.pth
+python3 tools/train_track.py -f exps/example/mot/your_exp_file.py -d 8 -b 48 --fp16 -o -c pretrained/yolox_x.pth
 ```
 
 
