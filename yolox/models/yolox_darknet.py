@@ -21,12 +21,17 @@ class YOLOXDarknet(nn.Module):
     and detection results during test.
     """
 
-    def __init__(self, cfg, net_size=(768, 448), strides=[8, 16, 32]):
+    def __init__(self, cfg,
+                 net_size=(768, 448),
+                 strides=[8, 16, 32],
+                 num_classes=5,
+                 init_weights=True):
         """
         Darknet based
         :param cfg:
         :param net_size:
         :param strides:
+        :param num_classes:
         :return
         """
         super().__init__()
@@ -39,8 +44,14 @@ class YOLOXDarknet(nn.Module):
         ## ----- build the network
         self.module_defs = parse_model_cfg(cfg)
         self.module_list, self.routs = create_modules(self.module_defs, net_size, cfg, 3)
+        if init_weights:
+            self.init_weights()
 
         ## ----- define some modules
+        self.n_anchors = 1
+        self.num_classes = num_classes
+        self.decode_in_inference = True  # for deploy, set to False
+
         self.use_l1 = False
         self.l1_loss = nn.L1Loss(reduction="none")
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
@@ -48,6 +59,30 @@ class YOLOXDarknet(nn.Module):
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(strides)
         self.expanded_strides = [None] * len(strides)
+
+    def init_layer_weights(self, m):
+        """
+        :param m:
+        :return:
+        """
+        if isinstance(m, nn.Conv2d):
+            init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                init.constant_(m.bias, 0)
+        elif isinstance(m, nn.BatchNorm2d):
+            init.constant_(m.weight, 1)
+            init.constant_(m.bias, 0)
+        elif isinstance(m, nn.Linear):
+            init.normal(m.weight, std=1e-3)
+            if m.bias is not None:
+                init.constant_(m.bias, 0)
+
+    def init_weights(self):
+        """
+        Init weights of the net work
+        """
+        for m in self.module_list:
+            self.init_layer_weights(m)
 
     def forward_once(self, x):
         """
@@ -120,21 +155,21 @@ class YOLOXDarknet(nn.Module):
         y_shifts = []
         expanded_strides = []
 
-        for reg_output, obj_output, cls_output in zip(
-                self.reg_outputs, self.obj_outputs, self.cls_outputs
+        for k, (reg_output, obj_output, cls_output, stride_this_level) in enumerate(
+                zip(self.reg_outputs, self.obj_outputs, self.cls_outputs, self.strides)
         ):
             if self.training:
                 ## ----- concatenate different branch of outputs
                 output = torch.cat([reg_output, obj_output, cls_output], 1)
 
                 ## ----- grading and reshaping
-                output, grid = self.get_output_and_grid(output, k, stride_this_level, xin[0].type())
+                output, grid = self.get_output_and_grid(output, k, stride_this_level, x.type())
 
                 x_shifts.append(grid[:, :, 0])
                 y_shifts.append(grid[:, :, 1])
                 expanded_strides.append(torch.zeros(1, grid.shape[1])
                                         .fill_(stride_this_level)
-                                        .type_as(xin[0]))
+                                        .type_as(x))
                 if self.use_l1:
                     batch_size = reg_output.shape[0]
                     hsize, wsize = reg_output.shape[-2:]
