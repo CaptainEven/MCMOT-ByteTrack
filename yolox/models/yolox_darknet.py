@@ -21,7 +21,8 @@ class YOLOXDarknet(nn.Module):
     and detection results during test.
     """
 
-    def __init__(self, cfg,
+    def __init__(self,
+                 cfg,
                  net_size=(768, 448),
                  strides=[8, 16, 32],
                  num_classes=5,
@@ -90,7 +91,7 @@ class YOLOXDarknet(nn.Module):
         :return:
         """
         img_size = x.shape[-2:]  # height, width
-        yolo_out, out = [], []  # 3(or 2) yolo laers correspond to 3(or 2) reid feature map layers
+        yolo_out, out = [], []  # 3(or 2) yolo layers correspond to 3(or 2) reid feature map layers
 
         # ---------- traverse the network(by traversing the module_list)
         use_output_layers = ['WeightedFeatureFusion',  # Shortcut(add)
@@ -182,6 +183,28 @@ class YOLOXDarknet(nn.Module):
                 output = torch.cat([reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1)
 
             outputs.append(output)
+
+        if self.training:
+            ## ---------- compute losses in the head
+            return self.get_losses(
+                imgs,
+                x_shifts,
+                y_shifts,
+                expanded_strides,
+                labels,
+                torch.cat(outputs, 1),
+                origin_preds,
+                dtype=xin[0].dtype,
+            )
+        else:
+            self.hw = [x.shape[-2:] for x in outputs]
+
+            # [batch, n_anchors_all, 85]
+            outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
+            if self.decode_in_inference:
+                return self.decode_outputs(outputs, dtype=xin[0].type())
+            else:
+                return outputs
 
     def get_output_and_grid(self, output, k, stride, dtype):
         """
@@ -411,6 +434,9 @@ class YOLOXDarknet(nn.Module):
         )
 
     def get_l1_target(self, l1_target, gt, stride, x_shifts, y_shifts, eps=1e-8):
+        """
+        return L1 targets
+        """
         l1_target[:, 0] = gt[:, 0] / stride - x_shifts
         l1_target[:, 1] = gt[:, 1] / stride - y_shifts
         l1_target[:, 2] = torch.log(gt[:, 2] / stride + eps)
