@@ -3,8 +3,8 @@
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
 from torch import nn
-
-from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, SPPBottleneck
+from .network_blocks import BaseConv, CSPLayer, DWConv, \
+    Focus, ResLayer, SPPBottleneck
 
 
 class Darknet(nn.Module):
@@ -19,7 +19,7 @@ class Darknet(nn.Module):
         """
         :param depth(int): depth of darknet used in model, usually use [21, 53] for this param.
         :param in_channels(int): number of input channels, for example, use 3 for RGB image.
-        :param stem_out_channels(int): number of output chanels of darknet stem.
+        :param stem_out_channels(int): number of output channels of darknet stem.
         :param out_features(Tuple[str]): desired output layer name.
         """
         super().__init__()
@@ -85,6 +85,7 @@ class Darknet(nn.Module):
                 BaseConv(filters_list[1], filters_list[0], 1, stride=1, act="lrelu"),
             ]
         )
+        
         return m
 
     def forward(self, x):
