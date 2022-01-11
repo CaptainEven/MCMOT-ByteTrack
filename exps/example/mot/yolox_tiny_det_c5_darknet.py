@@ -62,6 +62,7 @@ class Exp(MyExp):
         :return:
         """
         from yolox.models.yolox_darknet import YOLOXDarknet
+
         if getattr(self, "model", None) is None:
             self.model = YOLOXDarknet(cfg=self.cfg_file_path,
                                       net_size=(768, 448),
