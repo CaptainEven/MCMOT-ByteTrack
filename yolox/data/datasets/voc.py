@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 
 import cv2
 import numpy as np
+from loguru import logger
 from yolox.evaluators.voc_eval import voc_eval
 
 from .datasets_wrapper import Dataset
@@ -27,6 +28,7 @@ class AnnotationTransform(object):
         height (int): height
         width (int): width
     """
+
     def __init__(self, class_to_ind=None, keep_difficult=True):
         """
         :param class_to_ind:
@@ -86,6 +88,7 @@ class VOCDetection(Dataset):
         dataset_name (string, optional): which dataset to load
             (default: 'VOC2007')
     """
+
     def __init__(self,
                  data_dir,
                  f_list_path,
@@ -127,7 +130,8 @@ class VOCDetection(Dataset):
                 img_name = line.split('/')[-1].replace('.jpg', '').replace('\n', '')
                 self.ids.append((folder_name, img_name))
 
-        print("Total {:d} VOC detection samples to be trained.".format(len(self.ids)))
+        logger.info("Total {:d} VOC detection samples to be trained."
+                    .format(len(self.ids)))
 
     def __len__(self):
         """
@@ -207,7 +211,7 @@ class VOCDetection(Dataset):
         # print("--------------------------------------------------------------")
         return 0, 0  # np.mean(mAPs), mAPs[0]
 
-    def _get_voc_results_file_template(self): # not use.
+    def _get_voc_results_file_template(self):  # not use.
         """
         :return:
         """
@@ -229,7 +233,7 @@ class VOCDetection(Dataset):
             index1 = index[1]  # 10_2_XGTCTX00014_TX020127_20201222092014_866_0
             filename = '/mnt/diskc/even/ByteTrack/YOLOX_outputs/yolox_nano_det_c5/results_3000/' + index1 + '.txt'
             # filename = self.results_path + index1 + '.txt'
-            with open(filename, "wt")as f:
+            with open(filename, "wt") as f:
                 f.write("class scores x y w h total= \n")
                 for cls_ind, cls in enumerate(C5_CLASSES):
                     if cls == "__background__":
