@@ -304,6 +304,7 @@ class Trainer:
             else:
                 ckpt_path = self.args.ckpt
 
+            ckpt_path = os.path.abspath(ckpt_path)
             ckpt = torch.load(ckpt_path, map_location=self.device)
 
             ## ---- resume the model/optimizer state dict

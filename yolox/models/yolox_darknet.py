@@ -136,21 +136,23 @@ class YOLOXDarknet(nn.Module):
 
         return x, out
 
-    def forward(self, x):
+    def forward(self, x, targets):
         """
         :param x:
-        :return:
+        :param targets:
         """
-        x, out = self.forward_once(x)
+        ## ----- out: final output, outs: outputs of each layer
+        out, layer_outs = self.forward_once(x)
+        imgs = x  # a batch of imgs data
 
         ## ----- build feature maps: 1/8, 1/16, 1/32
-        self.fpn_outs = [out[58], out[52], out[46]]
+        self.fpn_outs = [layer_outs[58], layer_outs[52], layer_outs[46]]
 
         ## ----- build outputs
-        self.reg_outputs = [out[93], out[95], out[97]]  # regression
-        self.cls_outputs = [out[75], out[77], out[79]]  # classification
-        self.obj_outputs = [out[99], out[101], out[103]]  # object-ness
-        self.feature_map = out[61]  # feature vector map
+        self.reg_outputs = [layer_outs[93], layer_outs[95], layer_outs[97]]  # regression
+        self.cls_outputs = [layer_outs[75], layer_outs[77], layer_outs[79]]  # classification
+        self.obj_outputs = [layer_outs[99], layer_outs[101], layer_outs[103]]  # object-ness
+        self.feature_map = layer_outs[61]  # feature vector map
 
         # traverse each scale
         outputs = []
@@ -173,7 +175,7 @@ class YOLOXDarknet(nn.Module):
                 y_shifts.append(grid[:, :, 1])
                 expanded_strides.append(torch.zeros(1, grid.shape[1])
                                         .fill_(stride_this_level)
-                                        .type_as(x))
+                                        .type_as(self.fpn_outs[0]))
                 if self.use_l1:
                     batch_size = reg_output.shape[0]
                     hsize, wsize = reg_output.shape[-2:]
@@ -189,25 +191,33 @@ class YOLOXDarknet(nn.Module):
 
         if self.training:
             ## ---------- compute losses in the head
-            return self.get_losses(
+            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = self.get_losses(
                 imgs,
                 x_shifts,
                 y_shifts,
                 expanded_strides,
-                labels,
+                targets,
                 torch.cat(outputs, 1),
                 origin_preds,
-                dtype=xin[0].dtype,
+                dtype=self.fpn_outs[0].dtype,
             )
+            outputs = {
+                "total_loss": loss,
+                "iou_loss": iou_loss,
+                "l1_loss": l1_loss,
+                "conf_loss": conf_loss,
+                "cls_loss": cls_loss,
+                "num_fg": num_fg,
+            }
         else:
             self.hw = [x.shape[-2:] for x in outputs]
 
             # [batch, n_anchors_all, 85]
             outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
             if self.decode_in_inference:
-                return self.decode_outputs(outputs, dtype=xin[0].type())
-            else:
-                return outputs
+                outputs = self.decode_outputs(outputs, dtype=self.fpn_outs[0].type())
+
+        return outputs
 
     def get_output_and_grid(self, output, k, stride, dtype):
         """

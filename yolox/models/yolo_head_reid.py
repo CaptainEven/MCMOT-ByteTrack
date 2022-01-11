@@ -30,8 +30,8 @@ class YOLOXHeadReID(nn.Module):
         :param width:
         :param strides:
         :param in_channels:
-        :param act(str): activation type of conv. Defalut value: "silu".
-        :param depthwise (bool): wheather apply depthwise conv in conv branch. Defalut value: False.
+        :param act(str): activation type of conv. Default value: "silu".
+        :param depth-wise (bool): whether apply depth-wise conv in conv branch. Defalut value: False.
         :param reid:
         :param max_id_dict:
         :param net_size: net_H, net_W

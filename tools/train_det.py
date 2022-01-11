@@ -58,14 +58,15 @@ def make_parser():
     ## ---------- experiment file path, eg: ../exps/example/mot/yolox_tiny_det.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5.py",
+                        default="../exps/example/mot/yolox_tiny_det_c5_darknet.py",
                         type=str,
                         help="plz input your expriment description file")
 
     ## ---------- checkpoint file path
+    ## latest_ckpt.pth.tar, yolox_tiny_32.8.pth
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/latest_ckpt.pth.tar",  # yolox_tiny_32.8.pth
+                        default=None,  # None
                         type=str,
                         help="checkpoint file")
     ## ----------

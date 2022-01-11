@@ -37,7 +37,7 @@ class YOLOX(nn.Module):
         :return:
         """
         # fpn output content features of [dark3, dark4, dark5]
-        fpn_outs = self.backbone(x)
+        fpn_outs = self.backbone.forward(x)
 
         if self.training:
             assert targets is not None
