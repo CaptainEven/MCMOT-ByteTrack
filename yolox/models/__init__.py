@@ -10,3 +10,4 @@ from .yolo_head_reid import YOLOXHeadReID
 from .yolo_pafpn import YOLOPAFPN
 from .yolox import YOLOX
 from .yolox_reid import YOLOXReID
+from .yolox_darknet import YOLOXDarknet

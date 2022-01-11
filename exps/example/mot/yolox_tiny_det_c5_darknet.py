@@ -6,12 +6,8 @@ import torch.nn as nn
 import torch.distributed as dist
 import numpy as np
 
-# import sys
-# sys.path.append("/mnt/diskb/even/ByteTrack/yolox")
-
 from yolox.data import get_yolox_datadir
 from yolox.exp import Exp as MyExp
-from yolox.models.yolox_darknet import YOLOXDarknet
 
 
 class Exp(MyExp):
@@ -65,6 +61,7 @@ class Exp(MyExp):
         """
         :return:
         """
+        from yolox.models.yolox_darknet import YOLOXDarknet
         if getattr(self, "model", None) is None:
             self.model = YOLOXDarknet(cfg=self.cfg_file_path,
                                       net_size=(768, 448),
