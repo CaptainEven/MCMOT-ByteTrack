@@ -73,7 +73,7 @@ def make_parser():
 
     parser.add_argument("--debug",
                         type=int,
-                        default=1,  # False | True
+                        default=0,  # False | True
                         help="")
 
     # distributed
@@ -90,7 +90,7 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=12,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
+                        default=16,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
     parser.add_argument("-d",
                         "--devices",

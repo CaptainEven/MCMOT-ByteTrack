@@ -136,7 +136,7 @@ class YOLOXDarknet(nn.Module):
 
         return x, out
 
-    def forward(self, x, targets):
+    def forward(self, x, targets=None):
         """
         :param x:
         :param targets:
@@ -144,6 +144,9 @@ class YOLOXDarknet(nn.Module):
         ## ----- out: final output, outs: outputs of each layer
         out, layer_outs = self.forward_once(x)
         imgs = x  # a batch of imgs data
+
+        if self.training:
+            assert targets is not None
 
         ## ----- build feature maps: 1/8, 1/16, 1/32
         self.fpn_outs = [layer_outs[58], layer_outs[52], layer_outs[46]]
