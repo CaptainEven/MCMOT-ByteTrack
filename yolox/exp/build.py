@@ -1,13 +1,9 @@
-#!/usr/bin/env python3
 # encoding=utf-8
-# Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
 import importlib
 import os
 import sys
 
-# sys.path.append("../../exp/example/mot")
-sys.path.append("/mnt/diskb/even/ByteTrack/exps/example/mot")
 from loguru import logger
 
 
@@ -19,13 +15,18 @@ def get_exp_by_file(exp_file):
     try:
         exp_file = os.path.abspath(exp_file)
         logger.info("Exp file path: {:s}.".format(exp_file))
+
         dir_path = os.path.dirname(exp_file)
         logger.info("Exp file's dir path: {:s}.".format(dir_path))
         sys.path.append(dir_path)
+
         module_name = os.path.basename(exp_file).split(".")[0]
+        logger.info("Module name: {:s}.".format(module_name))
+
         current_exp = importlib.import_module(module_name)
         exp = current_exp.Exp()
-    except Exception:
+    except Exception as e:
+        logger.exception(e)
         raise ImportError("{} doesn't contains class named 'Exp'".format(exp_file))
 
     return exp
