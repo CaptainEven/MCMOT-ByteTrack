@@ -3,7 +3,7 @@
 import os
 
 os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
-os.environ['CUDA_VISIBLE_DEVICES'] = '7'
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
 import argparse
 import random
@@ -55,7 +55,7 @@ def make_parser():
                         default="/mnt/diskb/maqiao/multiClass",
                         help="")
 
-    ## ---------- expiriment file path, eg: ../exps/example/mot/yolox_tiny_det.py
+    ## ---------- experiment file path, eg: ../exps/example/mot/yolox_tiny_det.py
     parser.add_argument("-f",
                         "--exp_file",
                         default="../exps/example/mot/yolox_tiny_det_c5.py",
@@ -65,7 +65,7 @@ def make_parser():
     ## ---------- checkpoint file path
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/yolox_tiny_32.8.pth",  # yolox_tiny_32.8.pth
+                        default="../pretrained/latest_ckpt.pth.tar",  # yolox_tiny_32.8.pth
                         type=str,
                         help="checkpoint file")
     ## ----------

@@ -318,10 +318,10 @@ class Trainer:
         else:
             if self.args.ckpt is not None:
                 logger.info("loading checkpoint for fine tuning...")
-                ckpt_path = self.args.ckpt
+                ckpt_path = os.path.abspath(self.args.ckpt)
                 ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
                 model = load_ckpt(model, ckpt)
-                print("{:s} loaded!".format(ckpt_path))
+                logger.info("{:s} loaded!".format(ckpt_path))
             self.start_epoch = 0
 
         return model

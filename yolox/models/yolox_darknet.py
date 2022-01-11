@@ -44,13 +44,16 @@ class YOLOXDarknet(nn.Module):
 
         ## ----- build the network
         self.module_defs = parse_model_cfg(cfg)
+        logger.info("Network config file parsed.")
         self.module_list, self.routs = create_modules(self.module_defs, net_size, cfg, 3)
         if init_weights:
             self.init_weights()
+            logger.info("Network weights initialized.")
 
         ## ----- define some modules
         self.n_anchors = 1
         self.num_classes = num_classes
+        logger.info("Number of object classes: {:d}.".format(self.num_classes))
         self.decode_in_inference = True  # for deploy, set to False
 
         self.use_l1 = False
@@ -99,7 +102,7 @@ class YOLOXDarknet(nn.Module):
                              'FeatureConcat_l',
                              'RouteGroup',
                              'ScaleChannel',
-                             'ScaleChannels',  # my own implemention
+                             'ScaleChannels',  # my own implementation
                              'SAM']
 
         # ----- traverse forward

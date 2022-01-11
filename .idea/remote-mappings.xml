@@ -10,13 +10,7 @@
             </list>
           </settings>
         </remote-mappings>
-        <remote-mappings server-id="python@sftp://jaya@10.8.3.1:22/usr/bin/python3">
-          <settings>
-            <list>
-              <mapping local-root="$PROJECT_DIR$" remote-root="/mnt/diskc/even/ByteTrack" />
-            </list>
-          </settings>
-        </remote-mappings>
+        <remote-mappings server-id="python@sftp://jaya@10.8.3.1:22/usr/bin/python3" />
       </list>
     </list>
   </component>
