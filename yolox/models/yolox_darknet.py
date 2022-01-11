@@ -39,7 +39,7 @@ class YOLOXDarknet(nn.Module):
 
         cfg = os.path.abspath(cfg)
         if not os.path.isfile(cfg):
-            print("[Err]: invalid cfg file path.")
+            logger.error("Invalid cfg file path.")
             exit(-1)
 
         ## ----- build the network

@@ -59,13 +59,14 @@ class Exp(MyExp):
         self.no_aug_epochs = 10
         self.basic_lr_per_img = 0.001 / 64.0
         self.warmup_epochs = 1
+        self.cfg_file_path = "../cfg/yolox_darknet_tiny.cfg"
 
     def get_model(self):
         """
         :return:
         """
         if getattr(self, "model", None) is None:
-            self.model = YOLOXDarknet(cfg="../cfg/yolox_darknet_tiny.cfg",
+            self.model = YOLOXDarknet(cfg=self.cfg_file_path,
                                       net_size=(768, 448),
                                       strides=[8, 16, 32],
                                       num_classes=5,
