@@ -52,13 +52,13 @@ class Trainer:
 
         # metric record
         self.meter = MeterBuffer(window_size=exp.print_interval)
-        self.file_name = os.path.join(exp.output_dir, args.experiment_name)
-        print("file path: ", self.file_name)
+        self.dir_path = os.path.abspath(os.path.join(exp.output_dir, args.experiment_name))
+        logger.info("Dir path: ", self.dir_path)
 
         if self.rank == 0:
-            os.makedirs(self.file_name, exist_ok=True)
+            os.makedirs(self.dir_path, exist_ok=True)
 
-        setup_logger(self.file_name,
+        setup_logger(self.dir_path,
                      distributed_rank=self.rank,
                      filename="train_log.txt",
                      mode="a", )
@@ -186,7 +186,7 @@ class Trainer:
 
         # Tensorboard logger
         if self.rank == 0:
-            self.tblogger = SummaryWriter(self.file_name)
+            self.tblogger = SummaryWriter(self.dir_path)
 
         logger.info("Training start...")
         # logger.info("\n{}".format(model))
@@ -300,7 +300,7 @@ class Trainer:
         if self.args.resume:
             logger.info("resume training")
             if self.args.ckpt is None:
-                ckpt_path = os.path.join(self.file_name, "latest" + "_ckpt.pth.tar")
+                ckpt_path = os.path.join(self.dir_path, "latest" + "_ckpt.pth.tar")
             else:
                 ckpt_path = self.args.ckpt
 
@@ -353,13 +353,13 @@ class Trainer:
         if self.rank == 0:
             save_model = self.ema_model.ema if self.use_model_ema else self.model
 
-            logger.info("Save weights to {}".format(self.file_name))
+            logger.info("Save weights to {}".format(self.dir_path))
             ckpt_state = {
                 "start_epoch": self.epoch + 1,
                 "model": save_model.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
             }
-            save_checkpoint(ckpt_state, update_best_ckpt, self.file_name, ckpt_name, )
+            save_checkpoint(ckpt_state, update_best_ckpt, self.dir_path, ckpt_name, )
 
 
 class Trainer_det:  # line 115. loss = outputs["total_loss"]

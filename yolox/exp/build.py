@@ -7,6 +7,7 @@ import os
 import sys
 # sys.path.append("../../exp/example/mot")
 sys.path.append("/mnt/diskb/even/ByteTrack/exps/example/mot/")
+from loguru import logger
 
 
 def get_exp_by_file(exp_file):
@@ -16,7 +17,7 @@ def get_exp_by_file(exp_file):
     """
     try:
         exp_file = os.path.abspath(exp_file)
-        print("[Info]: exp_file: {:s}.".format(exp_file))
+        logger.info("Exp file path: {:s}.".format(exp_file))
         sys.path.append(os.path.dirname(exp_file))
         module_name = os.path.basename(exp_file).split(".")[0]
         current_exp = importlib.import_module(module_name)
