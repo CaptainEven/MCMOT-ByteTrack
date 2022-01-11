@@ -66,7 +66,7 @@ def make_parser():
     ## latest_ckpt.pth.tar, yolox_tiny_32.8.pth
     parser.add_argument("-c",
                         "--ckpt",
-                        default=None,  # None
+                        default="../YOLOX_outputs/yolox_tiny_det_c5_darknet/latest_ckpt.pth.tar",  # None
                         type=str,
                         help="checkpoint file")
     ## ----------
@@ -174,28 +174,32 @@ def main(exp, args):
 
 
 if __name__ == "__main__":
-    args = make_parser().parse_args()
-    logger.info("args:\n", args)
+    ## ----- parse args
+    opt = make_parser().parse_args()
 
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.devices
+    os.environ['CUDA_VISIBLE_DEVICES'] = opt.devices
 
-    exp = get_exp(args.exp_file, args.name)
-    exp.merge(args.opts)
+    if len(opt.devices.split(",")) != opt.n_devices:
+        opt.n_devices = len(opt.devices.split(","))
 
-    if args.debug:
+    ## ----- parse experiment file
+    exp = get_exp(opt.exp_file, opt.name)
+    exp.merge(opt.opts)
+
+    if opt.debug:
         exp.data_num_workers = 0
 
-    if not args.experiment_name:
-        args.experiment_name = exp.exp_name
+    if not opt.experiment_name:
+        opt.experiment_name = exp.exp_name
 
-    num_gpu = torch.cuda.device_count() if args.n_devices is None else args.n_devices
+    num_gpu = torch.cuda.device_count() if opt.n_devices is None else opt.n_devices
     assert num_gpu <= torch.cuda.device_count()
 
     launch(main,
            num_gpu,
-           args.num_machines,
-           args.machine_rank,
-           backend=args.dist_backend,
-           dist_url=args.dist_url,
-           args=(exp, args), )
+           opt.num_machines,
+           opt.machine_rank,
+           backend=opt.dist_backend,
+           dist_url=opt.dist_url,
+           args=(exp, opt), )
