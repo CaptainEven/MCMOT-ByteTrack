@@ -8,6 +8,7 @@ import os.path
 
 import cv2
 import numpy as np
+from loguru import logger
 
 from .datasets_wrapper import Dataset
 from .voc_classes import C5_CLASSES
@@ -33,6 +34,7 @@ class MCMOTDataset(Dataset):
 
         ## ----- object class names
         self._classes = C5_CLASSES
+        logger.info("Classes: " + ",".join(self._classes))
 
         ## ----- Get images root and labels root
         self.root = data_dir

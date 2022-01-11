@@ -117,6 +117,7 @@ class VOCDetection(Dataset):
         self._annopath = os.path.join(self.root + "/", "%s", "Annotations", "%s.xml")
         self._imgpath = os.path.join(self.root + "/", "%s", "JPEGImages", "%s.jpg")
         self._classes = C5_CLASSES
+        logger.info("Classes: " + ",".join(self._classes))
         self.ids = list()
 
         if not os.path.isfile(self.f_list_path):
