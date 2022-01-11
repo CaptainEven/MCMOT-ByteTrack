@@ -53,7 +53,7 @@ class Trainer:
         # metric record
         self.meter = MeterBuffer(window_size=exp.print_interval)
         self.dir_path = os.path.abspath(os.path.join(exp.output_dir, args.experiment_name))
-        logger.info("Dir path: ", self.dir_path)
+        logger.info("Dir path: {:s}".format(self.dir_path))
 
         if self.rank == 0:
             os.makedirs(self.dir_path, exist_ok=True)
