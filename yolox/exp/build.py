@@ -16,9 +16,10 @@ def get_exp_by_file(exp_file):
         exp_file = os.path.abspath(exp_file)
         logger.info("Exp file path: {:s}.".format(exp_file))
 
-        dir_path = os.path.dirname(exp_file)
-        logger.info("Exp file's dir path: {:s}.".format(dir_path))
-        sys.path.append(dir_path)
+        module_dir_path = os.path.dirname(exp_file)
+        logger.info("Exp file's dir path: {:s}.".format(module_dir_path))
+        sys.path.append(module_dir_path)
+        sys.path.insert(0, module_dir_path)
 
         module_name = os.path.basename(exp_file).split(".")[0]
         logger.info("Module name: {:s}.".format(module_name))

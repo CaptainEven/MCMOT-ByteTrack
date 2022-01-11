@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.distributed as dist
 import numpy as np
 
+from loguru import logger
+
 from yolox.data import get_yolox_datadir
 from yolox.exp import Exp as MyExp
 
@@ -64,6 +66,7 @@ class Exp(MyExp):
         from yolox.models.yolox_darknet import YOLOXDarknet
 
         if getattr(self, "model", None) is None:
+            logger.info("Cfg file path: {:s}.".format(self.cfg_file_path))
             self.model = YOLOXDarknet(cfg=self.cfg_file_path,
                                       net_size=(768, 448),
                                       strides=[8, 16, 32],

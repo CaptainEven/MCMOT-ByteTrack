@@ -59,6 +59,12 @@ def make_parser():
                         type=str,
                         help="plz input your expriment description file")
 
+    ## -----Darknet cfg file path
+    parser.add_argument("--cfg",
+                        type=str,
+                        default="../cfg/yolox_darknet_tiny.cfg",
+                        help="")
+
     ## ---------- checkpoint file path
     ## latest_ckpt.pth.tar, yolox_tiny_32.8.pth
     parser.add_argument("-c",
@@ -186,6 +192,9 @@ if __name__ == "__main__":
 
     if opt.debug:
         exp.data_num_workers = 0
+    if hasattr(exp, "cfg_file_path"):
+        exp.cfg_file_path = os.path.abspath(opt.cfg)
+        # logger.info("Cfg file path: {:s}.".format(exp.cfg_file_path))
 
     if not opt.experiment_name:
         opt.experiment_name = exp.exp_name
