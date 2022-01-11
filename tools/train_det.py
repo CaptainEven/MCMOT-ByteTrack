@@ -2,8 +2,8 @@
 
 import os
 
-os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+# os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
 import argparse
 import random
@@ -90,13 +90,18 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=16,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
+                        default=20,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
+    parser.add_argument("-nd",
+                        "--n_devices",
+                        type=int,
+                        default=1,  # number of devices(gpus)
+                        help="device for training")
     parser.add_argument("-d",
                         "--devices",
-                        default=1,  # number of devices(gpus)
-                        type=int,
-                        help="device for training")
+                        type=str,
+                        default="3",
+                        help="The device(GPU) ids.")
     ## ----------
 
     parser.add_argument("--local_rank",
@@ -170,7 +175,11 @@ def main(exp, args):
 
 if __name__ == "__main__":
     args = make_parser().parse_args()
-    print("args:\n", args)
+    logger.info("args:\n", args)
+
+    os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.devices
+
     exp = get_exp(args.exp_file, args.name)
     exp.merge(args.opts)
 
@@ -180,7 +189,7 @@ if __name__ == "__main__":
     if not args.experiment_name:
         args.experiment_name = exp.exp_name
 
-    num_gpu = torch.cuda.device_count() if args.devices is None else args.devices
+    num_gpu = torch.cuda.device_count() if args.n_devices is None else args.n_devices
     assert num_gpu <= torch.cuda.device_count()
 
     launch(main,
