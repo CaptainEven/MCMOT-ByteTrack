@@ -34,7 +34,7 @@ class MCMOTDataset(Dataset):
 
         ## ----- object class names
         self._classes = C5_CLASSES
-        logger.info("Classes: " + ",".join(self._classes))
+        logger.info("Classes: " + ", ".join(self._classes))
 
         ## ----- Get images root and labels root
         self.root = data_dir
