@@ -45,7 +45,6 @@ class YOLOXReID(nn.Module):
                 self.head.forward(fpn_outs, targets, x)
             outputs = {
                 "total_loss": loss_sum,
-                # "mtl_loss": loss_sum,
                 "iou_loss": iou_loss,
                 "l1_loss": l1_loss,
                 "conf_loss": conf_loss,
@@ -54,6 +53,6 @@ class YOLOXReID(nn.Module):
                 "num_fg": num_fg,
             }
         else:
-            outputs = self.head(fpn_outs)
+            outputs = self.head.forward(fpn_outs)
 
         return outputs

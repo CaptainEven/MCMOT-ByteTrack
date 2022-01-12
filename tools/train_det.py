@@ -192,9 +192,9 @@ if __name__ == "__main__":
 
     if opt.debug:
         exp.data_num_workers = 0
+
     if hasattr(exp, "cfg_file_path"):
         exp.cfg_file_path = os.path.abspath(opt.cfg)
-        # logger.info("Cfg file path: {:s}.".format(exp.cfg_file_path))
 
     if not opt.experiment_name:
         opt.experiment_name = exp.exp_name

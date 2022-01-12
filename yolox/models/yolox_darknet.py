@@ -931,7 +931,6 @@ class YOLOXDarknetReID(nn.Module):
 
         if self.training:
             ## ---------- compute losses in the head
-            ## ---------- compute losses in the head
             if self.reid:
                 loss, iou_loss, conf_loss, cls_loss, l1_loss, reid_loss, num_fg = \
                     self.get_losses_with_reid(imgs,
@@ -942,6 +941,15 @@ class YOLOXDarknetReID(nn.Module):
                                               torch.cat(outputs, 1), feature_output,
                                               origin_preds,
                                               dtype=fpn_outs[0].dtype, )
+                outputs = {
+                    "total_loss": loss,
+                    "iou_loss": iou_loss,
+                    "l1_loss": l1_loss,
+                    "conf_loss": conf_loss,
+                    "cls_loss": cls_loss,
+                    "reid_loss": reid_loss,
+                    "num_fg": num_fg,
+                }
             else:
                 loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg \
                     = self.get_losses(imgs,
@@ -952,21 +960,24 @@ class YOLOXDarknetReID(nn.Module):
                                       torch.cat(outputs, 1),
                                       origin_preds,
                                       dtype=self.fpn_outs[0].dtype, )
-            outputs = {
-                "total_loss": loss,
-                "iou_loss": iou_loss,
-                "l1_loss": l1_loss,
-                "conf_loss": conf_loss,
-                "cls_loss": cls_loss,
-                "num_fg": num_fg,
-            }
+                outputs = {
+                    "total_loss": loss,
+                    "iou_loss": iou_loss,
+                    "l1_loss": l1_loss,
+                    "conf_loss": conf_loss,
+                    "cls_loss": cls_loss,
+                    "num_fg": num_fg,
+                }
         else:
             self.hw = [x.shape[-2:] for x in outputs]
 
             # [batch, n_anchors_all, 85]
             outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
             if self.decode_in_inference:
-                outputs = self.decode_outputs(outputs, dtype=self.fpn_outs[0].type())
+                if self.reid:
+                    outputs = self.decode_outputs(outputs, dtype=fpn_outs[0].type()), feature_output
+                else:
+                    outputs = self.decode_outputs(outputs, dtype=fpn_outs[0].type())
 
         return outputs
 

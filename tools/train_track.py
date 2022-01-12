@@ -55,12 +55,18 @@ def make_parser():
                         default="/mnt/diskb/even/dataset/MCMOT_TEST",
                         help="")
 
-    ## ---------- expiriment file path, eg: ../exps/example/mot/yolox_tiny_det.py
+    ## ---------- experiment file path, eg: ../exps/example/mot/yolox_tiny_det.py
     parser.add_argument("-f",
                         "--exp_file",
                         default="../exps/example/mot/yolox_tiny_track_c5.py",
                         type=str,
                         help="plz input your expriment description file")
+
+    ## -----Darknet cfg file path
+    parser.add_argument("--cfg",
+                        type=str,
+                        default="../cfg/yolox_darknet_tiny.cfg",
+                        help="")
 
     ## ---------- checkpoint file path
     parser.add_argument("-c",
@@ -169,17 +175,24 @@ def main(exp, args):
 
 if __name__ == "__main__":
     args = make_parser().parse_args()
-    print("args:\n", args)
+
+    os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+    os.environ['CUDA_VISIBLE_DEVICES'] = opt.devices
+
     exp = get_exp(args.exp_file, args.name)
     exp.merge(args.opts)
 
     if args.debug:
         exp.data_num_workers = 0
 
+    if hasattr(exp, "cfg_file_path"):
+        exp.cfg_file_path = os.path.abspath(opt.cfg)
+
     if not args.experiment_name:
         args.experiment_name = exp.exp_name
 
-    num_gpu = torch.cuda.device_count() if args.devices is None else args.devices
+    num_gpu = torch.cuda.device_count() \
+        if args.n_devices is None else args.n_devices
     assert num_gpu <= torch.cuda.device_count()
 
     launch(main,
