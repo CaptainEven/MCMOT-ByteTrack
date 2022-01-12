@@ -70,7 +70,7 @@ def make_parser():
                         type=str,
                         help="ckpt for eval")
 
-    ## ----- videos dir's path
+    ## ----- videos dir path
     parser.add_argument("--video_dir",
                         type=str,
                         default="../videos",
