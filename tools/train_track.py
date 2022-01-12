@@ -97,11 +97,17 @@ def make_parser():
                         type=int,
                         default=12,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
+
+    parser.add_argument("-nd",
+                        "--n_devices",
+                        type=int,
+                        default=1,  # number of devices(gpus)
+                        help="device for training")
     parser.add_argument("-d",
                         "--devices",
-                        default=1,  # number of devices(gpus)
-                        type=int,
-                        help="device for training")
+                        type=str,
+                        default="7",
+                        help="The device(GPU) ids.")
     ## ----------
 
     parser.add_argument("--local_rank",
@@ -174,31 +180,34 @@ def main(exp, args):
 
 
 if __name__ == "__main__":
-    args = make_parser().parse_args()
+    opt = make_parser().parse_args()
 
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
     os.environ['CUDA_VISIBLE_DEVICES'] = opt.devices
 
-    exp = get_exp(args.exp_file, args.name)
-    exp.merge(args.opts)
+    if len(opt.devices.split(",")) != opt.n_devices:
+        opt.n_devices = len(opt.devices.split(","))
 
-    if args.debug:
+    exp = get_exp(opt.exp_file, opt.name)
+    exp.merge(opt.opts)
+
+    if opt.debug:
         exp.data_num_workers = 0
 
     if hasattr(exp, "cfg_file_path"):
         exp.cfg_file_path = os.path.abspath(opt.cfg)
 
-    if not args.experiment_name:
-        args.experiment_name = exp.exp_name
+    if not opt.experiment_name:
+        opt.experiment_name = exp.exp_name
 
     num_gpu = torch.cuda.device_count() \
-        if args.n_devices is None else args.n_devices
+        if opt.n_devices is None else opt.n_devices
     assert num_gpu <= torch.cuda.device_count()
 
     launch(main,
            num_gpu,
-           args.num_machines,
-           args.machine_rank,
-           backend=args.dist_backend,
-           dist_url=args.dist_url,
-           args=(exp, args), )
+           opt.num_machines,
+           opt.machine_rank,
+           backend=opt.dist_backend,
+           dist_url=opt.dist_url,
+           args=(exp, opt), )
