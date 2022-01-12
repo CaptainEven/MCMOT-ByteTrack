@@ -143,7 +143,7 @@ class YOLOXHeadReID(nn.Module):
 
         self.use_l1 = False
 
-        ## ---------- Define loss fuctions
+        ## ---------- Define loss functions
         self.l1_loss = nn.L1Loss(reduction="none")
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
         self.iou_loss = IOUloss(reduction="none")

@@ -746,6 +746,8 @@ class YOLOXDarknetReID(nn.Module):
         logger.info("Network config file parsed.")
 
         self.module_list, self.routs = create_modules(self.module_defs, net_size, cfg, 3)
+        logger.info("Network modules created.")
+
         if init_weights:
             self.init_weights()
             logger.info("Network weights initialized.")
@@ -757,15 +759,41 @@ class YOLOXDarknetReID(nn.Module):
         self.net_size = net_size
         logger.info("Net size: " + ", ".join(self.net_size))
 
+        self.reid = reid
+        if self.reid:
+            logger.info("ReID: True")
+
+            if self.reid:
+                # ----- Define ReID classifiers
+                if max_id_dict is not None:
+                    self.max_id_dict = max_id_dict
+                    self.reid_classifiers = nn.ModuleList()  # num_classes layers of FC
+                    for cls_id, nID in self.max_id_dict.items():
+                        self.reid_classifiers.append(nn.Linear(128, nID + 5))  # normal FC layers
+        else:
+            logger.info("ReID: False")
+
         ## ----- define some modules
         self.decode_in_inference = True  # for deploy, set to False
         self.use_l1 = False
+
+        ## ---------- Define loss functions
         self.l1_loss = nn.L1Loss(reduction="none")
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
         self.iou_loss = IOUloss(reduction="none")
+        self.reid_loss = nn.CrossEntropyLoss()
+        self.ghm_c = GHMC(bins=50)
+
+        ## --- multi-task learning
+        self.tasks = ["iou", "obj", "cls", "l1", "reid"]
+        self.loss_dict = dict()
+        for task in self.tasks:
+            self.loss_dict[task] = 0.0
+        self.mtl_loss = UncertaintyLoss(self.tasks)
+
         self.strides = strides
-        self.grids = [torch.zeros(1)] * len(strides)
-        self.expanded_strides = [None] * len(strides)
+        self.grids = [torch.zeros(1)] * len(in_channels)
+        self.expanded_strides = [None] * len(in_channels)
 
     def init_layer_weights(self, m):
         """
