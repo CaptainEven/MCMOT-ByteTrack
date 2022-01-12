@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from loguru import logger
 
 from yolox.utils import bboxes_iou
-from .losses import IOUloss
+from .losses import IOUloss, GHMC, UncertaintyLoss
 
 
 class YOLOXDarknet(nn.Module):
@@ -20,6 +20,7 @@ class YOLOXDarknet(nn.Module):
     The network returns loss values from three YOLO layers during training
     and detection results during test.
     """
+
     def __init__(self,
                  cfg,
                  net_size=(768, 448),
@@ -719,6 +720,7 @@ class YOLOXDarknetReID(nn.Module):
     The network returns loss values from three YOLO layers during training
     and detection results during test.
     """
+
     def __init__(self,
                  cfg,
                  net_size=(768, 448),
@@ -782,7 +784,7 @@ class YOLOXDarknetReID(nn.Module):
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
         self.iou_loss = IOUloss(reduction="none")
         self.reid_loss = nn.CrossEntropyLoss()
-        self.ghm_c = GHMC(bins=50)
+        self.ghm_c = GHMC(bins=100)
 
         ## --- multi-task learning
         self.tasks = ["iou", "obj", "cls", "l1", "reid"]
@@ -888,6 +890,10 @@ class YOLOXDarknetReID(nn.Module):
         self.obj_outputs = [layer_outs[99], layer_outs[101], layer_outs[103]]  # object-ness
         self.feature_map = layer_outs[61]  # feature vector map
 
+        ## @even: ----- feature map output
+        if self.reid:  # 20×128×56×96
+            feature_output = self.feature_map
+
         # traverse each scale
         outputs = []
         origin_preds = []
@@ -925,16 +931,27 @@ class YOLOXDarknetReID(nn.Module):
 
         if self.training:
             ## ---------- compute losses in the head
-            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = self.get_losses(
-                imgs,
-                x_shifts,
-                y_shifts,
-                expanded_strides,
-                targets,
-                torch.cat(outputs, 1),
-                origin_preds,
-                dtype=self.fpn_outs[0].dtype,
-            )
+            ## ---------- compute losses in the head
+            if self.reid:
+                loss, iou_loss, conf_loss, cls_loss, l1_loss, reid_loss, num_fg = \
+                    self.get_losses_with_reid(imgs,
+                                              x_shifts,
+                                              y_shifts,
+                                              expanded_strides,
+                                              targets,
+                                              torch.cat(outputs, 1), feature_output,
+                                              origin_preds,
+                                              dtype=fpn_outs[0].dtype, )
+            else:
+                loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg \
+                    = self.get_losses(imgs,
+                                      x_shifts,
+                                      y_shifts,
+                                      expanded_strides,
+                                      targets,
+                                      torch.cat(outputs, 1),
+                                      origin_preds,
+                                      dtype=self.fpn_outs[0].dtype, )
             outputs = {
                 "total_loss": loss,
                 "iou_loss": iou_loss,
@@ -1005,6 +1022,250 @@ class YOLOXDarknetReID(nn.Module):
         outputs[..., 2:4] = torch.exp(outputs[..., 2:4]) * strides
 
         return outputs
+
+    def get_losses_with_reid(self,
+                             imgs,
+                             x_shifts,
+                             y_shifts,
+                             expanded_strides,
+                             labels,
+                             outputs, feature_output,
+                             origin_preds,
+                             dtype, ):
+        """
+        :param imgs:
+        :param x_shifts:
+        :param y_shifts:
+        :param expanded_strides:
+        :param labels:
+        :param outputs:
+        :param feature_output:
+        :param origin_preds:
+        :param dtype:
+        :return:
+        """
+        ## ---------- Get net outputs
+        bbox_preds = outputs[:, :, :4]  # [batch, n_anchors_all, 4]
+        obj_preds = outputs[:, :, 4].unsqueeze(-1)  # [batch, n_anchors_all, 1]
+        cls_preds = outputs[:, :, 5:]  # [batch, n_anchors_all, n_cls]
+
+        ## ----- @even: feature output using for ReID
+        # feature_preds = feature_output
+
+        ## ----- calculate targets
+        mixup = labels.shape[2] > 5
+        if mixup:
+            label_cut = labels[..., :5]
+        else:
+            label_cut = labels
+        nlabel = (label_cut.sum(dim=2) > 0).sum(dim=1)  # number of objects
+
+        total_num_anchors = outputs.shape[1]
+        x_shifts = torch.cat(x_shifts, 1)  # [1, n_anchors_all]
+        y_shifts = torch.cat(y_shifts, 1)  # [1, n_anchors_all]
+        expanded_strides = torch.cat(expanded_strides, 1)
+        if self.use_l1:  # False
+            origin_preds = torch.cat(origin_preds, 1)
+
+        cls_targets = []
+        reg_targets = []
+        obj_targets = []
+        reid_id_targets = []  # track ids, using for ReID loss
+        reid_feature_targets = []
+        gt_cls_id_targets = []
+        l1_targets = []
+        fg_masks = []
+
+        num_fg = 0.0
+        num_gts = 0.0
+
+        ## ---------- processing each sample(image) of the batch
+        for batch_idx in range(outputs.shape[0]):
+            num_gt = int(nlabel[batch_idx])
+            num_gts += num_gt
+            if num_gt == 0:
+                cls_target = outputs.new_zeros((0, self.num_classes))
+                reg_target = outputs.new_zeros((0, 4))
+                l1_target = outputs.new_zeros((0, 4))
+                obj_target = outputs.new_zeros((total_num_anchors, 1))
+                fg_mask = outputs.new_zeros(total_num_anchors).bool()
+            else:
+                ## ----- Get ground truths
+                gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:5]  # reg
+                gt_classes = labels[batch_idx, :num_gt, 0]  # class ids
+                gt_ids = labels[batch_idx, :num_gt, 5]  # track ids
+
+                ## ----- Get bbox(reg) predictions
+                bboxes_preds_per_image = bbox_preds[batch_idx]  #
+
+                try:  # noqa
+                    (
+                        gt_matched_classes,
+                        fg_mask,
+                        pred_ious_this_matching,
+                        matched_gt_inds,
+                        num_fg_img,
+                    ) = self.get_assignments(batch_idx,
+                                             num_gt,
+                                             total_num_anchors,
+                                             gt_bboxes_per_image,
+                                             gt_classes,
+                                             bboxes_preds_per_image,
+                                             expanded_strides,
+                                             x_shifts,
+                                             y_shifts,
+                                             cls_preds,
+                                             bbox_preds,
+                                             obj_preds,
+                                             labels,
+                                             imgs, )
+                except RuntimeError:
+                    logger.info(
+                        "OOM RuntimeError is raised due to the huge memory cost during label assignment. \
+                           CPU mode is applied in this batch. If you want to avoid this issue, \
+                           try to reduce the batch size or image size."
+                    )
+                    print("OOM RuntimeError is raised due to the huge memory cost during label assignment. \
+                              CPU mode is applied in this batch. If you want to avoid this issue, \
+                              try to reduce the batch size or image size.")
+                    torch.cuda.empty_cache()
+                    (
+                        gt_matched_classes,
+                        fg_mask,
+                        pred_ious_this_matching,
+                        matched_gt_inds,
+                        num_fg_img,
+                    ) = self.get_assignments(  # noqa
+                        batch_idx,
+                        num_gt,
+                        total_num_anchors,
+                        gt_bboxes_per_image,
+                        gt_classes,
+                        bboxes_preds_per_image,
+                        expanded_strides,
+                        x_shifts,
+                        y_shifts,
+                        cls_preds,
+                        bbox_preds,
+                        obj_preds,
+                        labels,
+                        imgs,
+                        "cpu",
+                    )
+
+                torch.cuda.empty_cache()
+                num_fg += num_fg_img
+
+                ## ---------- build targets by matched GT inds
+                cls_target = F.one_hot(gt_matched_classes.to(torch.int64), self.num_classes) \
+                             * pred_ious_this_matching.unsqueeze(-1)
+                obj_target = fg_mask.unsqueeze(-1)
+                reg_target = gt_bboxes_per_image[matched_gt_inds]
+
+                # ----- ReID targets
+                reid_target = gt_ids[matched_gt_inds]
+                gt_cls_id_targets.append(gt_matched_classes.to(torch.int64))
+
+                ## ----- Get feature vector for each GT bbox
+                YXs = reg_target[:, :2] * self.scale_1st + 0.5
+                YXs = YXs.long()
+
+                Ys = YXs[:, 0]
+                Xs = YXs[:, 1]
+
+                ## ----- avoid exceed reid feature map's range
+                Xs.clamp_(min=0, max=feature_output.shape[3] - 1)
+                Ys.clamp_(min=0, max=feature_output.shape[2] - 1)
+
+                feature = feature_output[batch_idx, :, Ys, Xs]
+                feature.transpose_(0, 1)
+                reid_feature_targets.append(feature)  # N×128
+                ## ----------
+
+                if self.use_l1:
+                    l1_target = self.get_l1_target(outputs.new_zeros((num_fg_img, 4)),
+                                                   gt_bboxes_per_image[matched_gt_inds],
+                                                   expanded_strides[0][fg_mask],
+                                                   x_shifts=x_shifts[0][fg_mask],
+                                                   y_shifts=y_shifts[0][fg_mask], )
+
+            cls_targets.append(cls_target)
+            reg_targets.append(reg_target)
+            obj_targets.append(obj_target.to(dtype))
+            reid_id_targets.append(reid_target)
+            fg_masks.append(fg_mask)
+
+            if self.use_l1:
+                l1_targets.append(l1_target)
+
+        cls_targets = torch.cat(cls_targets, 0)
+        reg_targets = torch.cat(reg_targets, 0)
+        obj_targets = torch.cat(obj_targets, 0)
+        reid_id_targets = torch.cat(reid_id_targets, 0)
+        reid_feature_targets = torch.cat(reid_feature_targets, 0)
+        gt_cls_id_targets = torch.cat(gt_cls_id_targets, 0)
+        fg_masks = torch.cat(fg_masks, 0)
+
+        if self.use_l1:  # False
+            l1_targets = torch.cat(l1_targets, 0)
+
+        num_fg = max(num_fg, 1)
+        loss_iou = (self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)).sum() / num_fg
+        loss_obj = (self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)).sum() / num_fg
+        loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum() \
+                   / num_fg
+
+        ## ----- compute ReID loss
+        loss_reid = 0.0
+        for cls_id, id_num in self.max_id_dict.items():
+            inds = torch.where(gt_cls_id_targets == cls_id)
+            if inds[0].shape[0] == 0:
+                # print('skip class id', cls_id)
+                continue
+
+            cls_features = reid_feature_targets[inds]
+
+            ## ----- L2 normalize the feature vector
+            cls_features = F.normalize(cls_features, dim=1)
+
+            ## ----- pass through the FC layer:
+            cls_fc_preds = self.reid_classifiers[cls_id].forward(cls_features).contiguous()
+
+            ## ----- compute loss
+            cls_reid_id_target = reid_id_targets[inds]
+            cls_reid_id_target = cls_reid_id_target.to(torch.int64)
+            # loss_reid += self.reid_loss(cls_fc_preds, cls_reid_id_target)
+
+            # --- GHM-C loss
+            target = torch.zeros_like(cls_fc_preds)
+            target.scatter_(1, cls_reid_id_target.view(-1, 1).to(torch.int64), 1)
+            label_weight = torch.ones_like(cls_fc_preds)
+            loss_reid += self.ghm_c.forward(cls_fc_preds, target, label_weight)
+
+        if self.use_l1:
+            loss_l1 = (self.l1_loss(origin_preds.view(-1, 4)[fg_masks], l1_targets)).sum() / num_fg
+        else:
+            loss_l1 = 0.0
+
+        reg_weight = 5.0
+        # loss_sum = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1 + loss_reid
+
+        self.loss_dict["iou_loss"] = loss_iou * reg_weight
+        self.loss_dict["obj_loss"] = loss_obj
+        self.loss_dict["cls_loss"] = loss_cls
+        self.loss_dict["l1_loss"] = loss_l1
+        self.loss_dict["reid_loss"] = loss_reid
+        loss_sum = self.mtl_loss.forward(self.loss_dict)
+
+        return (
+            loss_sum,
+            self.loss_dict["iou_loss"],
+            self.loss_dict["obj_loss"],
+            self.loss_dict["cls_loss"],
+            self.loss_dict["l1_loss"],
+            self.loss_dict["reid_loss"],
+            num_fg / max(num_gts, 1),
+        )
 
     def get_losses(self,
                    imgs,

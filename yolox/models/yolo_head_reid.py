@@ -182,10 +182,10 @@ class YOLOXHeadReID(nn.Module):
             b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
             conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
-    def forward(self, xin, labels=None, imgs=None):
+    def forward(self, fpn_outs, targets=None, imgs=None):
         """
-        :param xin:
-        :param labels:
+        :param fpn_outs:
+        :param targets:
         :param imgs:
         :return:
         """
@@ -203,7 +203,7 @@ class YOLOXHeadReID(nn.Module):
 
         ## ---------- processing 3 scales: 1/8, 1/16, 1/32
         for k, (cls_conv, reg_conv, stride_this_level, x) in enumerate(
-                zip(self.cls_convs, self.reg_convs, self.strides, xin)
+                zip(self.cls_convs, self.reg_convs, self.strides, fpn_outs)
         ):
             x = self.stems[k](x)
             cls_x = x
@@ -234,13 +234,13 @@ class YOLOXHeadReID(nn.Module):
                 output = torch.cat([reg_output, obj_output, cls_output], 1)
 
                 ## ----- grading and reshaping
-                output, grid = self.get_output_and_grid(output, k, stride_this_level, xin[0].type())
+                output, grid = self.get_output_and_grid(output, k, stride_this_level, fpn_outs[0].type())
 
                 x_shifts.append(grid[:, :, 0])
                 y_shifts.append(grid[:, :, 1])
                 expanded_strides.append(torch.zeros(1, grid.shape[1])
                                         .fill_(stride_this_level)
-                                        .type_as(xin[0]))
+                                        .type_as(fpn_outs[0]))
                 if self.use_l1:
                     batch_size = reg_output.shape[0]
                     hsize, wsize = reg_output.shape[-2:]
@@ -261,20 +261,20 @@ class YOLOXHeadReID(nn.Module):
                                                  x_shifts,
                                                  y_shifts,
                                                  expanded_strides,
-                                                 labels,
+                                                 targets,
                                                  torch.cat(outputs, 1), feature_output,
                                                  origin_preds,
-                                                 dtype=xin[0].dtype, )
+                                                 dtype=fpn_outs[0].dtype, )
             else:
                 return self.get_losses(
                     imgs,
                     x_shifts,
                     y_shifts,
                     expanded_strides,
-                    labels,
+                    targets,
                     torch.cat(outputs, 1),
                     origin_preds,
-                    dtype=xin[0].dtype,
+                    dtype=fpn_outs[0].dtype,
                 )
         else:
             self.hw = [x.shape[-2:] for x in outputs]
@@ -283,9 +283,9 @@ class YOLOXHeadReID(nn.Module):
             outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
             if self.decode_in_inference:
                 if self.reid:
-                    return self.decode_outputs(outputs, dtype=xin[0].type()), feature_output
+                    return self.decode_outputs(outputs, dtype=fpn_outs[0].type()), feature_output
                 else:
-                    return self.decode_outputs(outputs, dtype=xin[0].type())
+                    return self.decode_outputs(outputs, dtype=fpn_outs[0].type())
             else:
                 return outputs
 
@@ -575,16 +575,6 @@ class YOLOXHeadReID(nn.Module):
         self.loss_dict["l1_loss"] = loss_l1
         self.loss_dict["reid_loss"] = loss_reid
         loss_sum = self.mtl_loss.forward(self.loss_dict)
-
-        # return (
-        #     loss_sum,
-        #     reg_weight * loss_iou,
-        #     loss_obj,
-        #     loss_cls,
-        #     loss_l1,
-        #     loss_reid,
-        #     num_fg / max(num_gts, 1),
-        # )
 
         return (
             loss_sum,
