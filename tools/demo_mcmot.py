@@ -13,7 +13,7 @@ from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracking_utils.timer import Timer
-from yolox.utils import fuse_model, get_model_info, postprocess
+from yolox.utils import fuse_model, get_model_info, post_process
 from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
@@ -59,14 +59,14 @@ def make_parser():
     ## ----- exp file, eg: yolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5.py",
+                        default="../exps/example/mot/yolox_tiny_det_c5_darknet.py",
                         type=str,
                         help="pls input your experiment description file")
 
     ## ----- checkpoing file path, eg: ../pretrained/latest_ckpt.pth.tar, track_latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/latest_ckpt.pth.tar",
+                        default="../YOLOX_outputs/yolox_tiny_det_c5_darknet/latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
 
@@ -273,9 +273,9 @@ class Predictor(object):
 
             if self.reid:
                 outputs, feature_map = outputs[0], outputs[1]
-                outputs = postprocess(outputs, self.num_classes, self.confthre, self.nmsthre)
+                outputs = post_process(outputs, self.num_classes, self.confthre, self.nmsthre)
             else:
-                outputs = postprocess(outputs, self.num_classes, self.confthre, self.nmsthre)
+                outputs = post_process(outputs, self.num_classes, self.confthre, self.nmsthre)
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
 
         if self.reid:

@@ -77,15 +77,15 @@ class Exp(MyExp):
         """
         :return:
         """
-        from yolox.models.yolox_darknet import YOLOXDarknet
+        from yolox.models.yolox_darknet import YOLOXDarknetReID
 
         if getattr(self, "model", None) is None:
             logger.info("Cfg file path: {:s}.".format(self.cfg_file_path))
-            self.model = YOLOXDarknet(cfg=self.cfg_file_path,
-                                      net_size=(768, 448),
-                                      strides=[8, 16, 32],
-                                      num_classes=5,
-                                      init_weights=True)
+            self.model = YOLOXDarknetReID(cfg=self.cfg_file_path,
+                                          net_size=(768, 448),
+                                          strides=[8, 16, 32],
+                                          num_classes=5,
+                                          init_weights=True)
 
         return self.model
 

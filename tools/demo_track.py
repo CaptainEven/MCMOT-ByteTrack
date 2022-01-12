@@ -12,7 +12,7 @@ from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracking_utils.timer import Timer
-from yolox.utils import fuse_model, get_model_info, postprocess
+from yolox.utils import fuse_model, get_model_info, post_process
 from yolox.utils.visualize import plot_tracking_sc
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
@@ -238,7 +238,7 @@ class Predictor(object):
             outputs = self.model(img)
             if self.decoder is not None:
                 outputs = self.decoder(outputs, dtype=outputs.type())
-            outputs = postprocess(
+            outputs = post_process(
                 outputs, self.num_classes, self.confthre, self.nmsthre
             )
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))

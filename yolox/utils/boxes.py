@@ -9,7 +9,7 @@ import torchvision
 
 __all__ = [
     "filter_box",
-    "postprocess",
+    "post_process",
     "bboxes_iou",
     "matrix_iou",
     "adjust_box_anns",
@@ -29,7 +29,7 @@ def filter_box(output, scale_range):
     return output[keep]
 
 
-def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
+def post_process(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
     """
     :param prediction:
     :param num_classes:

@@ -9,7 +9,7 @@ import numpy as np
 
 import torch
 
-from yolox.utils import gather, is_main_process, postprocess, synchronize, time_synchronized
+from yolox.utils import gather, is_main_process, post_process, synchronize, time_synchronized
 
 import sys
 import tempfile
@@ -115,7 +115,7 @@ class VOCEvaluator:
                     infer_end = time_synchronized()
                     inference_time += infer_end - start
 
-                outputs = postprocess(
+                outputs = post_process(
                     outputs, self.num_classes, self.confthre, self.nmsthre
                 )
                 if is_time_record:
