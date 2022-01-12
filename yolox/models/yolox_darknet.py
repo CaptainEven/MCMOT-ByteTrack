@@ -54,6 +54,7 @@ class YOLOXDarknet(nn.Module):
         self.num_classes = num_classes
         logger.info("Number of object classes: {:d}.".format(self.num_classes))
         self.decode_in_inference = True  # for deploy, set to False
+        # self.scale_1st = 0.125  # 1/8
 
         self.use_l1 = False
         self.l1_loss = nn.L1Loss(reduction="none")
@@ -726,8 +727,8 @@ class YOLOXDarknetReID(nn.Module):
                  net_size=(768, 448),
                  strides=[8, 16, 32],
                  num_classes=5,
-                 init_weights=True,
-                 reid=False,
+                 init_weights=False,
+                 reid=True,
                  max_id_dict=None):
         """
         Darknet based
@@ -759,7 +760,7 @@ class YOLOXDarknetReID(nn.Module):
         logger.info("Number of object classes: {:d}.".format(self.num_classes))
 
         self.net_size = net_size
-        logger.info("Net size: " + ", ".join(self.net_size))
+        print("Net size: ", self.net_size)
 
         self.reid = reid
         if self.reid:
@@ -778,6 +779,7 @@ class YOLOXDarknetReID(nn.Module):
         ## ----- define some modules
         self.decode_in_inference = True  # for deploy, set to False
         self.use_l1 = False
+        self.scale_1st = 0.125  # 1/8
 
         ## ---------- Define loss functions
         self.l1_loss = nn.L1Loss(reduction="none")
@@ -794,8 +796,8 @@ class YOLOXDarknetReID(nn.Module):
         self.mtl_loss = UncertaintyLoss(self.tasks)
 
         self.strides = strides
-        self.grids = [torch.zeros(1)] * len(in_channels)
-        self.expanded_strides = [None] * len(in_channels)
+        self.grids = [torch.zeros(1)] * len(self.strides)
+        self.expanded_strides = [None] * len(self.strides)
 
     def init_layer_weights(self, m):
         """
@@ -940,7 +942,7 @@ class YOLOXDarknetReID(nn.Module):
                                               targets,
                                               torch.cat(outputs, 1), feature_output,
                                               origin_preds,
-                                              dtype=fpn_outs[0].dtype, )
+                                              dtype=self.fpn_outs[0].dtype, )
                 outputs = {
                     "total_loss": loss,
                     "iou_loss": iou_loss,
@@ -975,9 +977,9 @@ class YOLOXDarknetReID(nn.Module):
             outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
             if self.decode_in_inference:
                 if self.reid:
-                    outputs = self.decode_outputs(outputs, dtype=fpn_outs[0].type()), feature_output
+                    outputs = self.decode_outputs(outputs, dtype=self.fpn_outs[0].type()), feature_output
                 else:
-                    outputs = self.decode_outputs(outputs, dtype=fpn_outs[0].type())
+                    outputs = self.decode_outputs(outputs, dtype=self.fpn_outs[0].type())
 
         return outputs
 
@@ -1069,7 +1071,7 @@ class YOLOXDarknetReID(nn.Module):
             label_cut = labels[..., :5]
         else:
             label_cut = labels
-        nlabel = (label_cut.sum(dim=2) > 0).sum(dim=1)  # number of objects
+        n_label = (label_cut.sum(dim=2) > 0).sum(dim=1)  # number of objects
 
         total_num_anchors = outputs.shape[1]
         x_shifts = torch.cat(x_shifts, 1)  # [1, n_anchors_all]
@@ -1092,7 +1094,7 @@ class YOLOXDarknetReID(nn.Module):
 
         ## ---------- processing each sample(image) of the batch
         for batch_idx in range(outputs.shape[0]):
-            num_gt = int(nlabel[batch_idx])
+            num_gt = int(n_label[batch_idx])
             num_gts += num_gt
             if num_gt == 0:
                 cls_target = outputs.new_zeros((0, self.num_classes))

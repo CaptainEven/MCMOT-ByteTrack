@@ -45,7 +45,7 @@ class YOLOXHeadReID(nn.Module):
         print("Net size: ", self.net_size)
 
         self.scale_1st = 0.125  # 1/8
-        self.scale_1st_size = (56, 96)  # eg: 18×96×56×96
+        # self.scale_1st_size = (56, 96)  # eg: 18×96×56×96
 
         self.decode_in_inference = True  # for deploy, set to False
 

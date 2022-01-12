@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 import numpy as np
+from loguru import logger
 
 from yolox.data import get_yolox_datadir
 from yolox.exp import Exp as MyExp
@@ -35,7 +36,7 @@ class Exp(MyExp):
 
         ## ----- Define max id dict
         # self.max_id_dict_f_path = "/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz"
-        self.max_id_dict_f_path = "../datasets/max_id_dict.npz"
+        self.max_id_dict_f_path = "./datasets/max_id_dict.npz"
         self.max_id_dict_f_path = os.path.abspath(self.max_id_dict_f_path)
         if os.path.isfile(self.max_id_dict_f_path):
             load_dict = np.load(self.max_id_dict_f_path, allow_pickle=True)
@@ -61,7 +62,7 @@ class Exp(MyExp):
         self.test_size = (448, 768)  # (608, 1088)
         self.random_size = (12, 26)
         self.max_epoch = 100
-        self.print_interval = 30
+        self.print_interval = 10
         self.save_ckpt_batch_interval = 300  # save ckpt every 100 iters
         self.eval_interval = 0  # 5
         self.test_conf = 0.001
@@ -69,7 +70,7 @@ class Exp(MyExp):
         self.no_aug_epochs = 10
         self.basic_lr_per_img = 0.001 / 64.0  # 0.001 / 64.0
         self.warmup_epochs = 1
-
+        self.cfg_file_path = "../cfg/yolox_darknet_tiny.cfg"
         self.reid = reid
         print("ReID: ", self.reid)
 
@@ -85,7 +86,9 @@ class Exp(MyExp):
                                           net_size=(768, 448),
                                           strides=[8, 16, 32],
                                           num_classes=5,
-                                          init_weights=True)
+                                          init_weights=False,
+                                          reid=True,
+                                          max_id_dict=self.max_id_dict)
 
         return self.model
 

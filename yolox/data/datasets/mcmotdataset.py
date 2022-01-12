@@ -39,13 +39,16 @@ class MCMOTDataset(Dataset):
         ## ----- Get images root and labels root
         self.root = data_dir
         if not os.path.isdir(self.root):
-            print("[Err]: invalid root.")
+            logger.error("Invalid root: {:s}.".format(self.root))
             exit(-1)
 
         self.img_root = self.root + "/JPEGImages"
         self.txt_root = self.root + "/labels_with_ids"
-        if not (os.path.isdir(self.img_root) and os.path.isdir(self.txt_root)):
-            print("[Err]: invalid img root or txt root!")
+        if not os.path.isdir(self.img_root):
+            logger.error("Invalid img root root: {:s}".format(self.img_root))
+            exit(-1)
+        if not os.path.isdir(self.txt_root):
+            logger.error("Invalid txt root: {:s}.".format(self.txt_root))
             exit(-1)
 
         self.img_dirs = [self.img_root + "/" + x for x in os.listdir(self.img_root)
