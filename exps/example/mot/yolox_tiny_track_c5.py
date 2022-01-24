@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.distributed as dist
 import numpy as np
 
+from loguru import logger
 from yolox.data import get_yolox_datadir
 from yolox.exp import Exp as MyExp
 
@@ -42,7 +43,7 @@ class Exp(MyExp):
             self.max_id_dict = load_dict['max_id_dict'][()]
             print(self.max_id_dict)
         else:
-            print("[Err]: invalid max id dict file path!"
+            logger.error("Invalid max id dict file path: {:s}!"
                   .format(self.max_id_dict_f_path))
             exit(-1)
 

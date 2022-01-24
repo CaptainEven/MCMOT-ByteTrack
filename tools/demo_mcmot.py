@@ -59,14 +59,14 @@ def make_parser():
     ## ----- exp file, eg: yolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5_darknet.py",
+                        default="../exps/example/mot/yolox_tiny_track_c5_darknet.py",
                         type=str,
                         help="pls input your experiment description file")
 
     ## ----- checkpoing file path, eg: ../pretrained/latest_ckpt.pth.tar, track_latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_tiny_det_c5_darknet/latest_ckpt.pth.tar",
+                        default="../YOLOX_outputs/yolox_tiny_track_c5_darknet/latest_ckpt_track.pth.tar",
                         type=str,
                         help="ckpt for eval")
 
