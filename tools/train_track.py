@@ -83,6 +83,10 @@ def make_parser():
                         type=bool,
                         default=True,
                         help="")
+    parser.add_argument("--use_mtl",
+                        type=bool,
+                        default=False,
+                        help="")
     ## ----------
 
     parser.add_argument("--debug",

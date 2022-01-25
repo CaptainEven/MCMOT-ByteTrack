@@ -730,7 +730,8 @@ class YOLOXDarknetReID(nn.Module):
                  init_weights=False,
                  reid=True,
                  max_id_dict=None,
-                 use_momentum=True):
+                 use_momentum=True,
+                 use_mtl=False):
         """
         Darknet based
         :param cfg:
@@ -738,6 +739,7 @@ class YOLOXDarknetReID(nn.Module):
         :param strides:
         :param num_classes:
         :param use_momentum:
+        :param use_mtl:
         :return
         """
         super().__init__()
@@ -792,12 +794,14 @@ class YOLOXDarknetReID(nn.Module):
         self.reid_loss = nn.CrossEntropyLoss()
         self.ghm_c = GHMC(bins=100)
 
-        ## --- multi-task learning
-        self.tasks = ["iou", "obj", "cls", "l1", "reid"]
-        self.loss_dict = dict()
-        for task in self.tasks:
-            self.loss_dict[task] = 0.0
-        self.mtl_loss = UncertaintyLoss(self.tasks)
+        ## --- # whether to use MTL loss
+        self.use_mtl = use_mtl
+        if self.use_mtl:
+            self.tasks = ["iou", "obj", "cls", "l1", "reid"]
+            self.loss_dict = dict()
+            for task in self.tasks:
+                self.loss_dict[task] = 0.0
+            self.mtl_loss = UncertaintyLoss(self.tasks)
 
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(self.strides)
@@ -974,7 +978,7 @@ class YOLOXDarknetReID(nn.Module):
                     "cls_loss": cls_loss,
                     "num_fg": num_fg,
                 }
-        else:
+        else:  # testing
             self.hw = [x.shape[-2:] for x in outputs]
 
             # [batch, n_anchors_all, 85]
@@ -1048,7 +1052,8 @@ class YOLOXDarknetReID(nn.Module):
                              labels,
                              outputs, feature_output,
                              origin_preds,
-                             dtype, ):
+                             dtype,
+                             use_mtl=False):
         """
         :param imgs:
         :param x_shifts:
@@ -1059,15 +1064,13 @@ class YOLOXDarknetReID(nn.Module):
         :param feature_output:
         :param origin_preds:
         :param dtype:
+        :param use_mtl:
         :return:
         """
         ## ---------- Get net outputs
         bbox_preds = outputs[:, :, :4]  # [batch, n_anchors_all, 4]
         obj_preds = outputs[:, :, 4].unsqueeze(-1)  # [batch, n_anchors_all, 1]
         cls_preds = outputs[:, :, 5:]  # [batch, n_anchors_all, n_cls]
-
-        ## ----- @even: feature output using for ReID
-        # feature_preds = feature_output
 
         ## ----- calculate targets
         mixup = labels.shape[2] > 5
@@ -1265,24 +1268,34 @@ class YOLOXDarknetReID(nn.Module):
             loss_l1 = 0.0
 
         reg_weight = 5.0
-        # loss_sum = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1 + loss_reid
 
-        self.loss_dict["iou_loss"] = loss_iou * reg_weight
-        self.loss_dict["obj_loss"] = loss_obj
-        self.loss_dict["cls_loss"] = loss_cls
-        self.loss_dict["l1_loss"] = loss_l1
-        self.loss_dict["reid_loss"] = loss_reid
-        loss_sum = self.mtl_loss.forward(self.loss_dict)
-
-        return (
-            loss_sum,
-            self.loss_dict["iou_loss"],
-            self.loss_dict["obj_loss"],
-            self.loss_dict["cls_loss"],
-            self.loss_dict["l1_loss"],
-            self.loss_dict["reid_loss"],
-            num_fg / max(num_gts, 1),
-        )
+        if use_mtl:
+            loss_sum = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1 + loss_reid
+            return (
+                loss_sum,
+                loss_iou,
+                loss_obj,
+                loss_cls,
+                loss_l1,
+                loss_reid,
+                num_fg / max(num_gts, 1),
+            )
+        else:
+            self.loss_dict["iou_loss"] = loss_iou * reg_weight
+            self.loss_dict["obj_loss"] = loss_obj
+            self.loss_dict["cls_loss"] = loss_cls
+            self.loss_dict["l1_loss"] = loss_l1
+            self.loss_dict["reid_loss"] = loss_reid
+            loss_sum = self.mtl_loss.forward(self.loss_dict)
+            return (
+                loss_sum,
+                self.loss_dict["iou_loss"],
+                self.loss_dict["obj_loss"],
+                self.loss_dict["cls_loss"],
+                self.loss_dict["l1_loss"],
+                self.loss_dict["reid_loss"],
+                num_fg / max(num_gts, 1),
+            )
 
     def get_losses(self,
                    imgs,
@@ -1292,7 +1305,7 @@ class YOLOXDarknetReID(nn.Module):
                    labels,
                    outputs,
                    origin_preds,
-                   dtype, ):
+                   dtype,):
         """
         :param imgs:
         :param x_shifts:
