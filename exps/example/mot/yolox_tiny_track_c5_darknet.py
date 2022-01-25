@@ -75,7 +75,7 @@ class Exp(MyExp):
         print("ReID: ", self.reid)
 
         self.use_momentum = True
-        logger.info("Use momentum: ", self.use_momentum)
+        # logger.info("Use momentum: ", self.use_momentum)
 
     def get_model(self):
         """
@@ -85,7 +85,7 @@ class Exp(MyExp):
         from yolox.models.darknet_modules import load_darknet_weights
 
         if getattr(self, "model", None) is None:
-            logger.info("Cfg file path: {:s}.".format(self.cfg_file_path))
+            # logger.info("Cfg file path: {:s}.".format(self.cfg_file_path))
             self.model = YOLOXDarknetReID(cfg=self.cfg_file_path,
                                           net_size=(768, 448),
                                           strides=[8, 16, 32],

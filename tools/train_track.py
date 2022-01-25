@@ -205,6 +205,11 @@ if __name__ == "__main__":
 
     if hasattr(exp, "cfg_file_path"):
         exp.cfg_file_path = os.path.abspath(opt.cfg)
+        logger.info("Cfg file path: {:s}.".format(exp.cfg_file_path))
+
+    if hasattr(exp, "use_momentum"):
+        exp.use_momentum = opt.use_momentum
+        logger.info("Use momentum: {}.".format(exp.use_momentum))
 
     if not opt.experiment_name:
         opt.experiment_name = exp.exp_name
