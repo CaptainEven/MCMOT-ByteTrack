@@ -79,6 +79,10 @@ def make_parser():
                         type=int,
                         default=0,
                         help="Loading from layers before cutoff.")
+    parser.add_argument("--use_momentum",
+                        type=bool,
+                        default=True,
+                        help="")
     ## ----------
 
     parser.add_argument("--debug",

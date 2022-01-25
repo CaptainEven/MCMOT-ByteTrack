@@ -1,5 +1,6 @@
 python3 ./tools/train_track.py --ckpt ./pretrained/v5.45.weights \
                                --cutoff 44 \
+                               --use_momentum True \
                                --exp_file ./exps/example/mot/yolox_tiny_track_c5_darknet.py \
                                --cfg ./cfg/yolox_darknet_tiny.cfg \
                                --train_root /mnt/diskb/even/dataset/MCMOT \

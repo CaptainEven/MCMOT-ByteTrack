@@ -89,7 +89,8 @@ class Exp(MyExp):
                                           num_classes=5,
                                           init_weights=True,
                                           reid=True,
-                                          max_id_dict=self.max_id_dict)
+                                          max_id_dict=self.max_id_dict,
+                                          use_momentum=True)
 
             # load_darknet_weights(self.model, "../pretrained/v5.45.weights", 44)
 

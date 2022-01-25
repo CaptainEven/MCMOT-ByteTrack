@@ -394,12 +394,13 @@ class RouteGroup(nn.Module):
 
 
 # Parse cfg file, create every layer
-def create_modules(module_defs, img_size, cfg, in_chans=3):
+def build_modules(module_defs, img_size, cfg, in_chans=3, use_momentum=True):
     """
     :param module_defs:
     :param img_size:
     :param cfg:
     :param in_chans:
+    :param use_momentum:
     :return:
     """
     # Constructs module list of layer blocks from module configuration in module_defs
@@ -445,8 +446,12 @@ def create_modules(module_defs, img_size, cfg, in_chans=3):
                                              bias=not bn))
 
             if bn:
-                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.1, eps=1E-5))
-                # modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.00, eps=1E-5))
+                if use_momentum:
+                    modules.add_module('BatchNorm2d',
+                                       nn.BatchNorm2d(filters, momentum=0.1, eps=1E-5))
+                else:
+                    modules.add_module('BatchNorm2d',
+                                       nn.BatchNorm2d(filters, momentum=0.00, eps=1E-5))
 
                 # @even: add BN to route too.
                 routs.append(i)

@@ -5,7 +5,7 @@ import math
 import torch
 import torch.nn as nn
 from yolox.utils.myutils import parse_model_cfg
-from .darknet_modules import create_modules
+from .darknet_modules import build_modules
 
 import torch.nn.functional as F
 from loguru import logger
@@ -44,7 +44,7 @@ class YOLOXDarknet(nn.Module):
         ## ----- build the network
         self.module_defs = parse_model_cfg(cfg)
         logger.info("Network config file parsed.")
-        self.module_list, self.routs = create_modules(self.module_defs, net_size, cfg, 3)
+        self.module_list, self.routs = build_modules(self.module_defs, net_size, cfg, 3)
         if init_weights:
             self.init_weights()
             logger.info("Network weights initialized.")
@@ -729,13 +729,15 @@ class YOLOXDarknetReID(nn.Module):
                  num_classes=5,
                  init_weights=False,
                  reid=True,
-                 max_id_dict=None):
+                 max_id_dict=None,
+                 use_momentum=True):
         """
         Darknet based
         :param cfg:
         :param net_size:
         :param strides:
         :param num_classes:
+        :param use_momentum:
         :return
         """
         super().__init__()
@@ -748,8 +750,8 @@ class YOLOXDarknetReID(nn.Module):
         self.module_defs = parse_model_cfg(cfg)
         logger.info("Network config file parsed.")
 
-        self.module_list, self.routs = create_modules(self.module_defs, net_size, cfg, 3)
-        logger.info("Network modules created.")
+        self.module_list, self.routs = build_modules(self.module_defs, net_size, cfg, 3, use_momentum)
+        logger.info("Network modules built.")
 
         if init_weights:
             self.init_weights()

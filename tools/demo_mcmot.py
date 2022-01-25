@@ -66,7 +66,7 @@ def make_parser():
     ## ----- checkpoing file path, eg: ../pretrained/latest_ckpt.pth.tar, track_latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_tiny_track_c5_darknet/latest_ckpt_track.pth.tar",
+                        default="../YOLOX_outputs/yolox_tiny_track_c5_darknet/latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
 
