@@ -7,8 +7,77 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from pathlib import Path
 from torch.nn import init
 from torchvision.models import resnet
+
+
+def load_darknet_weights(model, weights, cutoff=0):
+    """
+    :param model:
+    :param weights:
+    :param cutoff:
+    :return:
+    """
+    print("Loading weights from {:s}...".format(os.path.abspath(weights)))
+    print('Cutoff: ', cutoff)
+
+    # Parses and loads the weights stored in 'weights'
+
+    # Establish cutoffs (load layers between 0 and cutoff. if cutoff = -1 all are loaded)
+    file = Path(weights).name
+    if file == 'darknet53.conv.74':
+        cutoff = 75
+    elif file == 'yolov3-tiny.conv.15':
+        cutoff = 15
+
+    # Read weights file
+    with open(weights, 'rb') as f:
+        # Read Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
+        model.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
+        model.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
+        weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
+
+    ptr = 0
+    # for i, (mod_def, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+    for i, (mod_def, module) in enumerate(zip(model.module_defs, model.module_list)):
+        if cutoff != 0 and i > cutoff:
+            break
+
+        if mod_def['type'] == 'convolutional' or mod_def['type'] == 'deconvolutional':  # how to load 'deconvolutional' layer
+            conv = module[0]
+            if mod_def['batch_normalize']:
+                # Load BN bias, weights, running mean and running variance
+                bn = module[1]
+                nb = bn.bias.numel()  # number of biases
+
+                # Bias
+                bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
+                ptr += nb
+
+                # Weight
+                bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
+                ptr += nb
+
+                # Running Mean
+                bn.running_mean.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_mean))
+                ptr += nb
+
+                # Running Var
+                bn.running_var.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_var))
+                ptr += nb
+            else:
+                # Load conv. bias
+                nb = conv.bias.numel()
+                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
+
+                conv.bias.data.copy_(conv_b)
+                ptr += nb
+
+            # Load conv. weights
+            nw = conv.weight.numel()  # number of weights
+            conv.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nw]).view_as(conv.weight))
+            ptr += nw
 
 
 class YOLOLayer(nn.Module):

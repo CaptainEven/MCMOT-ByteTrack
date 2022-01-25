@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
 # encoding=utf-8
-# Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
 from .darknet import CSPDarknet, Darknet
 from .losses import IOUloss
@@ -11,3 +9,4 @@ from .yolo_pafpn import YOLOPAFPN
 from .yolox import YOLOX
 from .yolox_reid import YOLOXReID
 from .yolox_darknet import YOLOXDarknet, YOLOXDarknetReID
+from .darknet_modules import load_darknet_weights

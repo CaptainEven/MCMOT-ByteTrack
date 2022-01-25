@@ -79,6 +79,7 @@ class Exp(MyExp):
         :return:
         """
         from yolox.models.yolox_darknet import YOLOXDarknetReID
+        from yolox.models.darknet_modules import load_darknet_weights
 
         if getattr(self, "model", None) is None:
             logger.info("Cfg file path: {:s}.".format(self.cfg_file_path))
@@ -86,9 +87,12 @@ class Exp(MyExp):
                                           net_size=(768, 448),
                                           strides=[8, 16, 32],
                                           num_classes=5,
-                                          init_weights=False,
+                                          init_weights=True,
                                           reid=True,
                                           max_id_dict=self.max_id_dict)
+
+            load_darknet_weights(self.model, "../pretrained/v5.45.weights", 44)
+
 
         return self.model
 

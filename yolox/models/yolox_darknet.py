@@ -754,6 +754,8 @@ class YOLOXDarknetReID(nn.Module):
         if init_weights:
             self.init_weights()
             logger.info("Network weights initialized.")
+        else:
+            logger.info("Network weights not initialized.")
 
         self.n_anchors = 1
         self.num_classes = num_classes
