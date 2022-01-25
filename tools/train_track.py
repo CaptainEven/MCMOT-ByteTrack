@@ -74,6 +74,11 @@ def make_parser():
                         default="../YOLOX_outputs/yolox_tiny_det_c5_darknet/latest_ckpt.pth.tar",  # yolox_tiny_32.8.pth
                         type=str,
                         help="checkpoint file")
+
+    parser.add_argument("--cutoff",
+                        type=int,
+                        default=0,
+                        help="")
     ## ----------
 
     parser.add_argument("--debug",

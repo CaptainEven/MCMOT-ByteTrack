@@ -26,6 +26,7 @@ from yolox.utils import (
     setup_logger,
     synchronize
 )
+from yolox.models.darknet_modules import load_darknet_weights
 
 
 class Trainer:
@@ -152,17 +153,17 @@ class Trainer:
         # value of epoch will be set in `resume_train`
         model = self.resume_train(model)
 
-        # data related init
+        ## ---------- data related init
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.no_aug_epochs
         self.train_loader = self.exp.get_data_loader(batch_size=self.args.batch_size,
                                                      is_distributed=self.is_distributed,
                                                      data_dir=self.args.train_root,
                                                      no_aug=self.no_aug)
 
-        logger.info("Init prefetcher, this might take one minute or less...")
+        logger.info("Init pre-fetcher, this might take one minute or less...")
         self.prefetcher = DataPrefetcher(self.train_loader)
 
-        # max_iter means iters per epoch
+        # max_iter means iterations per epoch
         self.max_iter = len(self.train_loader)
 
         self.lr_scheduler = self.exp.get_lr_scheduler(self.exp.basic_lr_per_img * self.args.batch_size,
@@ -320,8 +321,13 @@ class Trainer:
             if self.args.ckpt is not None:
                 logger.info("loading checkpoint for fine tuning...")
                 ckpt_path = os.path.abspath(self.args.ckpt)
-                ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
-                model = load_ckpt(model, ckpt)
+                if self.args.ckpt.endswith(".tar") \
+                        or self.args.ckpt.endswith(".pth") \
+                        or self.args.ckpt.endswith(".pth"):
+                    ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
+                    model = load_ckpt(model, ckpt)
+                elif self.args.ckpt.endswith(".weights"):
+                    load_darknet_weights(model, ckpt_path, self.args.cutoff)
                 logger.info("{:s} loaded!".format(ckpt_path))
             self.start_epoch = 0
 
