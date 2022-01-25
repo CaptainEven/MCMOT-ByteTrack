@@ -78,7 +78,7 @@ def make_parser():
     parser.add_argument("--cutoff",
                         type=int,
                         default=0,
-                        help="")
+                        help="Loading from layers before cutoff.")
     ## ----------
 
     parser.add_argument("--debug",
