@@ -37,8 +37,6 @@ def post_process(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
     :param nms_thre:
     :return:
     """
-    if isinstance(prediction, tuple):
-        prediction = prediction[0]
     box_corner = prediction.new(prediction.shape)
 
     ## ----- cxcywh2xyxy

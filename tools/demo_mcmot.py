@@ -70,6 +70,11 @@ def make_parser():
                         type=str,
                         help="ckpt for eval")
 
+    parser.add_argument("--task",
+                        type=str,
+                        default="track",
+                        help="Task mode: track or detect")
+
     ## ----- videos dir path
     parser.add_argument("--video_dir",
                         type=str,
@@ -275,6 +280,8 @@ class Predictor(object):
                 outputs, feature_map = outputs[0], outputs[1]
                 outputs = post_process(outputs, self.num_classes, self.confthre, self.nmsthre)
             else:
+                if isinstance(outputs, tuple):
+                    outputs, feature_map = outputs[0], outputs[1]
                 outputs = post_process(outputs, self.num_classes, self.confthre, self.nmsthre)
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
 
@@ -598,6 +605,7 @@ def run(exp, args):
             ckpt_file_path = os.path.join(file_name, "best_ckpt.pth.tar")
         else:
             ckpt_file_path = args.ckpt
+        ckpt_file_path = os.path.abspath(ckpt_file_path)
 
         logger.info("Loading checkpoint...")
         ckpt = torch.load(ckpt_file_path, map_location="cpu")

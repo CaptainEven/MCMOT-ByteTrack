@@ -1,11 +1,11 @@
-python3 ./tools/train_track.py --ckpt ../YOLOX_outputs/yolox_tiny_track_c5_darknet/latest_ckpt.pth.tar \
+python3 ./tools/train_track.py --ckpt ./YOLOX_outputs/yolox_tiny_track_c5_darknet/latest_ckpt.pth.tar \
                                --cutoff 44 \
                                --use_momentum True \
                                --exp_file ./exps/example/mot/yolox_tiny_track_c5_darknet.py \
                                --cfg ./cfg/yolox_darknet_tiny.cfg \
                                --train_root /mnt/diskb/even/dataset/MCMOT \
                                --val_root /mnt/diskb/even/dataset/MCMOT_TEST \
-                               --batch-size 12 \
+                               --batch-size 16 \
                                --debug 0 \
                                --devices 7
 

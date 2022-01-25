@@ -1270,17 +1270,6 @@ class YOLOXDarknetReID(nn.Module):
         reg_weight = 5.0
 
         if use_mtl:
-            loss_sum = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1 + loss_reid
-            return (
-                loss_sum,
-                loss_iou,
-                loss_obj,
-                loss_cls,
-                loss_l1,
-                loss_reid,
-                num_fg / max(num_gts, 1),
-            )
-        else:
             self.loss_dict["iou_loss"] = loss_iou * reg_weight
             self.loss_dict["obj_loss"] = loss_obj
             self.loss_dict["cls_loss"] = loss_cls
@@ -1294,6 +1283,17 @@ class YOLOXDarknetReID(nn.Module):
                 self.loss_dict["cls_loss"],
                 self.loss_dict["l1_loss"],
                 self.loss_dict["reid_loss"],
+                num_fg / max(num_gts, 1),
+            )
+        else:
+            loss_sum = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1 + loss_reid
+            return (
+                loss_sum,
+                loss_iou,
+                loss_obj,
+                loss_cls,
+                loss_l1,
+                loss_reid,
                 num_fg / max(num_gts, 1),
             )
 

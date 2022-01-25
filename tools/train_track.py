@@ -215,6 +215,10 @@ if __name__ == "__main__":
         exp.use_momentum = opt.use_momentum
         logger.info("Use momentum: {}.".format(exp.use_momentum))
 
+    if hasattr(exp, "use_mtl"):
+        exp.use_mtl = opt.use_mtl
+        logger.info("Use MTL: {}.".format(exp.use_mtl))
+
     if not opt.experiment_name:
         opt.experiment_name = exp.exp_name
 

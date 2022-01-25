@@ -77,6 +77,8 @@ class Exp(MyExp):
         self.use_momentum = True
         # logger.info("Use momentum: ", self.use_momentum)
 
+        self.use_mtl = False;
+
     def get_model(self):
         """
         :return:
@@ -93,7 +95,8 @@ class Exp(MyExp):
                                           init_weights=True,
                                           reid=True,
                                           max_id_dict=self.max_id_dict,
-                                          use_momentum=self.use_momentum)
+                                          use_momentum=self.use_momentum,
+                                          use_mtl=self.use_mtl)
 
             # load_darknet_weights(self.model, "../pretrained/v5.45.weights", 44)
 
