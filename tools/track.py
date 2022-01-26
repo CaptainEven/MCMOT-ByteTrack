@@ -216,7 +216,7 @@ def main(exp, args, num_gpu):
     if args.conf is not None:
         exp.test_conf = args.conf
     if args.nms is not None:
-        exp.nmsthre = args.nms
+        exp.nms_thresh = args.nms
     if args.tsize is not None:
         exp.test_size = (args.tsize, args.tsize)
 
@@ -236,7 +236,7 @@ def main(exp, args, num_gpu):
         dataloader=val_loader,
         img_size=exp.test_size,
         confthre=exp.test_conf,
-        nmsthre=exp.nmsthre,
+        nmsthre=exp.nms_thresh,
         num_classes=exp.num_classes,
     )
 

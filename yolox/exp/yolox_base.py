@@ -58,7 +58,7 @@ class Exp(BaseExp):
         # -----------------  testing config ------------------ #
         self.test_size = (640, 640)
         self.test_conf = 0.001
-        self.nmsthre = 0.65
+        self.nms_thresh = 0.65
 
     def get_model(self):
         """
@@ -284,7 +284,7 @@ class Exp(BaseExp):
             dataloader=val_loader,
             img_size=self.test_size,
             confthre=self.test_conf,
-            nmsthre=self.nmsthre,
+            nmsthre=self.nms_thresh,
             num_classes=self.num_classes,
             testdev=testdev,
         )

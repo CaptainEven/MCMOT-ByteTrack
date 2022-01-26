@@ -190,7 +190,7 @@ class Predictor(object):
         self.decoder = decoder
         self.num_classes = exp.num_classes
         self.confthre = exp.test_conf
-        self.nmsthre = exp.nmsthre
+        self.nmsthre = exp.nms_thresh
         self.test_size = exp.test_size
         self.device = device
         self.fp16 = fp16
@@ -418,7 +418,7 @@ def main(exp, args):
     if args.conf is not None:
         exp.test_conf = args.conf
     if args.nms is not None:
-        exp.nmsthre = args.nms
+        exp.nms_thresh = args.nms
     if args.tsize is not None:
         exp.test_size = (args.tsize, args.tsize)
 

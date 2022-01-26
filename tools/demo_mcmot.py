@@ -217,8 +217,8 @@ class Predictor(object):
         self.model = model
         self.decoder = decoder
         self.num_classes = exp.num_classes
-        self.confthre = exp.test_conf
-        self.nmsthre = exp.nmsthre
+        self.conf_thresh = exp.test_conf
+        self.nms_thresh = exp.nms_thresh
         self.test_size = exp.test_size
         self.device = device
         self.fp16 = fp16
@@ -278,11 +278,11 @@ class Predictor(object):
 
             if self.reid:
                 outputs, feature_map = outputs[0], outputs[1]
-                outputs = post_process(outputs, self.num_classes, self.confthre, self.nmsthre)
+                outputs = post_process(outputs, self.num_classes, self.conf_thresh, self.nms_thresh)
             else:
                 if isinstance(outputs, tuple):
                     outputs, feature_map = outputs[0], outputs[1]
-                outputs = post_process(outputs, self.num_classes, self.confthre, self.nmsthre)
+                outputs = post_process(outputs, self.num_classes, self.conf_thresh, self.nms_thresh)
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
 
         if self.reid:
@@ -583,7 +583,7 @@ def run(exp, args):
     if args.conf is not None:
         exp.test_conf = args.conf
     if args.nms is not None:
-        exp.nmsthre = args.nms
+        exp.nms_thresh = args.nms
     if args.tsize is not None:
         exp.test_size = (args.tsize, args.tsize)
 
