@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import time
 
 
@@ -13,11 +15,18 @@ class Timer(object):
         self.duration = 0.
 
     def tic(self):
+        """
+        :return:
+        """
         # using time.time instead of time.clock because time time.clock
         # does not normalize for multithreading
         self.start_time = time.time()
 
     def toc(self, average=True):
+        """
+        :param average:
+        :return:
+        """
         self.diff = time.time() - self.start_time
         self.total_time += self.diff
         self.calls += 1
@@ -29,6 +38,9 @@ class Timer(object):
         return self.duration
 
     def clear(self):
+        """
+        :return:
+        """
         self.total_time = 0.
         self.calls = 0
         self.start_time = 0.

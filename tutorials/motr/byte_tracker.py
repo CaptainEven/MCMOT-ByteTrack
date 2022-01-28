@@ -156,12 +156,13 @@ class BYTETracker(object):
         self.track_thresh = 0.8
         self.det_thresh = self.track_thresh + 0.1
         
-        
         self.buffer_size = int(frame_rate / 30.0 * 30)
         self.max_time_lost = self.buffer_size
         self.kalman_filter = KalmanFilter()
 
     def update(self, output_results):
+        """
+        """
         self.frame_id += 1
         activated_starcks = []
         refind_stracks = []
@@ -202,6 +203,7 @@ class BYTETracker(object):
 
         ''' Step 2: First association, with Kalman and IOU'''
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
+
         # Predict the current location with KF
         STrack.multi_predict(strack_pool)
         dists = matching.iou_distance(strack_pool, detections)

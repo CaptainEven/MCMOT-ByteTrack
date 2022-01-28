@@ -1,15 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="ByteTrack">
+  <component name="PublishConfigData" autoUpload="Always" serverName="ByteTrack_diskb" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="ByteTrack">
         <serverdata>
           <mappings>
-            <mapping deploy="/mnt/diskc/even/ByteTrack" local="$PROJECT_DIR$" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="jaya@192.168.0.211:22">
+      <paths name="ByteTrack_diskb">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/mnt/diskb/even/ByteTrack" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="guest">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />

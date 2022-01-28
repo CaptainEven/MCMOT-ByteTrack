@@ -14,6 +14,7 @@ assert torch_ver >= [1, 3], "Requires PyTorch >= 1.3"
 
 def get_extensions():
     this_dir = path.dirname(path.abspath(__file__))
+    print("[Info]: this dir: {:s}.".format(this_dir))
     extensions_dir = path.join(this_dir, "yolox", "layers", "csrc")
 
     main_source = path.join(extensions_dir, "vision.cpp")
@@ -46,10 +47,8 @@ with open("yolox/__init__.py", "r") as f:
         f.read(), re.MULTILINE
     ).group(1)
 
-
 with open("README.md", "r") as f:
     long_description = f.read()
-
 
 setuptools.setup(
     name="yolox",

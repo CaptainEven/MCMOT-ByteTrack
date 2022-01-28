@@ -20,7 +20,10 @@ class Exp(MyExp):
         self.enable_mixup = False
 
     def get_model(self, sublinear=False):
-
+        """
+        :param sublinear:
+        :return:
+        """
         def init_yolo(M):
             for m in M.modules():
                 if isinstance(m, nn.BatchNorm2d):

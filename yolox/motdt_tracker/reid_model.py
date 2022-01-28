@@ -1,15 +1,16 @@
+# encoding=utf-8
+
+import os
+import pickle
+
 import cv2
 import numpy as np
 import torch
-from torch.autograd import Variable
-import torch.nn.functional as F
 import torch.nn as nn
-import pickle
-import os
+import torch.nn.functional as F
+# from torch.legacy.nn import SpatialCrossMapLRN as SpatialCrossMapLRNOld
+from torch.autograd import Variable
 from torch.nn.modules import CrossMapLRN2d as SpatialCrossMapLRN
-#from torch.legacy.nn import SpatialCrossMapLRN as SpatialCrossMapLRNOld
-from torch.autograd import Function, Variable
-from torch.nn import Module
 
 
 def clip_boxes(boxes, im_shape):
@@ -19,19 +20,32 @@ def clip_boxes(boxes, im_shape):
     boxes = np.asarray(boxes)
     if boxes.shape[0] == 0:
         return boxes
+
     boxes = np.copy(boxes)
+
     # x1 >= 0
     boxes[:, 0::4] = np.maximum(np.minimum(boxes[:, 0::4], im_shape[1] - 1), 0)
+
     # y1 >= 0
     boxes[:, 1::4] = np.maximum(np.minimum(boxes[:, 1::4], im_shape[0] - 1), 0)
+
     # x2 < im_shape[1]
     boxes[:, 2::4] = np.maximum(np.minimum(boxes[:, 2::4], im_shape[1] - 1), 0)
+
     # y2 < im_shape[0]
     boxes[:, 3::4] = np.maximum(np.minimum(boxes[:, 3::4], im_shape[0] - 1), 0)
+
     return boxes
 
 
 def load_net(fname, net, prefix='', load_state_dict=False):
+    """
+    :param fname:
+    :param net:
+    :param prefix:
+    :param load_state_dict:
+    :return:
+    """
     import h5py
     with h5py.File(fname, mode='r') as h5f:
         h5f_is_module = True
@@ -146,11 +160,10 @@ class Inception(nn.Module):
         y2 = self.b2(x)
         y3 = self.b3(x)
         y4 = self.b4(x)
-        return torch.cat([y1,y2,y3,y4], 1)
+        return torch.cat([y1, y2, y3, y4], 1)
 
 
 class GoogLeNet(nn.Module):
-
     output_channels = 832
 
     def __init__(self):
@@ -172,15 +185,15 @@ class GoogLeNet(nn.Module):
             nn.MaxPool2d(3, stride=2, ceil_mode=True),
         )
 
-        self.a3 = Inception(192,  64,  96, 128, 16, 32, 32)
+        self.a3 = Inception(192, 64, 96, 128, 16, 32, 32)
         self.b3 = Inception(256, 128, 128, 192, 32, 96, 64)
 
         self.maxpool = nn.MaxPool2d(3, stride=2, ceil_mode=True)
 
-        self.a4 = Inception(480, 192,  96, 208, 16,  48,  64)
-        self.b4 = Inception(512, 160, 112, 224, 24,  64,  64)
-        self.c4 = Inception(512, 128, 128, 256, 24,  64,  64)
-        self.d4 = Inception(512, 112, 144, 288, 32,  64,  64)
+        self.a4 = Inception(480, 192, 96, 208, 16, 48, 64)
+        self.b4 = Inception(512, 160, 112, 224, 24, 64, 64)
+        self.c4 = Inception(512, 128, 128, 256, 24, 64, 64)
+        self.d4 = Inception(512, 112, 144, 288, 32, 64, 64)
         self.e4 = Inception(528, 256, 160, 320, 32, 128, 128)
 
     def forward(self, x):
@@ -209,9 +222,13 @@ class Model(nn.Module):
         self.conv_att = nn.Conv2d(512, self.n_parts, 1)
 
         for i in range(self.n_parts):
-            setattr(self, 'linear_feature{}'.format(i+1), nn.Linear(512, 64))
+            setattr(self, 'linear_feature{}'.format(i + 1), nn.Linear(512, 64))
 
     def forward(self, x):
+        """
+        :param x:
+        :return:
+        """
         feature = self.feat_conv(x)
         feature = self.conv_input_feat(feature)
 
@@ -222,7 +239,7 @@ class Model(nn.Module):
             masked_feature = feature * torch.unsqueeze(att_weights[:, i], 1)
             pooled_feature = F.avg_pool2d(masked_feature, masked_feature.size()[2:4])
             linear_feautres.append(
-                getattr(self, 'linear_feature{}'.format(i+1))(pooled_feature.view(pooled_feature.size(0), -1))
+                getattr(self, 'linear_feature{}'.format(i + 1))(pooled_feature.view(pooled_feature.size(0), -1))
             )
 
         concat_features = torch.cat(linear_feautres, 1)
@@ -232,6 +249,10 @@ class Model(nn.Module):
 
 
 def load_reid_model(ckpt):
+    """
+    :param ckpt:
+    :return:
+    """
     model = Model(n_parts=8)
     model.inp_size = (80, 160)
     load_net(ckpt, model)
@@ -243,6 +264,10 @@ def load_reid_model(ckpt):
 
 
 def im_preprocess(image):
+    """
+    :param image:
+    :return:
+    """
     image = np.asarray(image, np.float32)
     image -= np.array([104, 117, 123], dtype=np.float32).reshape(1, 1, -1)
     image = image.transpose((2, 0, 1))
@@ -250,6 +275,11 @@ def im_preprocess(image):
 
 
 def extract_image_patches(image, bboxes):
+    """
+    :param image:
+    :param bboxes:
+    :return:
+    """
     bboxes = np.round(bboxes).astype(np.int)
     bboxes = clip_boxes(bboxes, image.shape)
     patches = [image[box[1]:box[3], box[0]:box[2]] for box in bboxes]
@@ -257,6 +287,12 @@ def extract_image_patches(image, bboxes):
 
 
 def extract_reid_features(reid_model, image, tlbrs):
+    """
+    :param reid_model:
+    :param image:
+    :param tlbrs:
+    :return:
+    """
     if len(tlbrs) == 0:
         return torch.FloatTensor()
 

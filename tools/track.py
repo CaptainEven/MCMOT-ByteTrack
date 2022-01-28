@@ -110,6 +110,10 @@ def make_parser():
                         nargs=argparse.REMAINDER)
 
     # det args
+    parser.add_argument("--n_classes",
+                        type=int,
+                        default=1,
+                        help="")
     parser.add_argument("-c",
                         "--ckpt",
                         default="../pretrained/bytetrack_x_mot17.pth.tar",
@@ -212,10 +216,11 @@ def main(exp, args, num_gpu):
     if args.conf is not None:
         exp.test_conf = args.conf
     if args.nms is not None:
-        exp.nmsthre = args.nms
+        exp.nms_thresh = args.nms
     if args.tsize is not None:
         exp.test_size = (args.tsize, args.tsize)
 
+    ## ----- Get model
     model = exp.get_model()
     logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
     # logger.info("Model Structure:\n{}".format(str(model)))
@@ -231,7 +236,7 @@ def main(exp, args, num_gpu):
         dataloader=val_loader,
         img_size=exp.test_size,
         confthre=exp.test_conf,
-        nmsthre=exp.nmsthre,
+        nmsthre=exp.nms_thresh,
         num_classes=exp.num_classes,
     )
 
@@ -245,7 +250,7 @@ def main(exp, args, num_gpu):
         else:
             ckpt_file = args.ckpt
 
-        logger.info("loading checkpoint")
+        logger.info("loading checkpoint...")
         loc = "cuda:{}".format(rank)
 
         ckpt_file = os.path.abspath(ckpt_file)
@@ -297,11 +302,13 @@ def main(exp, args, num_gpu):
     else:
         gt_type = ''
     print('gt_type', gt_type)
+
     if args.mot20:
         gtfiles = glob.glob(os.path.join('datasets/MOT20/train', '*/gt/gt{}.txt'.format(gt_type)))
     else:
         gtfiles = glob.glob(os.path.join('datasets/mot/train', '*/gt/gt{}.txt'.format(gt_type)))
     print('gt_files', gtfiles)
+
     tsfiles = [f for f in glob.glob(os.path.join(results_folder, '*.txt')) if
                not os.path.basename(f).startswith('eval')]
 
@@ -311,9 +318,9 @@ def main(exp, args, num_gpu):
     logger.info('Loading files.')
 
     gt = OrderedDict([(Path(f).parts[-3], mm.io.loadtxt(f, fmt='mot15-2D', min_confidence=1)) for f in gtfiles])
-    ts = OrderedDict(
-        [(os.path.splitext(Path(f).parts[-1])[0], mm.io.loadtxt(f, fmt='mot15-2D', min_confidence=-1)) for f in
-         tsfiles])
+    ts = OrderedDict([(os.path.splitext(Path(f).parts[-1])[0],
+                       mm.io.loadtxt(f, fmt='mot15-2D', min_confidence=-1))
+                      for f in tsfiles])
 
     mh = mm.metrics.create()
     accs, names = compare_dataframes(gt, ts)
@@ -327,6 +334,7 @@ def main(exp, args, num_gpu):
     # print(mm.io.render_summary(
     #   summary, formatters=mh.formatters, 
     #   namemap=mm.io.motchallenge_metric_names))
+
     div_dict = {
         'num_objects': ['num_false_positives', 'num_misses', 'num_switches', 'num_fragmentations'],
         'num_unique_objects': ['mostly_tracked', 'partially_tracked', 'mostly_lost']}

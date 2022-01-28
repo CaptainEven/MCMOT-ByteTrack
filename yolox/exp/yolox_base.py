@@ -23,7 +23,8 @@ class Exp(BaseExp):
 
         # ---------------- dataloader config ---------------- #
         # set worker to 4 for shorter dataloader init time
-        self.data_num_workers = 4
+        self.data_num_workers = 0  # 4
+
         self.input_size = (640, 640)
         self.random_size = (14, 26)
         self.train_ann = "instances_train2017.json"
@@ -57,7 +58,7 @@ class Exp(BaseExp):
         # -----------------  testing config ------------------ #
         self.test_size = (640, 640)
         self.test_conf = 0.001
-        self.nmsthre = 0.65
+        self.nms_thresh = 0.65
 
     def get_model(self):
         """
@@ -66,6 +67,10 @@ class Exp(BaseExp):
         from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead
 
         def init_yolo(M):
+            """
+            :param M:
+            :return:
+            """
             for m in M.modules():
                 if isinstance(m, nn.BatchNorm2d):
                     m.eps = 1e-3
@@ -73,12 +78,17 @@ class Exp(BaseExp):
 
         if getattr(self, "model", None) is None:
             in_channels = [256, 512, 1024]
+
+            ## ----- backbone and head
             backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels)
             head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels)
+
+            ## ----- combine backbone abd head
             self.model = YOLOX(backbone, head)
 
         self.model.apply(init_yolo)
         self.model.head.initialize_biases(1e-2)
+
         return self.model
 
     def get_data_loader(self, batch_size, is_distributed, no_aug=False):
@@ -193,12 +203,11 @@ class Exp(BaseExp):
                 elif hasattr(v, "weight") and isinstance(v.weight, nn.Parameter):
                     pg1.append(v.weight)  # apply decay
 
-            optimizer = torch.optim.SGD(
-                pg0, lr=lr, momentum=self.momentum, nesterov=True
-            )
-            optimizer.add_param_group(
-                {"params": pg1, "weight_decay": self.weight_decay}
-            )  # add pg1 with weight_decay
+            # optimizer = torch.optim.SGD(pg0, lr=lr, momentum=self.momentum, nesterov=True)
+            optimizer = torch.optim.Adam(pg0, lr=lr)
+
+            ## ----- add pg1 with weight_decay
+            optimizer.add_param_group({"params": pg1, "weight_decay": self.weight_decay})
             optimizer.add_param_group({"params": pg2})
             self.optimizer = optimizer
 
@@ -275,7 +284,7 @@ class Exp(BaseExp):
             dataloader=val_loader,
             img_size=self.test_size,
             confthre=self.test_conf,
-            nmsthre=self.nmsthre,
+            nmsthre=self.nms_thresh,
             num_classes=self.num_classes,
             testdev=testdev,
         )

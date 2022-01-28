@@ -18,8 +18,11 @@ class BaseExp(metaclass=ABCMeta):
     """Basic class for any experiment."""
 
     def __init__(self):
+        """
+        The Base experiment class
+        """
         self.seed = None
-        self.output_dir = "../YOLOX_outputs"
+        self.output_dir = "./YOLOX_outputs"
         self.print_interval = 100
         self.eval_interval = 10
 
@@ -59,7 +62,12 @@ class BaseExp(metaclass=ABCMeta):
         return tabulate(exp_table, headers=table_header, tablefmt="fancy_grid")
 
     def merge(self, cfg_list):
+        """
+        :param cfg_list:
+        :return:
+        """
         assert len(cfg_list) % 2 == 0
+
         for k, v in zip(cfg_list[0::2], cfg_list[1::2]):
             # only update value with same key
             if hasattr(self, k):

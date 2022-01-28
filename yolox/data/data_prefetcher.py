@@ -2,12 +2,12 @@
 # -*- coding:utf-8 -*-
 # Copyright (c) Megvii, Inc. and its affiliates.
 
+import random
+
 import torch
 import torch.distributed as dist
 
 from yolox.utils import synchronize
-
-import random
 
 
 class DataPrefetcher:
@@ -17,8 +17,10 @@ class DataPrefetcher:
     It could speedup your pytorch dataloader. For more information, please check
     https://github.com/NVIDIA/apex/issues/304#issuecomment-493562789.
     """
-
     def __init__(self, loader):
+        """
+        :param loader:
+        """
         self.loader = iter(loader)
         self.stream = torch.cuda.Stream()
         self.input_cuda = self._input_cuda_for_image
@@ -26,6 +28,9 @@ class DataPrefetcher:
         self.preload()
 
     def preload(self):
+        """
+        :return:
+        """
         try:
             self.next_input, self.next_target, _, _ = next(self.loader)
         except StopIteration:
@@ -38,13 +43,18 @@ class DataPrefetcher:
             self.next_target = self.next_target.cuda(non_blocking=True)
 
     def next(self):
+        """
+        :return:
+        """
         torch.cuda.current_stream().wait_stream(self.stream)
         input = self.next_input
         target = self.next_target
+
         if input is not None:
             self.record_stream(input)
         if target is not None:
             target.record_stream(torch.cuda.current_stream())
+
         self.preload()
         return input, target
 

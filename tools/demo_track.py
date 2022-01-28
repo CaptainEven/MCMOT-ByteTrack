@@ -12,8 +12,8 @@ from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracking_utils.timer import Timer
-from yolox.utils import fuse_model, get_model_info, postprocess
-from yolox.utils.visualize import plot_tracking
+from yolox.utils import fuse_model, get_model_info, post_process
+from yolox.utils.visualize import plot_tracking_sc
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -37,9 +37,29 @@ def make_parser():
                         default=None,
                         help="model name")
 
-    # "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
+    # exp file
+    parser.add_argument("--n_classes",
+                        type=int,
+                        default=5,
+                        help="")  # number of object classes
+
+    ## yolox_x_ablation.py
+    parser.add_argument("-f",
+                        "--exp_file",
+                        default="../exps/example/mot/yolox_tiny_det.py",
+                        type=str,
+                        help="pls input your expriment description file")
+
+    ## bytetrack_x_mot17.pth.tar
+    parser.add_argument("-c",
+                        "--ckpt",
+                        default="../pretrained/c5_tiny_latest_ckpt.pth",
+                        type=str,
+                        help="ckpt for eval")
+
+    ## "--path", default="./datasets/mot/train/MOT17-05-FRCNN/img1", help="path to images or video"
     parser.add_argument("--path",
-                        default="../videos/palace.mp4",
+                        default="../videos/test_13.mp4",
                         help="path to images or video")
     parser.add_argument("--camid",
                         type=int,
@@ -50,17 +70,6 @@ def make_parser():
                         default=True,
                         help="whether to save the inference result of image/video")
 
-    # exp file
-    parser.add_argument("-f",
-                        "--exp_file",
-                        default="../exps/example/mot/yolox_x_ablation.py",
-                        type=str,
-                        help="pls input your expriment description file")
-    parser.add_argument("-c",
-                        "--ckpt",
-                        default="../pretrained/bytetrack_x_mot17.pth.tar",
-                        type=str,
-                        help="ckpt for eval")
     parser.add_argument("--device",
                         default="gpu",
                         type=str,
@@ -181,7 +190,7 @@ class Predictor(object):
         self.decoder = decoder
         self.num_classes = exp.num_classes
         self.confthre = exp.test_conf
-        self.nmsthre = exp.nmsthre
+        self.nmsthre = exp.nms_thresh
         self.test_size = exp.test_size
         self.device = device
         self.fp16 = fp16
@@ -229,7 +238,7 @@ class Predictor(object):
             outputs = self.model(img)
             if self.decoder is not None:
                 outputs = self.decoder(outputs, dtype=outputs.type())
-            outputs = postprocess(
+            outputs = post_process(
                 outputs, self.num_classes, self.confthre, self.nmsthre
             )
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
@@ -278,8 +287,8 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
             # save results
             results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
             timer.toc()
-            online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
-                                      fps=1. / timer.average_time)
+            online_im = plot_tracking_sc(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
+                                         fps=1. / timer.average_time)
         else:
             timer.toc()
             online_im = img_info['raw_img']
@@ -330,16 +339,24 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
     tracker = BYTETracker(args, frame_rate=30)
 
     timer = Timer()
+
     frame_id = 0
     results = []
+
     while True:
         if frame_id % 20 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
         ret_val, frame = cap.read()
+
         if ret_val:
             outputs, img_info = predictor.inference(frame, timer)
-            if outputs[0] is not None:
-                online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], exp.test_size)
+            dets = outputs[0]
+
+            if dets is not None:
+                ## ----- update the frame
+                online_targets = tracker.update(dets, [img_info['height'], img_info['width']], exp.test_size)
+                # online_targets = tracker.update_tracking(dets, [img_info['height'], img_info['width']], exp.test_size)
+
                 online_tlwhs = []
                 online_ids = []
                 online_scores = []
@@ -351,12 +368,18 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
                         online_tlwhs.append(tlwh)
                         online_ids.append(tid)
                         online_scores.append(t.score)
+
                 results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
+
                 timer.toc()
-                online_im = plot_tracking(img_info['raw_img'], online_tlwhs, online_ids, frame_id=frame_id + 1,
-                                          fps=1. / timer.average_time)
+                online_im = plot_tracking_sc(img_info['raw_img'],
+                                             online_tlwhs,
+                                             online_ids,
+                                             frame_id=frame_id + 1,
+                                             fps=1.0 / timer.average_time)
             else:
                 timer.toc()
+
                 online_im = img_info['raw_img']
             if args.save_result:
                 vid_writer.write(online_im)
@@ -364,7 +387,10 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
             if ch == 27 or ch == ord("q") or ch == ord("Q"):
                 break
         else:
+            print("Read frame {:d} failed!".format(frame_id))
             break
+
+        ## ----- update frame id
         frame_id += 1
 
 
@@ -392,7 +418,7 @@ def main(exp, args):
     if args.conf is not None:
         exp.test_conf = args.conf
     if args.nms is not None:
-        exp.nmsthre = args.nms
+        exp.nms_thresh = args.nms
     if args.tsize is not None:
         exp.test_size = (args.tsize, args.tsize)
 
@@ -409,7 +435,7 @@ def main(exp, args):
         else:
             ckpt_file = args.ckpt
 
-        logger.info("loading checkpoint")
+        logger.info("loading checkpoint...")
         ckpt = torch.load(ckpt_file, map_location="cpu")
 
         # load the model state dict
@@ -448,5 +474,7 @@ def main(exp, args):
 if __name__ == "__main__":
     args = make_parser().parse_args()
     exp = get_exp(args.exp_file, args.name)
+    exp.num_classes = args.n_classes
+    print("Number of classes: ", exp.num_classes)
 
     main(exp, args)

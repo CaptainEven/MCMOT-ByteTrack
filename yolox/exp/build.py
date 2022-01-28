@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
 # encoding=utf-8
-# Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
 import importlib
 import os
 import sys
+
+from loguru import logger
 
 
 def get_exp_by_file(exp_file):
@@ -13,15 +13,31 @@ def get_exp_by_file(exp_file):
     :return:
     """
     try:
-        sys.path.append(os.path.dirname(exp_file))
-        current_exp = importlib.import_module(os.path.basename(exp_file).split(".")[0])
+        exp_file = os.path.abspath(exp_file)
+        logger.info("Exp file path: {:s}.".format(exp_file))
+
+        module_dir_path = os.path.dirname(exp_file)
+        logger.info("Exp file's dir path: {:s}.".format(module_dir_path))
+        sys.path.append(module_dir_path)
+        sys.path.insert(0, module_dir_path)
+
+        module_name = os.path.basename(exp_file).split(".")[0]
+        logger.info("Module name: {:s}.".format(module_name))
+
+        current_exp = importlib.import_module(module_name)
         exp = current_exp.Exp()
-    except Exception:
+    except Exception as e:
+        logger.exception(e)
         raise ImportError("{} doesn't contains class named 'Exp'".format(exp_file))
+
     return exp
 
 
 def get_exp_by_name(exp_name):
+    """
+    :param exp_name:
+    :return:
+    """
     import yolox
 
     yolox_path = os.path.dirname(os.path.dirname(yolox.__file__))
@@ -30,7 +46,7 @@ def get_exp_by_name(exp_name):
         "yolox-m": "yolox_m.py",
         "yolox-l": "yolox_l.py",
         "yolox-x": "yolox_x.py",
-        "yolox-tiny": "yolox_tiny.py",
+        "yolox-tiny": "yolox_tiny_det.py",
         "yolox-nano": "nano.py",
         "yolov3": "yolov3.py",
     }
@@ -43,15 +59,16 @@ def get_exp(exp_file, exp_name):
     """
     get Exp object by file or name. If exp_file and exp_name
     are both provided, get Exp by exp_file.
-
     Args:
-        exp_file (str): file path of experiment.
-        exp_name (str): name of experiment. "yolo-s",
+    @:param exp_file (str): file path of experiment.
+    @:param exp_name (str): name of experiment. "yolo-s",
     """
-    assert (
-            exp_file is not None or exp_name is not None
-    ), "plz provide exp file or exp name."
+    assert (exp_file is not None or exp_name is not None), \
+        "plz provide exp file or exp name."
+
     if exp_file is not None:
-        return get_exp_by_file(exp_file)
+        exp = get_exp_by_file(exp_file)
     else:
-        return get_exp_by_name(exp_name)
+        exp = get_exp_by_name(exp_name)
+
+    return exp

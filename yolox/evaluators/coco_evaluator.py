@@ -10,7 +10,7 @@ import torch
 from yolox.utils import (
     gather,
     is_main_process,
-    postprocess,
+    post_process,
     synchronize,
     time_synchronized,
     xyxy2xywh
@@ -114,7 +114,7 @@ class COCOEvaluator:
                     infer_end = time_synchronized()
                     inference_time += infer_end - start
 
-                outputs = postprocess(
+                outputs = post_process(
                     outputs, self.num_classes, self.confthre, self.nmsthre
                 )
                 if is_time_record:

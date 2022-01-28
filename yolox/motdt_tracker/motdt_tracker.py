@@ -202,6 +202,8 @@ class OnlineTracker(object):
         self.frame_id = 0
 
     def update(self, output_results, img_info, img_size, img_file_name):
+        """
+        """
         img_file_name = os.path.join(get_yolox_datadir(), 'mot', 'train', img_file_name)
         image = cv2.imread(img_file_name)
         # post process detections

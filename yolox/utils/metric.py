@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
-import numpy as np
-
-import torch
-
 import functools
 import os
 import time
 from collections import defaultdict, deque
+
+import numpy as np
+import torch
 
 __all__ = [
     "AverageMeter",
@@ -99,17 +98,32 @@ class MeterBuffer(defaultdict):
     """Computes and stores the average and current value"""
 
     def __init__(self, window_size=20):
+        """
+        :param window_size:
+        """
         factory = functools.partial(AverageMeter, window_size=window_size)
         super().__init__(factory)
 
     def reset(self):
+        """
+        :return:
+        """
         for v in self.values():
             v.reset()
 
     def get_filtered_meter(self, filter_key="time"):
+        """
+        :param filter_key:
+        :return:
+        """
         return {k: v for k, v in self.items() if filter_key in k}
 
     def update(self, values=None, **kwargs):
+        """
+        :param values:
+        :param kwargs:
+        :return:
+        """
         if values is None:
             values = {}
         values.update(kwargs)
@@ -119,5 +133,8 @@ class MeterBuffer(defaultdict):
             self[k].update(v)
 
     def clear_meters(self):
+        """
+        :return:
+        """
         for v in self.values():
             v.clear()
