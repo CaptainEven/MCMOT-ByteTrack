@@ -5,4 +5,4 @@ This is an extention work of FairMOT, which extends the one-class multi-object t
 </br>
 You can refer to origin fork [ByteTrack](https://github.com/ifzhang/ByteTrack)
 ## Tracking demo of C5(car, bicycle, person, cyclist, tricycle)
-![image](https://github.com/CaptainEven/MCMOT/blob/master/test2_track.gif)
+![image](https://github.com/CaptainEven/MCMOT-ByteTrack/blob/master/test_13.gif)
