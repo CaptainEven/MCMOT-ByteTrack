@@ -39,7 +39,7 @@ def make_parser():
                         help="model name")
     parser.add_argument("--reid",
                         type=bool,
-                        default=False,  # True
+                        default=True,  # True | False
                         help="")
     parser.add_argument("-debug",
                         type=bool,
@@ -428,8 +428,11 @@ def video_tracking(predictor, cap, save_path, args):
                 ## ----- update the frame
                 img_size = [img_info['height'], img_info['width']]
                 # online_targets = tracker.update(dets, img_size, exp.test_size)
-                online_dict = tracker.update_mcmot_byte(dets, img_size, exp.test_size)
-                # online_dict = tracker.update_mcmot_emb(dets, feature_map, img_size, exp.test_size)
+
+                if args.reid:
+                    online_dict = tracker.update_mcmot_emb(dets, feature_map, img_size, exp.test_size)
+                else:
+                    online_dict = tracker.update_mcmot_byte(dets, img_size, exp.test_size)
 
                 ## ----- plot single-class multi-object tracking results
                 if tracker.num_classes == 1:
@@ -439,8 +442,9 @@ def video_tracking(predictor, cap, save_path, args):
                     for t in online_targets:
                         tlwh = t.tlwh
                         tid = t.track_id
-                        vertical = tlwh[2] / tlwh[3] > 1.6
-                        if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
+                        # vertical = tlwh[2] / tlwh[3] > 1.6
+                        # if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
+                        if tlwh[2] * tlwh[3] > args.min_box_area:
                             online_tlwhs.append(tlwh)
                             online_ids.append(tid)
                             online_scores.append(t.score)

@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 
 
-def parse_model_cfg(path):
+def parse_darknet_cfg(path):
     """
     :param path:
     :return:

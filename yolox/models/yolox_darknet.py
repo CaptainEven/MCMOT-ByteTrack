@@ -4,7 +4,7 @@ import os
 import math
 import torch
 import torch.nn as nn
-from yolox.utils.myutils import parse_model_cfg
+from yolox.utils.myutils import parse_darknet_cfg
 from .darknet_modules import build_modules
 
 import torch.nn.functional as F
@@ -42,7 +42,7 @@ class YOLOXDarknet(nn.Module):
             exit(-1)
 
         ## ----- build the network
-        self.module_defs = parse_model_cfg(cfg)
+        self.module_defs = parse_darknet_cfg(cfg)
         logger.info("Network config file parsed.")
         self.module_list, self.routs = build_modules(self.module_defs, net_size, cfg, 3)
         if init_weights:
@@ -749,7 +749,7 @@ class YOLOXDarknetReID(nn.Module):
             exit(-1)
 
         ## ----- build the network
-        self.module_defs = parse_model_cfg(cfg)
+        self.module_defs = parse_darknet_cfg(cfg)
         logger.info("Network config file parsed.")
 
         self.module_list, self.routs = build_modules(self.module_defs, net_size, cfg, 3, use_momentum)

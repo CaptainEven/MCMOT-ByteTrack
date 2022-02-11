@@ -43,12 +43,12 @@ class MCBaseTrack(object):
 
     # @even: reset track id
     @staticmethod
-    def init_id_dict(num_classes):
+    def init_id_dict(n_classes):
         """
         Initiate _count for all object classes
-        :param num_classes:
+        :param n_classes:
         """
-        for cls_id in range(num_classes):
+        for cls_id in range(n_classes):
             MCBaseTrack._id_dict[cls_id] = 0
 
     @staticmethod

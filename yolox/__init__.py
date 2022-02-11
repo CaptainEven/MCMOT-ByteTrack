@@ -2,7 +2,7 @@
 # encoding=utf-8
 
 from .utils import configure_module
-from .utils.myutils import parse_model_cfg
+from .utils.myutils import parse_darknet_cfg
 
 configure_module()
 
