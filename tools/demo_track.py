@@ -48,7 +48,7 @@ def make_parser():
                         "--exp_file",
                         default="../exps/example/mot/yolox_tiny_det.py",
                         type=str,
-                        help="pls input your expriment description file")
+                        help="pls input your experiment description file")
 
     ## bytetrack_x_mot17.pth.tar
     parser.add_argument("-c",
