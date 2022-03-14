@@ -11,3 +11,6 @@ You can refer to origin fork [ByteTrack](https://github.com/ifzhang/ByteTrack)
 [checkpoint](https://pan.baidu.com/s/10HO98nJ5Sm_KXNi9EDW08w?pwd=MCMO)
 ### Weights extract code
 MCMO
+
+## TensorRT deployment updated!
+[TensorRT Deployment](https://github.com/CaptainEven/ByteTrack-MCMOT-TensorRT)
