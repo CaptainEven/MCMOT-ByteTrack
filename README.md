@@ -12,5 +12,5 @@ You can refer to origin fork [ByteTrack](https://github.com/ifzhang/ByteTrack)
 ### Weights extract code
 MCMO
 
-## TensorRT deployment updated!
+## TensorRT deployment updated! (Compile and denug with Visual Studio Windows)
 [TensorRT Deployment](https://github.com/CaptainEven/ByteTrack-MCMOT-TensorRT)
