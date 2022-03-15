@@ -39,7 +39,7 @@ def make_parser():
                         help="model name")
     parser.add_argument("--reid",
                         type=bool,
-                        default=True,  # True | False
+                        default=False,  # True | False
                         help="")
     parser.add_argument("-debug",
                         type=bool,
