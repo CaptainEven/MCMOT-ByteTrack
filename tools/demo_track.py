@@ -42,6 +42,10 @@ def make_parser():
                         type=int,
                         default=5,
                         help="")  # number of object classes
+    parser.add_argument("--class_names",
+                        type=str,
+                        default="car, bicycle, person, cyclist, tricycle",
+                        help="")
 
     ## yolox_x_ablation.py
     parser.add_argument("-f",
