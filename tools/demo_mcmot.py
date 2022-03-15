@@ -160,9 +160,9 @@ def get_image_list(path):
     :return:
     """
     image_names = []
-    for maindir, subdir, file_name_list in os.walk(path):
-        for filename in file_name_list:
-            apath = os.path.join(maindir, filename)
+    for main_dir, sub_dir, file_name_list in os.walk(path):
+        for file_name in file_name_list:
+            apath = os.path.join(main_dir, file_name)
             ext = os.path.splitext(apath)[1]
             if ext in IMAGE_EXT:
                 image_names.append(apath)
