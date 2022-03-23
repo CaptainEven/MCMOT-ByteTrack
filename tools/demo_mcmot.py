@@ -564,51 +564,51 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             save_path = os.path.join(save_dir, "camera.mp4")
 
 
-def run(exp, args):
+def run(exp, opt):
     """
     :param exp:
-    :param args:
+    :param opt:
     :return:
     """
-    if not args.experiment_name:
-        args.experiment_name = exp.exp_name
+    if not opt.experiment_name:
+        opt.experiment_name = exp.exp_name
 
-    file_name = os.path.join(exp.output_dir, args.experiment_name)
+    file_name = os.path.join(exp.output_dir, opt.experiment_name)
     os.makedirs(file_name, exist_ok=True)
 
-    if args.save_result:
+    if opt.save_result:
         vis_dir = os.path.join(file_name, "track_vis")
         os.makedirs(vis_dir, exist_ok=True)
 
-    if args.trt:
-        args.device = "gpu"
+    if opt.trt:
+        opt.device = "gpu"
 
-    logger.info("Args: {}".format(args))
-    if args.conf is not None:
-        exp.test_conf = args.conf
-    if args.nms is not None:
-        exp.nms_thresh = args.nms
-    if args.tsize is not None:
-        exp.test_size = (args.tsize, args.tsize)
+    logger.info("Args: {}".format(opt))
+    if opt.conf is not None:
+        exp.test_conf = opt.conf
+    if opt.nms is not None:
+        exp.nms_thresh = opt.nms
+    if opt.tsize is not None:
+        exp.test_size = (opt.tsize, opt.tsize)
 
     ## ---------- whether to do ReID
     if hasattr(exp, "reid"):
-        exp.reid = args.reid
+        exp.reid = opt.reid
 
     ## ----- Define the network
     model = exp.get_model()
-    if not args.debug:
+    if not opt.debug:
         logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
-    if args.device == "gpu":
+    if opt.device == "gpu":
         model.cuda()
     model.eval()
     ## -----
 
-    if not args.trt:
-        if args.ckpt is None:
+    if not opt.trt:
+        if opt.ckpt is None:
             ckpt_file_path = os.path.join(file_name, "best_ckpt.pth.tar")
         else:
-            ckpt_file_path = args.ckpt
+            ckpt_file_path = opt.ckpt
         ckpt_file_path = os.path.abspath(ckpt_file_path)
 
         logger.info("Loading checkpoint...")
@@ -618,15 +618,15 @@ def run(exp, args):
         model.load_state_dict(ckpt["model"])
         logger.info("Checkpoint {:s} loaded done.".format(ckpt_file_path))
 
-    if args.fuse:
+    if opt.fuse:
         logger.info("\tFusing model...")
         model = fuse_model(model)
 
-    if args.fp16:
+    if opt.fp16:
         model = model.half()  # to FP16
 
-    if args.trt:
-        assert not args.fuse, "TensorRT model is not support model fusing!"
+    if opt.trt:
+        assert not opt.fuse, "TensorRT model is not support model fusing!"
         trt_file = os.path.join(file_name, "model_trt.pth")
         assert os.path.exists(trt_file), \
             "TensorRT model is not found!\n Run python3 tools/trt.py first!"
@@ -638,14 +638,14 @@ def run(exp, args):
         decoder = None
 
     ## ---------- Define the predictor
-    predictor = Predictor(model, exp, trt_file, decoder, args.device, args.fp16, args.reid)
+    predictor = Predictor(model, exp, trt_file, decoder, opt.device, opt.fp16, opt.reid)
     ## ----------
 
     current_time = time.localtime()
-    if args.demo == "image":
-        image_demo(predictor, vis_dir, args.path, current_time, args.save_result)
-    elif args.demo == "video" or args.demo == "videos" or args.demo == "webcam":
-        imageflow_demo(predictor, vis_dir, current_time, args)
+    if opt.demo == "image":
+        image_demo(predictor, vis_dir, opt.path, current_time, opt.save_result)
+    elif opt.demo == "video" or opt.demo == "videos" or opt.demo == "webcam":
+        imageflow_demo(predictor, vis_dir, current_time, opt)
 
 
 if __name__ == "__main__":
