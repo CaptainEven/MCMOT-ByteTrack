@@ -11,9 +11,9 @@ You can refer to origin fork [ByteTrack](https://github.com/ifzhang/ByteTrack)
 Run the demo_mcmot.py script for demo testing.
 
 ## Weights link
-[checkpoint](https://pan.baidu.com/s/10HO98nJ5Sm_KXNi9EDW08w?pwd=MCMO)
+[checkpoint](https://pan.baidu.com/s/1PJc09vWK6UJEXp80y27b5g?pwd=ckpt)
 ### Weights extract code
-MCMO
+ckpt
 
 ## TensorRT deployment updated! (Compile, release, debug with Visual Studio Windows)
 [TensorRT Deployment](https://github.com/CaptainEven/ByteTrack-MCMOT-TensorRT)
