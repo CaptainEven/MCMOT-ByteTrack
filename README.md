@@ -20,5 +20,5 @@ ckpt
 ### video extract code
 test
 
-## TensorRT deployment updated! (Compile, release, debug with Visual Studio Windows)
+## TensorRT deployment updated! (Compile, release, debug with Visual Studio On Windows)
 [TensorRT Deployment](https://github.com/CaptainEven/ByteTrack-MCMOT-TensorRT)
