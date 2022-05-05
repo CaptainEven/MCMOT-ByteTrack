@@ -8,7 +8,7 @@ You can refer to origin fork [ByteTrack](https://github.com/ifzhang/ByteTrack)
 ![image](https://github.com/CaptainEven/MCMOT-ByteTrack/blob/master/test_13.gif)
 
 ## Run the demo
-Run the demo_mcmot.py script for demo testing.
+Run the demo_mcmot.py python3 script for demo testing.
 
 ## Weights link
 [checkpoint](https://pan.baidu.com/s/1PJc09vWK6UJEXp80y27b5g?pwd=ckpt)
