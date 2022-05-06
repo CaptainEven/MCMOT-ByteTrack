@@ -14,6 +14,7 @@ from yolox.utils import replace_module
 
 def make_parser():
     parser = argparse.ArgumentParser("YOLOX onnx deploy")
+
     parser.add_argument("--output-name",
                         type=str,
                         default="bytetrack_s.onnx",
@@ -62,7 +63,7 @@ def make_parser():
 
 
 @logger.catch
-def main():
+def run():
     args = make_parser().parse_args()
     logger.info("args value: {}".format(args))
     exp = get_exp(args.exp_file, args.name)
@@ -71,7 +72,7 @@ def main():
     if not args.experiment_name:
         args.experiment_name = exp.exp_name
 
-    model = exp.get_model()
+    net = exp.get_model()
     if args.ckpt is None:
         file_name = os.path.join(exp.output_dir, args.experiment_name)
         ckpt_file = os.path.join(file_name, "best_ckpt.pth.tar")
@@ -81,23 +82,21 @@ def main():
     # load the model state dict
     ckpt = torch.load(ckpt_file, map_location="cpu")
 
-    model.eval()
+    net.eval()
     if "model" in ckpt:
         ckpt = ckpt["model"]
-    model.load_state_dict(ckpt)
-    model = replace_module(model, nn.SiLU, SiLU)
-    model.head.decode_in_inference = False
+    net.load_state_dict(ckpt)
+    net = replace_module(net, nn.SiLU, SiLU)
+    net.head.decode_in_inference = False
 
     logger.info("loading checkpoint done.")
     dummy_input = torch.randn(1, 3, exp.test_size[0], exp.test_size[1])
-    torch.onnx._export(
-        model,
-        dummy_input,
-        args.output_name,
-        input_names=[args.input],
-        output_names=[args.output],
-        opset_version=args.opset,
-    )
+    torch.onnx._export(net,
+                       dummy_input,
+                       args.output_name,
+                       input_names=[args.input],
+                       output_names=[args.output],
+                       opset_version=args.opset, )
     logger.info("generated onnx model named {}".format(args.output_name))
 
     if not args.no_onnxsim:
@@ -114,4 +113,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run()

@@ -1,7 +1,7 @@
 # vim: expandtab:ts=4:sw=4
+
 import numpy as np
 import scipy.linalg
-
 
 """
 Table for the 0.95 quantile of the chi-square distribution with N degrees of
@@ -17,7 +17,8 @@ chi2inv95 = {
     6: 12.592,
     7: 14.067,
     8: 15.507,
-    9: 16.919}
+    9: 16.919
+}
 
 
 class KalmanFilter(object):
@@ -38,22 +39,29 @@ class KalmanFilter(object):
     """
 
     def __init__(self):
-        ndim, dt = 4, 1.
+        """
+        Initialization of kalman filter
+        """
+        n_dim, dt = 4, 1.
 
         # Create Kalman filter model matrices.
-        self._motion_mat = np.eye(2 * ndim, 2 * ndim)
-        for i in range(ndim):
-            self._motion_mat[i, ndim + i] = dt
-        self._update_mat = np.eye(ndim, 2 * ndim)
+        self._transform_mat = np.eye(2 * n_dim, 2 * n_dim)  # A matrix: transform matrix
+
+        for i in range(n_dim):
+            self._transform_mat[i, n_dim + i] = dt
+
+        # H matrix: measure matrix: 4×8
+        self._measure_mat = np.eye(n_dim, 2 * n_dim)
 
         # Motion and observation uncertainty are chosen relative to the current
         # state estimate. These weights control the amount of uncertainty in
         # the model. This is a bit hacky.
-        self._std_weight_position = 1. / 20
-        self._std_weight_velocity = 1. / 160
+        self._std_weight_position = 1. / 20.0
+        self._std_weight_velocity = 1. / 160.0
 
     def initiate(self, measurement):
-        """Create track from unassociated measurement.
+        """
+        Create track from unassociated measurement.
 
         Parameters
         ----------
@@ -81,7 +89,8 @@ class KalmanFilter(object):
             10 * self._std_weight_velocity * measurement[3],
             10 * self._std_weight_velocity * measurement[3],
             1e-5,
-            10 * self._std_weight_velocity * measurement[3]]
+            10 * self._std_weight_velocity * measurement[3]
+        ]
         covariance = np.diag(np.square(std))
         return mean, covariance
 
@@ -108,23 +117,28 @@ class KalmanFilter(object):
             self._std_weight_position * mean[3],
             self._std_weight_position * mean[3],
             1e-2,
-            self._std_weight_position * mean[3]]
+            self._std_weight_position * mean[3]
+        ]
         std_vel = [
             self._std_weight_velocity * mean[3],
             self._std_weight_velocity * mean[3],
             1e-5,
-            self._std_weight_velocity * mean[3]]
+            self._std_weight_velocity * mean[3]
+        ]
+
+        # Q matrix: prediction noise/perturbations
         motion_cov = np.diag(np.square(np.r_[std_pos, std_vel]))
 
-        #mean = np.dot(self._motion_mat, mean)
-        mean = np.dot(mean, self._motion_mat.T)
-        covariance = np.linalg.multi_dot((
-            self._motion_mat, covariance, self._motion_mat.T)) + motion_cov
+        # mean = np.dot(self._motion_mat, mean)
+        mean = np.dot(mean, self._transform_mat.T)  # predict x
+        covariance = np.linalg.multi_dot((self._transform_mat, covariance, self._transform_mat.T)) \
+                     + motion_cov  # predict P
 
         return mean, covariance
 
     def project(self, mean, covariance):
-        """Project state distribution to measurement space.
+        """
+        Project state distribution to measurement space.
 
         Parameters
         ----------
@@ -144,23 +158,26 @@ class KalmanFilter(object):
             self._std_weight_position * mean[3],
             self._std_weight_position * mean[3],
             1e-1,
-            self._std_weight_position * mean[3]]
-        innovation_cov = np.diag(np.square(std))
+            self._std_weight_position * mean[3]
+        ]
+        measure_cov = np.diag(np.square(std))  # R conv matrix
 
-        mean = np.dot(self._update_mat, mean)
-        covariance = np.linalg.multi_dot((
-            self._update_mat, covariance, self._update_mat.T))
-        return mean, covariance + innovation_cov
+        mean = np.dot(self._measure_mat, mean)
+        covariance = np.linalg.multi_dot((self._measure_mat,
+                                          covariance,
+                                          self._measure_mat.T))
+        return mean, covariance + measure_cov
 
     def multi_predict(self, mean, covariance):
-        """Run Kalman filter prediction step (Vectorized version).
+        """
+        Run Kalman filter prediction step (Vectorized version).
         Parameters
         ----------
         mean : ndarray
             The Nx8 dimensional mean matrix of the object states at the previous
             time step.
         covariance : ndarray
-            The Nx8x8 dimensional covariance matrics of the object states at the
+            The Nx8x8 dimensional covariance matrices of the object states at the
             previous time step.
         Returns
         -------
@@ -172,12 +189,14 @@ class KalmanFilter(object):
             self._std_weight_position * mean[:, 3],
             self._std_weight_position * mean[:, 3],
             1e-2 * np.ones_like(mean[:, 3]),
-            self._std_weight_position * mean[:, 3]]
+            self._std_weight_position * mean[:, 3]
+        ]
         std_vel = [
             self._std_weight_velocity * mean[:, 3],
             self._std_weight_velocity * mean[:, 3],
             1e-5 * np.ones_like(mean[:, 3]),
-            self._std_weight_velocity * mean[:, 3]]
+            self._std_weight_velocity * mean[:, 3]
+        ]
         sqr = np.square(np.r_[std_pos, std_vel]).T
 
         motion_cov = []
@@ -185,14 +204,15 @@ class KalmanFilter(object):
             motion_cov.append(np.diag(sqr[i]))
         motion_cov = np.asarray(motion_cov)
 
-        mean = np.dot(mean, self._motion_mat.T)
-        left = np.dot(self._motion_mat, covariance).transpose((1, 0, 2))
-        covariance = np.dot(left, self._motion_mat.T) + motion_cov
+        mean = np.dot(mean, self._transform_mat.T)
+        left = np.dot(self._transform_mat, covariance).transpose((1, 0, 2))
+        covariance = np.dot(left, self._transform_mat.T) + motion_cov
 
         return mean, covariance
 
     def update(self, mean, covariance, measurement):
-        """Run Kalman filter correction step.
+        """
+        Run Kalman filter correction step.
 
         Parameters
         ----------
@@ -202,7 +222,7 @@ class KalmanFilter(object):
             The state's covariance matrix (8x8 dimensional).
         measurement : ndarray
             The 4 dimensional measurement vector (x, y, a, h), where (x, y)
-            is the center position, a the aspect ratio, and h the height of the
+            is the center position, a: the aspect ratio, and h the height of the
             bounding box.
 
         Returns
@@ -213,20 +233,24 @@ class KalmanFilter(object):
         """
         projected_mean, projected_cov = self.project(mean, covariance)
 
-        chol_factor, lower = scipy.linalg.cho_factor(
-            projected_cov, lower=True, check_finite=False)
-        kalman_gain = scipy.linalg.cho_solve(
-            (chol_factor, lower), np.dot(covariance, self._update_mat.T).T,
-            check_finite=False).T
+        chol_factor, lower = scipy.linalg.cho_factor(projected_cov,
+                                                     lower=True,
+                                                     check_finite=False)
+        kalman_gain = scipy.linalg.cho_solve((chol_factor, lower),
+                                             np.dot(covariance, self._measure_mat.T).T,
+                                             check_finite=False).T
         innovation = measurement - projected_mean
 
         new_mean = mean + np.dot(innovation, kalman_gain.T)
-        new_covariance = covariance - np.linalg.multi_dot((
-            kalman_gain, projected_cov, kalman_gain.T))
+        new_covariance = covariance - np.linalg.multi_dot((kalman_gain, projected_cov, kalman_gain.T))
         return new_mean, new_covariance
 
-    def gating_distance(self, mean, covariance, measurements,
-                        only_position=False, metric='maha'):
+    def gating_distance(self,
+                        mean,
+                        covariance,
+                        measurements,
+                        only_position=False,
+                        metric='maha'):
         """Compute gating distance between state distribution and measurements.
         A suitable distance threshold can be obtained from `chi2inv95`. If
         `only_position` is False, the chi-square distribution has 4 degrees of
