@@ -401,7 +401,7 @@ def video_tracking(predictor, cap, save_path, args):
     results = []
 
     while True:
-        if frame_id % 30 == 0:  ## logging per 30 frames
+        if frame_id % 30 == 0:  # logging per 30 frames
             if frame_id != 0:
                 logger.info('Processing frame {:03d}/{:03d} | fps {:.2f}'
                             .format(frame_id,
