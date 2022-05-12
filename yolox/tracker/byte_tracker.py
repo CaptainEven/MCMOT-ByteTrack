@@ -867,7 +867,7 @@ class Track(BaseTrack):
         return 'OT_{}_({}-{})'.format(self.track_id, self.start_frame, self.end_frame)
 
 
-class BYTETracker(object):
+class ByteTracker(object):
     def __init__(self, args, frame_rate=30):
         """
         :param args:
@@ -942,7 +942,7 @@ class BYTETracker(object):
         tracked_tracks_dict = defaultdict(list)
         track_pool_dict = defaultdict(list)
         activated_tracks_dict = defaultdict(list)
-        refind_tracks_dict = defaultdict(list)
+        retrieve_tracks_dict = defaultdict(list)  # re-find
         lost_tracks_dict = defaultdict(list)
         removed_tracks_dict = defaultdict(list)
         output_tracks_dict = defaultdict(list)
@@ -1019,7 +1019,8 @@ class BYTETracker(object):
             if not self.args.mot20:
                 dists = matching.fuse_score(dists, cls_detections)
 
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.high_match_thresh)
+            matches, u_track, u_detection = matching.linear_assignment(dists,
+                                                                       thresh=self.high_match_thresh)
 
             # --- process matched pairs between track pool and current frame detection
             for i_track, i_det in matches:
@@ -1031,7 +1032,7 @@ class BYTETracker(object):
                     activated_tracks_dict[cls_id].append(track)  # for multi-class
                 else:  # re-activate the lost track
                     track.re_activate(det, self.frame_id, new_id=False)
-                    refind_tracks_dict[cls_id].append(track)
+                    retrieve_tracks_dict[cls_id].append(track)
 
             ''' Step 3: Second association, with low score detection boxes'''
             # association the un-track to the low score detections
@@ -1059,7 +1060,7 @@ class BYTETracker(object):
                     activated_tracks_dict[cls_id].append(track)
                 else:
                     track.re_activate(det, self.frame_id, new_id=False)
-                    refind_tracks_dict[cls_id].append(track)
+                    retrieve_tracks_dict[cls_id].append(track)
 
             # process unmatched tracks for two rounds
             for i_track in u_track:
@@ -1118,7 +1119,7 @@ class BYTETracker(object):
             self.tracked_tracks_dict[cls_id] = join_tracks(self.tracked_tracks_dict[cls_id],
                                                            activated_tracks_dict[cls_id])
             self.tracked_tracks_dict[cls_id] = join_tracks(self.tracked_tracks_dict[cls_id],
-                                                           refind_tracks_dict[cls_id])
+                                                           retrieve_tracks_dict[cls_id])
 
             self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id], self.tracked_tracks_dict[cls_id])
             self.lost_tracks_dict[cls_id].extend(lost_tracks_dict[cls_id])

@@ -11,7 +11,7 @@ from loguru import logger
 
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
-from yolox.tracker.byte_tracker import BYTETracker
+from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
 from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc
@@ -306,7 +306,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
         files = [path]
 
     files.sort()
-    tracker = BYTETracker(args, frame_rate=30)
+    tracker = ByteTracker(args, frame_rate=30)
     timer = Timer()
     frame_id = 0
     results = []
@@ -385,7 +385,7 @@ def video_tracking(predictor, cap, save_path, args):
                                  (int(width), int(height)))
 
     ## ---------- define the tracker
-    tracker = BYTETracker(args, frame_rate=30)
+    tracker = ByteTracker(args, frame_rate=30)
     ## ----------
 
     ## ----- class name to class id and class id to class name
@@ -596,12 +596,12 @@ def run(exp, opt):
         exp.reid = opt.reid
 
     ## ----- Define the network
-    model = exp.get_model()
+    net = exp.get_model()
     if not opt.debug:
-        logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
+        logger.info("Model Summary: {}".format(get_model_info(net, exp.test_size)))
     if opt.device == "gpu":
-        model.cuda()
-    model.eval()
+        net.cuda()
+    net.eval()
     ## -----
 
     if not opt.trt:
@@ -615,30 +615,30 @@ def run(exp, opt):
         ckpt = torch.load(ckpt_file_path, map_location="cpu")
 
         # load the model state dict
-        model.load_state_dict(ckpt["model"])
+        net.load_state_dict(ckpt["model"])
         logger.info("Checkpoint {:s} loaded done.".format(ckpt_file_path))
 
     if opt.fuse:
         logger.info("\tFusing model...")
-        model = fuse_model(model)
+        net = fuse_model(net)
 
     if opt.fp16:
-        model = model.half()  # to FP16
+        net = net.half()  # to FP16
 
     if opt.trt:
         assert not opt.fuse, "TensorRT model is not support model fusing!"
         trt_file = os.path.join(file_name, "model_trt.pth")
         assert os.path.exists(trt_file), \
             "TensorRT model is not found!\n Run python3 tools/trt.py first!"
-        model.head.decode_in_inference = False
-        decoder = model.head.decode_outputs
+        net.head.decode_in_inference = False
+        decoder = net.head.decode_outputs
         logger.info("Using TensorRT to inference")
     else:
         trt_file = None
         decoder = None
 
     ## ---------- Define the predictor
-    predictor = Predictor(model, exp, trt_file, decoder, opt.device, opt.fp16, opt.reid)
+    predictor = Predictor(net, exp, trt_file, decoder, opt.device, opt.fp16, opt.reid)
     ## ----------
 
     current_time = time.localtime()

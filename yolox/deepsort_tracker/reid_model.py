@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,21 +10,26 @@ import torchvision.transforms as transforms
 
 
 class BasicBlock(nn.Module):
-    def __init__(self, c_in, c_out, is_downsample=False):
+    def __init__(self, c_in, c_out, is_down_sample=False):
+        """
+        @param c_in:
+        """
         super(BasicBlock, self).__init__()
-        self.is_downsample = is_downsample
-        if is_downsample:
+
+        self.is_down_sample = is_down_sample
+        if is_down_sample:
             self.conv1 = nn.Conv2d(
                 c_in, c_out, 3, stride=2, padding=1, bias=False)
         else:
             self.conv1 = nn.Conv2d(
                 c_in, c_out, 3, stride=1, padding=1, bias=False)
+
         self.bn1 = nn.BatchNorm2d(c_out)
         self.relu = nn.ReLU(True)
         self.conv2 = nn.Conv2d(c_out, c_out, 3, stride=1,
                                padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(c_out)
-        if is_downsample:
+        if is_down_sample:
             self.downsample = nn.Sequential(
                 nn.Conv2d(c_in, c_out, 1, stride=2, bias=False),
                 nn.BatchNorm2d(c_out)
@@ -32,7 +39,7 @@ class BasicBlock(nn.Module):
                 nn.Conv2d(c_in, c_out, 1, stride=1, bias=False),
                 nn.BatchNorm2d(c_out)
             )
-            self.is_downsample = True
+            self.is_down_sample = True
 
     def forward(self, x):
         y = self.conv1(x)
@@ -40,7 +47,7 @@ class BasicBlock(nn.Module):
         y = self.relu(y)
         y = self.conv2(y)
         y = self.bn2(y)
-        if self.is_downsample:
+        if self.is_down_sample:
             x = self.downsample(x)
         return F.relu(x.add(y), True)
 
@@ -49,7 +56,7 @@ def make_layers(c_in, c_out, repeat_times, is_downsample=False):
     blocks = []
     for i in range(repeat_times):
         if i == 0:
-            blocks += [BasicBlock(c_in, c_out, is_downsample=is_downsample), ]
+            blocks += [BasicBlock(c_in, c_out, is_down_sample=is_downsample), ]
         else:
             blocks += [BasicBlock(c_out, c_out), ]
     return nn.Sequential(*blocks)

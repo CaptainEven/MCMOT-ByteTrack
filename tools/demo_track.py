@@ -10,7 +10,7 @@ from loguru import logger
 
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
-from yolox.tracker.byte_tracker import BYTETracker
+from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
 from yolox.utils.visualize import plot_tracking_sc
@@ -264,7 +264,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
         files = [path]
 
     files.sort()
-    tracker = BYTETracker(args, frame_rate=30)
+    tracker = ByteTracker(args, frame_rate=30)
     timer = Timer()
     frame_id = 0
     results = []
@@ -340,7 +340,7 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
 
     vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height)))
 
-    tracker = BYTETracker(args, frame_rate=30)
+    tracker = ByteTracker(args, frame_rate=30)
 
     timer = Timer()
 

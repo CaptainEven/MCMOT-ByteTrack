@@ -10,7 +10,7 @@ import onnxruntime
 from yolox.data.data_augment import preproc as preprocess
 from yolox.utils import mkdir, multiclass_nms, demo_postprocess, vis
 from yolox.utils.visualize import plot_tracking_sc
-from yolox.tracker.byte_tracker import BYTETracker
+from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 
 
@@ -118,7 +118,7 @@ def imageflow_demo(predictor, args):
     vid_writer = cv2.VideoWriter(
         save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height))
     )
-    tracker = BYTETracker(args, frame_rate=30)
+    tracker = ByteTracker(args, frame_rate=30)
     timer = Timer()
     frame_id = 0
     results = []

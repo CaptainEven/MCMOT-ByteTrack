@@ -58,6 +58,7 @@ def linear_assignment(cost_matrix, thresh):
     unmatched_a = np.where(x < 0)[0]
     unmatched_b = np.where(y < 0)[0]
     matches = np.asarray(matches)
+
     return matches, unmatched_a, unmatched_b
 
 

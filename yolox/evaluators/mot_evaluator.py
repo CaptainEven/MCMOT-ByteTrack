@@ -16,7 +16,7 @@ from tqdm import tqdm
 from yolox.deepsort_tracker.deepsort import DeepSort
 from yolox.motdt_tracker.motdt_tracker import OnlineTracker
 from yolox.sort_tracker.sort import Sort
-from yolox.tracker.byte_tracker import BYTETracker
+from yolox.tracker.byte_tracker import ByteTracker
 from yolox.utils import (
     gather,
     is_main_process,
@@ -138,7 +138,7 @@ class MOTEvaluator:
             model(x)
             model = model_trt
 
-        tracker = BYTETracker(self.args)
+        tracker = ByteTracker(self.args)
         ori_thresh = self.args.track_thresh
         for cur_iter, (imgs, _, info_imgs, ids) in enumerate(
                 progress_bar(self.dataloader)
@@ -175,7 +175,7 @@ class MOTEvaluator:
                 if video_name not in video_names:
                     video_names[video_id] = video_name
                 if frame_id == 1:
-                    tracker = BYTETracker(self.args)
+                    tracker = ByteTracker(self.args)
                     if len(results) != 0:
                         result_filename = os.path.join(result_folder, '{}.txt'.format(video_names[video_id - 1]))
                         write_results(result_filename, results)
