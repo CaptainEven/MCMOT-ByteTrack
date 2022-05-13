@@ -5,6 +5,7 @@ from collections import defaultdict, deque
 import numpy as np
 import torch
 import torch.nn.functional as F
+
 from yolox.tracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
@@ -911,6 +912,14 @@ class ByteTracker(object):
         self.tracked_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.lost_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.removed_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
+
+    ## TODO: add OC_SORT backend for MCMOT tracking
+    def upate_oc(self, dets, img_size, net_size):
+        """
+        @param dets:
+        @param img_size:
+        @param net_size:
+        """
 
     def update_mcmot_byte(self, dets, img_size, net_size):
         """
