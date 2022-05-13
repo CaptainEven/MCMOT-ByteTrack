@@ -469,12 +469,15 @@ class MCOCSort(object):
 
         self.delta_t = delta_t
 
-        self.asso_func = ASSO_FUNCS[asso_func]  # iou functions
+        self.associate_func = ASSO_FUNCS[asso_func]  # iou functions
         logger.info("using IOU function: {:s}.".format(asso_func))
 
-        self.inertia = inertia
+        self.vel_dir_weight = inertia
+        logger.info("vel_dir_weight: ", self.vel_dir_weight)
+
         self.use_byte = use_byte
 
+        ## ----- Initialize the id dict
         # KalmanBoxTracker.count = 0
         MCKalmanTrack.init_id_dict(self.n_classes)
 
@@ -490,6 +493,9 @@ class MCOCSort(object):
         """
         if dets is None:
             return np.empty((0, 5))
+
+        ## ----- the track dict to be returned
+        ret_dict = {}
 
         self.frame_count += 1
         if self.frame_count == 1:
@@ -523,7 +529,6 @@ class MCOCSort(object):
             scores_dict[int(cls_id)].append(score)
 
         ## ---------- Process each object class
-        ret_dit = {}  # 返回字典
         for cls_id in range(self.num_classes):
             ## ----- class boxes
             cls_boxes = boxes_dict[cls_id]
@@ -543,18 +548,22 @@ class MCOCSort(object):
             cls_dets_boxes = cls_boxes[cls_remain_inds]
             cls_dets_boxes_second = cls_boxes[cls_inds_second]
 
-            cls_scores_keep = cls_scores[cls_remain_inds]
-            cls_scores_second = cls_scores[cls_inds_second]
+            cls_scores_1st = cls_scores[cls_remain_inds]
+            cls_scores_2nd = cls_scores[cls_inds_second]
+
+            ## ----- Build dets for the object class
+            cls_dets = np.concatenate((cls_dets_boxes,
+                                       np.expand_dims(cls_scores_1st, axis=-1)),
+                                      axis=1)
 
             # get predicted locations from existing trackers.
             cls_trks = np.zeros((len(self.tracks_dict[cls_id]), 5))
             to_del = []
-            # ret = []
             for t, cls_trk in enumerate(cls_trks):
                 ## ----- prediction
                 pos = self.tracks_dict[cls_id][t].predict()[0]
 
-                ## ----- refill the cls_trks
+                ## ----- fill the cls_trks
                 cls_trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
 
                 if np.any(np.isnan(pos)):
@@ -564,159 +573,111 @@ class MCOCSort(object):
             for t in reversed(to_del):
                 self.tracks_dict[cls_id].pop(t)
 
-        # post_process detections
-        if dets.shape[1] == 5:
-            scores = dets[:, 4]
-            bboxes = dets[:, :4]
-        else:
-            dets = dets.cpu().numpy()
-            scores = dets[:, 4] * dets[:, 5]
-            bboxes = dets[:, :4]  # x1y1x2y2
+            ## ----- Compute velocity directions
+            cls_velocities = np.array([trk.vel_dir if trk.vel_dir is not None
+                                       else np.array((0, 0))
+                                       for trk in self.tracks_dict[cls_id]])
 
-        img_h, img_w = img_size
-        net_h, net_w = net_size
-        scale = min(net_h / float(img_h), net_w / float(img_w))
-        bboxes /= scale
-        dets = np.concatenate((bboxes, np.expand_dims(scores, axis=-1)), axis=1)
+            ## ----- Get thee last observations for current tracks
+            cls_last_boxes = np.array([trk.last_observation
+                                       for trk in self.tracks_dict[cls_id]])
 
-        inds_low = scores > 0.1
-        inds_high = scores < self.det_thresh
-        inds_second = np.logical_and(inds_low, inds_high)  # self.det_thresh > score > 0.1, for second matching
-        dets_second = dets[inds_second]  # detections for second matching
-        remain_inds = scores > self.det_thresh
-        dets = dets[remain_inds]  # high confidence detections
+            ## ----- Get current tracks' previous observations
+            cls_k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
+                                  for trk in self.tracks_dict[cls_id]]
+            cls_k_observations = np.array(cls_k_observations)
 
-        # get predicted locations from existing trackers.
-        trks = np.zeros((len(self.tracks), 5))
-        to_del = []
-        ret = []
-        for t, cls_trk in enumerate(trks):
-            ## ----- prediction
-            pos = self.tracks[t].predict()[0]
+            """
+            First round of association
+            using high confidence dets and existed trks
+            """
+            matched, unmatched_dets, unmatched_trks = associate(cls_dets,
+                                                                cls_trks,
+                                                                self.iou_threshold,
+                                                                cls_velocities,
+                                                                cls_k_observations,
+                                                                self.vel_dir_weight)
+            for m in matched:
+                self.tracks_dict[cls_id][m[1]].update(cls_dets[m[0], :])
 
-            cls_trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
-            if np.any(np.isnan(pos)):
-                to_del.append(t)
+            """
+            Second round of association by OCR
+            """
+            ## ----- 处理第一轮匹配中未匹配的dets和trks
+            if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
+                cls_left_dets = dets[unmatched_dets]
+                cls_left_trks = cls_last_boxes[unmatched_trks]
+                cls_iou_left = self.associate_func(cls_left_dets, cls_left_trks)  # calculate iou
+                cls_iou_left = np.array(cls_iou_left)
 
-        trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
-        for t in reversed(to_del):
-            self.tracks.pop(t)
+                if cls_iou_left.max() > self.iou_threshold:
+                    """
+                    NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
+                    get a higher performance especially on MOT17/MOT20 datasets. But we keep it
+                    uniform here for simplicity
+                    """
+                    cls_rematched_inds = linear_assignment(-cls_iou_left)
 
-        velocities = np.array([trk.vel_dir  # velocity direction
-                               if trk.vel_dir is not None else np.array((0, 0))
-                               for trk in self.tracks])
-        last_boxes = np.array([trk.last_observation for trk in self.tracks])
-        k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
-                          for trk in self.tracks]
-        k_observations = np.array(k_observations)
+                    to_remove_from_unmatch_det_inds = []
+                    to_remove_from_unmatch_trk_inds = []
+                    for m in cls_rematched_inds:
+                        det_idx, trk_idx = unmatched_dets[m[0]], unmatched_trks[m[1]]
 
-        """
-        First round of association
-        using high confidence dets and existed trks
-        """
-        matched, unmatched_dets, unmatched_trks = associate(dets,
-                                                            trks,
-                                                            self.iou_threshold,
-                                                            velocities,
-                                                            k_observations,
-                                                            self.inertia)
-        for m in matched:
-            self.tracks[m[1]].update(dets[m[0], :])
+                        if cls_iou_left[m[0], m[1]] < self.iou_threshold:
+                            continue
 
-        """
-        Second round of association by OCR
-        """
-        # BYTE association
-        if self.use_byte and len(dets_second) > 0 and unmatched_trks.shape[0] > 0:
-            u_trks = trks[unmatched_trks]
-            iou_left = self.asso_func(dets_second, u_trks)  # iou between low score detections and unmatched tracks
-            iou_left = np.array(iou_left)
-            if iou_left.max() > self.iou_threshold:
-                """
-                NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, 
-                you may get a higher performance especially on MOT17/MOT20 datasets.
-                But we keep it uniform here for simplicity
-                """
-                matched_indices = linear_assignment(-iou_left)
-                to_remove_from_unmatch_trk_indices = []
+                        self.tracks_dict[cls_id][trk_idx].update(cls_dets[det_idx, :])
 
-                for m in matched_indices:
-                    det_idx, trk_idx = m[0], unmatched_trks[m[1]]
-                    if iou_left[m[0], m[1]] < self.iou_threshold:
-                        continue
-                    self.tracks[trk_idx].update(dets_second[det_idx, :])
-                    to_remove_from_unmatch_trk_indices.append(trk_idx)
-                unmatched_trks = np.setdiff1d(unmatched_trks, np.array(to_remove_from_unmatch_trk_indices))
+                        # record matched det inds and trk inds
+                        to_remove_from_unmatch_det_inds.append(det_idx)
+                        to_remove_from_unmatch_trk_inds.append(trk_idx)
 
-        ## ----- 处理第一轮匹配中未匹配的dets和trks
-        if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
-            left_dets = dets[unmatched_dets]
-            left_trks = last_boxes[unmatched_trks]
-            iou_left = self.asso_func(left_dets, left_trks)  # calculate iou
-            iou_left = np.array(iou_left)
+                    unmatched_dets = np.setdiff1d(unmatched_dets,
+                                                  np.array(to_remove_from_unmatch_det_inds))
+                    unmatched_trks = np.setdiff1d(unmatched_trks,
+                                                  np.array(to_remove_from_unmatch_trk_inds))
 
-            if iou_left.max() > self.iou_threshold:
-                """
-                NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
-                get a higher performance especially on MOT17/MOT20 datasets. But we keep it
-                uniform here for simplicity
-                """
-                rematched_indices = linear_assignment(-iou_left)
+            for m in unmatched_trks:
+                self.tracks_dict[cls_id][m].update(None)
 
-                to_remove_from_unmatch_det_indices = []
-                to_remove_from_unmatch_trk_indices = []
-                for m in rematched_indices:
-                    det_idx, trk_idx = unmatched_dets[m[0]], unmatched_trks[m[1]]
+            ## ---------- create and initialized
+            # new trackers for unmatched detections
+            for i in unmatched_dets:
+                cls_trk = KalmanBoxTracker(cls_dets[i, :], delta_t=self.delta_t)
+                self.tracks_dict[cls_id].append(cls_trk)
 
-                    if iou_left[m[0], m[1]] < self.iou_threshold:
-                        continue
+            ## ----- determine the tracks to be returned of this frame
+            i = len(self.tracks_dict[cls_id])
+            for trk in reversed(self.tracks_dict[cls_id]):
+                if trk.last_observation.sum() < 0:
+                    d = trk.get_state()[0]  # get current state, not previous observation
+                else:
+                    """
+                    this is optional to [use the recent observation]
+                    or the kalman filter prediction,
+                    we didn't notice significant difference here
+                    """
+                    d = trk.last_observation[:4]  # use last observation
 
-                    self.tracks[trk_idx].update(dets[det_idx, :])
+                if (trk.time_since_last_update < 1) \
+                        and (trk.hit_streak >= self.min_hits
+                             or self.frame_count <= self.min_hits):
+                    # +1 as MOT benchmark requires positive
+                    ret_dict[cls_id].append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))
+                i -= 1
 
-                    # record matched det inds and trk inds
-                    to_remove_from_unmatch_det_indices.append(det_idx)
-                    to_remove_from_unmatch_trk_indices.append(trk_idx)
+                # remove the dead track
+                if trk.time_since_last_update > self.max_age:
+                    self.tracks_dict[cls_id].pop(i)
 
-                unmatched_dets = np.setdiff1d(unmatched_dets, np.array(to_remove_from_unmatch_det_indices))
-                unmatched_trks = np.setdiff1d(unmatched_trks, np.array(to_remove_from_unmatch_trk_indices))
+            if len(ret_dict[cls_id]) > 0:
+                ret_dict[cls_id] = np.concatenate(ret_dict[cls_id])
 
-        for m in unmatched_trks:
-            self.tracks[m].update(None)
+        for k, v in ret_dict:
+            if len(v) == 0:
+                v = np.empty((0, 5))
 
-        ## ---------- create and initialized
-        # new trackers for unmatched detections
-        for i in unmatched_dets:
-            cls_trk = KalmanBoxTracker(dets[i, :], delta_t=self.delta_t)
-            self.tracks.append(cls_trk)
-
-        ## ----- determine the tracks to be returned of this frame
-        i = len(self.tracks)
-        for cls_trk in reversed(self.tracks):
-            if cls_trk.last_observation.sum() < 0:
-                d = cls_trk.get_state()[0]  # get current state, not previous observation
-            else:
-                """
-                this is optional to [use the recent observation]
-                or the kalman filter prediction,
-                we didn't notice significant difference here
-                """
-                d = cls_trk.last_observation[:4]  # use last observation
-
-            if (cls_trk.time_since_last_update < 1) \
-                    and (cls_trk.hit_streak >= self.min_hits
-                         or self.frame_count <= self.min_hits):
-                # +1 as MOT benchmark requires positive
-                ret.append(np.concatenate((d, [cls_trk.id + 1])).reshape(1, -1))
-            i -= 1
-
-            # remove the dead track
-            if cls_trk.time_since_last_update > self.max_age:
-                self.tracks.pop(i)
-
-        if len(ret) > 0:
-            return np.concatenate(ret)
-        else:
-            return np.empty((0, 5))
+        return ret_dict
 
     def update_public(self, dets, cates, scores):
         """
@@ -752,7 +713,7 @@ class MCOCSort(object):
         k_observations = np.array([k_previous_obs(trk.observations_dict, trk.age, self.delta_t) for trk in self.tracks])
 
         matched, unmatched_dets, unmatched_trks = associate_kitti \
-            (dets, trks, cates, self.iou_threshold, velocities, k_observations, self.inertia)
+            (dets, trks, cates, self.iou_threshold, velocities, k_observations, self.vel_dir_weight)
 
         for m in matched:
             self.tracks[m[1]].update(dets[m[0], :])
@@ -768,7 +729,7 @@ class MCOCSort(object):
             left_dets_c = left_dets.copy()
             left_trks_c = left_trks.copy()
 
-            iou_left = self.asso_func(left_dets_c, left_trks_c)
+            iou_left = self.associate_func(left_dets_c, left_trks_c)
             iou_left = np.array(iou_left)
             det_cates_left = cates[unmatched_dets]
             trk_cates_left = trks[unmatched_trks][:, 4]

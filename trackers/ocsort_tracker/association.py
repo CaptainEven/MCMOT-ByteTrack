@@ -261,10 +261,10 @@ def associate(detections,
               previous_obs,
               vel_dir_weight):
     """
-    @parma detections:
-    @param tracks:
-    @param velocities:
-    @param previous_obs:
+    @parma detections: current detections
+    @param tracks:  current tracks
+    @param velocities: velocity directions of current tracks
+    @param previous_obs: current tracks' previous observations
     @param vel_dir_weight: velocity direction weight(λ)
     """
     if len(tracks) == 0:
@@ -272,32 +272,36 @@ def associate(detections,
                np.arange(len(detections)), \
                np.empty((0, 5), dtype=int)
 
-    # size: num_track x num_det
-    Y, X = velocity_direction_batch(detections, previous_obs)
+    ## ----- Velocity direction cost matrix
+    ## Get detections velocity of current frame, size: num_track x num_det
+    det_vel_y, det_vel_x = velocity_direction_batch(detections, previous_obs)
 
-    inertia_Y, inertia_X = velocities[:, 0], velocities[:, 1]
-    inertia_Y = np.repeat(inertia_Y[:, np.newaxis], Y.shape[1], axis=1)
-    inertia_X = np.repeat(inertia_X[:, np.newaxis], X.shape[1], axis=1)
+    ## Get track velocity of current frame, size: num_track x num_det
+    trk_vel_y, trk_vel_x = velocities[:, 0], velocities[:, 1]
+    trk_vel_y = np.repeat(trk_vel_y[:, np.newaxis], det_vel_y.shape[1], axis=1)
+    trk_vel_x = np.repeat(trk_vel_x[:, np.newaxis], det_vel_x.shape[1], axis=1)
 
-    # 计算夹角余弦
-    diff_angle_cos = inertia_X * X + inertia_Y * Y
-    diff_angle_cos = np.clip(diff_angle_cos, a_min=-1, a_max=1)
+    # angle cosine(计算夹角余弦)
+    diff_angle_cos = trk_vel_x * det_vel_x + trk_vel_y * det_vel_y
+    diff_angle_cos = np.clip(diff_angle_cos, a_min=-1, a_max=1)  # [-1, 1]
     diff_angle = np.arccos(diff_angle_cos)
     diff_angle = (np.pi / 2.0 - np.abs(diff_angle)) / np.pi  # normalize?
 
     valid_mask = np.ones(previous_obs.shape[0])
     valid_mask[np.where(previous_obs[:, 4] < 0)] = 0  # score < 0 means invalid
 
-    iou_matrix = iou_batch(detections, tracks)
     scores = np.repeat(detections[:, -1][:, np.newaxis], tracks.shape[0], axis=1)
 
     # iou_matrix = iou_matrix * scores # a trick sometimes works, we don't encourage this
-    valid_mask = np.repeat(valid_mask[:, np.newaxis], X.shape[1], axis=1)
+    valid_mask = np.repeat(valid_mask[:, np.newaxis], det_vel_x.shape[1], axis=1)
 
     ## OCM: C(X^ ; Z) = CIoU(X^ ; Z) + λCv(X^ ; Z; V)
     angle_diff_cost = (valid_mask * diff_angle) * vel_dir_weight
     angle_diff_cost = angle_diff_cost.T
     angle_diff_cost = angle_diff_cost * scores
+
+    ## ----- IOU cost matrix
+    iou_matrix = iou_batch(detections, tracks)
 
     if min(iou_matrix.shape) > 0:
         iou_mask = (iou_matrix > iou_threshold).astype(np.int32)
@@ -337,8 +341,16 @@ def associate(detections,
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
 
-def associate_kitti(detections, trackers, det_cates, iou_threshold,
-                    velocities, previous_obs, vdc_weight):
+def associate_kitti(detections,
+                    trackers,
+                    det_cates,
+                    iou_threshold,
+                    velocities,
+                    previous_obs,
+                    vdc_weight):
+    """
+    @param detections:
+    """
     if (len(trackers) == 0):
         return np.empty((0, 2), dtype=int), np.arange(len(detections)), np.empty((0, 5), dtype=int)
 
