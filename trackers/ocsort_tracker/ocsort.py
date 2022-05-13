@@ -543,16 +543,16 @@ class MCOCSort(object):
             cls_inds_high = cls_scores < self.high_det_thresh
 
             ## class second indices
-            cls_inds_second = np.logical_and(cls_inds_low, cls_inds_high)
+            cls_inds_2nd = np.logical_and(cls_inds_low, cls_inds_high)
 
-            cls_dets_boxes = cls_boxes[cls_remain_inds]
-            cls_dets_boxes_second = cls_boxes[cls_inds_second]
+            cls_dets_boxes_1st = cls_boxes[cls_remain_inds]
+            cls_dets_boxes_2nd = cls_boxes[cls_inds_2nd]
 
             cls_scores_1st = cls_scores[cls_remain_inds]
-            cls_scores_2nd = cls_scores[cls_inds_second]
+            cls_scores_2nd = cls_scores[cls_inds_2nd]
 
             ## ----- Build dets for the object class
-            cls_dets = np.concatenate((cls_dets_boxes,
+            cls_dets = np.concatenate((cls_dets_boxes_1st,
                                        np.expand_dims(cls_scores_1st, axis=-1)),
                                       axis=1)
 
@@ -662,6 +662,7 @@ class MCOCSort(object):
                 if (trk.time_since_last_update < 1) \
                         and (trk.hit_streak >= self.min_hits
                              or self.frame_count <= self.min_hits):
+
                     # +1 as MOT benchmark requires positive
                     ret_dict[cls_id].append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))
                 i -= 1
