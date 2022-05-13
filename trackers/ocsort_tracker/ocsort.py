@@ -495,7 +495,7 @@ class MCOCSort(object):
             return np.empty((0, 5))
 
         ## ----- the track dict to be returned
-        ret_dict = {}
+        ret_dict = defaultdict(list)
 
         self.frame_count += 1
         if self.frame_count == 1:
