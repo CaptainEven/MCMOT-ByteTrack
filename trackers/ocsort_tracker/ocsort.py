@@ -552,7 +552,7 @@ class MCOCSort(object):
             elif det.size == 6:
                 x1, y1, x2, y2, score, cls_id = det  # 6
             else:
-                logger.error("invalid dets dimensions: should b 6 or 7.")
+                logger.error("invalid dets' dimensions: should b 6 or 7.")
                 exit(-1)
 
             box = np.array([x1, y1, x2, y2])
