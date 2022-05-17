@@ -3,8 +3,7 @@
 """
 from __future__ import print_function
 
-import copy
-
+import numpy as np
 import torch
 from loguru import logger
 
@@ -55,22 +54,21 @@ def convert_bbox_to_z(bbox):
 
 def convert_x_to_bbox(x, score=None):
     """
-    Takes a bounding box in the centre form [x,y,s,r] and returns it in the form
-      [x1,y1,x2,y2] where x1,y1 is the top left and x2,y2 is the bottom right
+    Takes a bounding box in the centre form observation: [x,y,s,r]
+    and returns it in the form [x1,y1,x2,y2]
+    where x1,y1 is the top left and x2,y2 is the bottom right
     """
     w = np.sqrt(x[2] * x[3])
     h = x[2] / w
+
+    center_x, center_y = x[0], x[1]
+    x1, y1 = center_x - w * 0.5, center_y - h * 0.5
+    x2, y2 = center_x + w * 0.5, center_y + h * 0.5
+
     if score is None:
-        return np.array([x[0] - w / 2.0,
-                         x[1] - h / 2.0,
-                         x[0] + w / 2.0,
-                         x[1] + h / 2.0]).reshape((1, 4))
+        return np.array([x1, y1, x2, y2]).reshape((1, 4))
     else:
-        return np.array([x[0] - w / 2.0,
-                         x[1] - h / 2.0,
-                         x[0] + w / 2.0,
-                         x[1] + h / 2.0,
-                         score]).reshape((1, 5))
+        return np.array([x1, y1, x2, y2, score]).reshape((1, 5))
 
 
 def get_velocity_direction(bbox1, bbox2):
@@ -293,7 +291,7 @@ class MCKalmanTrack(MCTrackBase):
         ## ----- record
         self.cls_id = cls_id
 
-        self._tlbr, self._tlwh = None, None
+        self.x1y1x2y2, self._tlwh = None, None
 
         ## ----- update track id
         self.track_id = MCTrackBase.next_id(self.cls_id)
@@ -424,8 +422,19 @@ class MCKalmanTrack(MCTrackBase):
         """
         Returns the current bounding box estimate.
         """
-        self._tlbr = convert_x_to_bbox(self.kf.x)
-        return self._tlbr
+        self.x1y1x2y2 = np.squeeze(convert_x_to_bbox(self.kf.x))
+        return self.x1y1x2y2
+
+    @staticmethod
+    # @jit(nopython=True)
+    def tlbr_to_tlwh(tlbr):
+        """
+        :param tlbr:
+        :return:
+        """
+        ret = np.asarray(tlbr).copy()  # numpy中的.copy()是深拷贝
+        ret[2:] -= ret[:2]
+        return ret
 
     @property
     # @jit(nopython=True)
@@ -433,12 +442,10 @@ class MCKalmanTrack(MCTrackBase):
         """
         :return tlwh
         """
-        if self._tlbr is None:
+        if self.x1y1x2y2 is None:
             self.get_state()
 
-        self._tlwh = copy.deepcopy(self._tlbr)
-        self._tlwh[2:] -= self._tlwh[:2]
-
+        self._tlwh = MCKalmanTrack.tlbr_to_tlwh(self.x1y1x2y2)
         return self._tlwh
 
 
@@ -504,10 +511,6 @@ class MCOCSort(object):
         # KalmanBoxTracker.count = 0
         MCKalmanTrack.init_id_dict(self.n_classes)
 
-    def x1y1x2y2_to_tlwh(self):
-        """
-        """
-
     def update_frame(self, dets, img_size, net_size):
         """
         @param dets: - a numpy array of detections in the format [[x1,y1,x2,y2,score],
@@ -548,6 +551,9 @@ class MCOCSort(object):
                 score = score1 * score2
             elif det.size == 6:
                 x1, y1, x2, y2, score, cls_id = det  # 6
+            else:
+                logger.error("invalid dets dimensions: should b 6 or 7.")
+                exit(-1)
 
             box = np.array([x1, y1, x2, y2])
             box /= scale  # convert box to image size
@@ -558,12 +564,18 @@ class MCOCSort(object):
         ## ---------- Process each object class
         for cls_id in range(self.n_classes):
             ## ----- class boxes
-            cls_boxes = boxes_dict[cls_id]
-            cls_boxes = np.array(cls_boxes)
+            cls_bboxes = boxes_dict[cls_id]
+            cls_bboxes = np.array(cls_bboxes)
 
             ## ----- class scores
             cls_scores = scores_dict[cls_id]
             cls_scores = np.array(cls_scores)
+
+            cls_scores_2d = np.expand_dims(cls_scores, axis=1)
+            if cls_bboxes.shape[0] == 0:
+                cls_bboxes = np.empty((0, 4), dtype=float)
+                cls_scores_2d = np.empty((0, 1), dtype=float)
+            cls_dets = np.concatenate((cls_bboxes, cls_scores_2d), axis=1)
 
             cls_remain_inds = cls_scores > self.det_thresh
             cls_inds_low = cls_scores > self.low_det_thresh
@@ -572,36 +584,37 @@ class MCOCSort(object):
             ## class second indices
             cls_inds_2nd = np.logical_and(cls_inds_low, cls_inds_high)
 
-            cls_dets_boxes_1st = cls_boxes[cls_remain_inds]
-            cls_dets_boxes_2nd = cls_boxes[cls_inds_2nd]
+            cls_dets_boxes_1st = cls_bboxes[cls_remain_inds]
+            cls_dets_boxes_2nd = cls_bboxes[cls_inds_2nd]
 
             cls_scores_1st = cls_scores[cls_remain_inds]
             cls_scores_2nd = cls_scores[cls_inds_2nd]
 
             ## ----- Build dets for the object class
             if len(cls_dets_boxes_1st) > 0:
-                cls_dets = np.concatenate((cls_dets_boxes_1st,
-                                           np.expand_dims(cls_scores_1st, axis=-1)),
-                                          axis=1)
+                # cls_dets = np.concatenate((cls_dets_boxes_1st,
+                #                            np.expand_dims(cls_scores_1st, axis=-1)),
+                #                           axis=1)
+                cls_dets = cls_dets[cls_remain_inds]
             else:
                 cls_dets = np.array([])
 
             # get predicted locations from existing trackers.
             cls_trks = np.zeros((len(self.tracks_dict[cls_id]), 5))
             to_del = []
-            for t, cls_trk in enumerate(cls_trks):
+            for i, cls_trk in enumerate(cls_trks):
                 ## ----- prediction
-                pos = self.tracks_dict[cls_id][t].predict()[0]
+                pos = self.tracks_dict[cls_id][i].predict()[0]
 
                 ## ----- fill the cls_trks
                 cls_trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
 
                 if np.any(np.isnan(pos)):
-                    to_del.append(t)
+                    to_del.append(i)
 
             cls_trks = np.ma.compress_rows(np.ma.masked_invalid(cls_trks))
-            for t in reversed(to_del):
-                self.tracks_dict[cls_id].pop(t)
+            for i in reversed(to_del):
+                self.tracks_dict[cls_id].pop(i)
 
             ## ----- Compute velocity directions
             cls_velocities = np.array([trk.vel_dir if trk.vel_dir is not None
@@ -735,7 +748,7 @@ class OCSort(object):
         self.min_hits = min_hits
         self.iou_threshold = iou_threshold
         self.tracks = []
-        self.frame_count = 0
+        self.frame_id = 0
         self.det_thresh = det_thresh
         logger.info("det_thresh: {:.3f}".format(self.det_thresh))
         self.delta_t = delta_t
@@ -757,7 +770,7 @@ class OCSort(object):
         if dets is None:
             return np.empty((0, 5))
 
-        self.frame_count += 1
+        self.frame_id += 1
 
         # post_process detections
         if dets.shape[1] == 5:
@@ -877,7 +890,7 @@ class OCSort(object):
 
             if (trk.time_since_last_update < 1) \
                     and (trk.hit_streak >= self.min_hits
-                         or self.frame_count <= self.min_hits):
+                         or self.frame_id <= self.min_hits):
                 # +1 as MOT benchmark requires positive
                 ret.append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))
             i -= 1
@@ -897,7 +910,7 @@ class OCSort(object):
         @param cates:
         @param scores:
         """
-        self.frame_count += 1
+        self.frame_id += 1
 
         det_scores = np.ones((dets.shape[0], 1))
         dets = np.concatenate((dets, det_scores), axis=1)
@@ -983,7 +996,7 @@ class OCSort(object):
             else:
                 d = trk.get_state()[0]
             if trk.time_since_last_update < 1:
-                if (self.frame_count <= self.min_hits) or (trk.hit_streak >= self.min_hits):
+                if (self.frame_id <= self.min_hits) or (trk.hit_streak >= self.min_hits):
                     # id+1 as MOT benchmark requires positive
                     ret.append(np.concatenate((d, [trk.id + 1], [trk.cate], [0])).reshape(1, -1))
                 if trk.hit_streak == self.min_hits:
