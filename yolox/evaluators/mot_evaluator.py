@@ -208,7 +208,7 @@ class MOTEvaluator:
                 online_ids = []
                 online_scores = []
                 for t in online_targets:
-                    tlwh = t.tlwh
+                    tlwh = t._tlwh
                     tid = t.track_id
                     vertical = tlwh[2] / tlwh[3] > 1.6
                     if tlwh[2] * tlwh[3] > self.args.min_box_area and not vertical:
@@ -577,7 +577,7 @@ class MOTEvaluator:
             online_ids = []
             online_scores = []
             for t in online_targets:
-                tlwh = t.tlwh
+                tlwh = t._tlwh
                 tid = t.track_id
                 vertical = tlwh[2] / tlwh[3] > 1.6
                 if tlwh[2] * tlwh[3] > self.args.min_box_area and not vertical:

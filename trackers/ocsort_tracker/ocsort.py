@@ -3,6 +3,8 @@
 """
 from __future__ import print_function
 
+import copy
+
 import torch
 from loguru import logger
 
@@ -291,6 +293,8 @@ class MCKalmanTrack(MCTrackBase):
         ## ----- record
         self.cls_id = cls_id
 
+        self._tlbr, self._tlwh = None, None
+
         ## ----- update track id
         self.track_id = MCTrackBase.next_id(self.cls_id)
 
@@ -420,7 +424,22 @@ class MCKalmanTrack(MCTrackBase):
         """
         Returns the current bounding box estimate.
         """
-        return convert_x_to_bbox(self.kf.x)
+        self._tlbr = convert_x_to_bbox(self.kf.x)
+        return self._tlbr
+
+    @property
+    # @jit(nopython=True)
+    def tlwh(self):
+        """
+        :return tlwh
+        """
+        if self._tlbr is None:
+            self.get_state()
+
+        self._tlwh = copy.deepcopy(self._tlbr)
+        self._tlwh[2:] -= self._tlwh[:2]
+
+        return self._tlwh
 
 
 """
@@ -602,6 +621,7 @@ class MCOCSort(object):
             First round of association
             using high confidence dets and existed trks
             """
+
             matched, unmatched_dets, unmatched_trks = associate(cls_dets,
                                                                 cls_trks,
                                                                 self.iou_threshold,
@@ -651,7 +671,7 @@ class MCOCSort(object):
             for m in unmatched_trks:
                 self.tracks_dict[cls_id][m].update(None)
 
-            ## ---------- create and initialized
+            ## ---------- create new track and initialized
             # new trackers for unmatched detections
             for i in unmatched_dets:
                 cls_trk = MCKalmanTrack(bbox=cls_dets[i, :],
@@ -676,15 +696,21 @@ class MCOCSort(object):
                         and (trk.hit_streak >= self.min_hits
                              or self.frame_id <= self.min_hits):
                     # +1 as MOT benchmark requires positive
-                    ret_dict[cls_id].append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))
+
+                    # ## ----- only return bbox and track id
+                    # ret_dict[cls_id].append(np.concatenate((d, [trk.track_id + 1])).reshape(1, -1))
+
+                    # ## ------ TODO: return the track object
+                    ret_dict[cls_id].append(trk)
+
                 i -= 1
 
                 # remove the dead track
                 if trk.time_since_last_update > self.max_age:
                     self.tracks_dict[cls_id].pop(i)
 
-            if len(ret_dict[cls_id]) > 0:
-                ret_dict[cls_id] = np.concatenate(ret_dict[cls_id])
+            # if len(ret_dict[cls_id]) > 0:  # turn 2d list to 2d array
+            #     ret_dict[cls_id] = np.concatenate(ret_dict[cls_id])
 
         for k, v in ret_dict.items():
             if len(v) == 0:

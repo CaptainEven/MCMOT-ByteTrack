@@ -267,7 +267,7 @@ def associate(detections,
     @param previous_obs: current tracks' previous observations
     @param vel_dir_weight: velocity direction weight(λ)
     """
-    if len(tracks) == 0:
+    if len(tracks) == 0 or len(detections) == 0:
         return np.empty((0, 2), dtype=int), \
                np.arange(len(detections)), \
                np.empty((0, 5), dtype=int)

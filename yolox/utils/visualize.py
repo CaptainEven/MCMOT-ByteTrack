@@ -105,8 +105,9 @@ def plot_tracking_mc(image,
         cls_tlwhs = tlwhs_dict[cls_id]
         obj_ids = obj_ids_dict[cls_id]
 
-        for i, tlwh_i in enumerate(cls_tlwhs):
-            x1, y1, w, h = tlwh_i
+        for i, tlwh in enumerate(cls_tlwhs):
+            tlwh = np.squeeze(tlwh)
+            x1, y1, w, h = tlwh
             int_box = tuple(map(int, (x1, y1, x1 + w, y1 + h)))  # x1, y1, x2, y2
             obj_id = int(obj_ids[i])
             tr_id_text = '{}'.format(int(obj_id))

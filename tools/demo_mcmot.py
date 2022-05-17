@@ -338,7 +338,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
             online_ids = []
             online_scores = []
             for t in online_targets:
-                tlwh = t.tlwh
+                tlwh = t._tlwh
                 tid = t.track_id
                 vertical = tlwh[2] / tlwh[3] > 1.6
                 if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:
@@ -462,7 +462,7 @@ def video_tracking(predictor, cap, save_path, opt):
                     online_ids = []
                     online_scores = []
                     for track in online_targets:
-                        tlwh = track.tlwh
+                        tlwh = track._tlwh
                         tid = track.track_id
                         # vertical = tlwh[2] / tlwh[3] > 1.6
                         # if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
