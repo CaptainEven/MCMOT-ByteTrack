@@ -43,7 +43,7 @@ class VOCEvaluator:
         self.img_size = img_size
         self.confthre = confthre
         self.nmsthre = nmsthre
-        self.num_classes = num_classes
+        self.n_classes = num_classes
         self.num_images = len(dataloader.dataset)
 
     def evaluate(
@@ -116,7 +116,7 @@ class VOCEvaluator:
                     inference_time += infer_end - start
 
                 outputs = post_process(
-                    outputs, self.num_classes, self.confthre, self.nmsthre
+                    outputs, self.n_classes, self.confthre, self.nmsthre
                 )
                 if is_time_record:
                     nms_end = time_synchronized()
@@ -184,15 +184,15 @@ class VOCEvaluator:
         info = time_info + "\n"
 
         all_boxes = [
-            [[] for _ in range(self.num_images)] for _ in range(self.num_classes)
+            [[] for _ in range(self.num_images)] for _ in range(self.n_classes)
         ]
         for img_num in range(self.num_images):
             bboxes, cls, scores = data_dict[img_num]
             if bboxes is None:
-                for j in range(self.num_classes):
+                for j in range(self.n_classes):
                     all_boxes[j][img_num] = np.empty([0, 5], dtype=np.float32)
                 continue
-            for j in range(self.num_classes):
+            for j in range(self.n_classes):
                 mask_c = cls == j
                 if sum(mask_c) == 0:
                     all_boxes[j][img_num] = np.empty([0, 5], dtype=np.float32)

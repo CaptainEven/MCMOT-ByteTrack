@@ -34,7 +34,7 @@ class Exp(MyExp):
         if "model" not in self.__dict__:
             from yolox.models import YOLOX, YOLOFPN, YOLOXHead
             backbone = YOLOFPN()
-            head = YOLOXHead(self.num_classes, self.width, in_channels=[128, 256, 512], act="lrelu")
+            head = YOLOXHead(self.n_classes, self.width, in_channels=[128, 256, 512], act="lrelu")
             self.model = YOLOX(backbone, head)
 
         self.model.apply(init_yolo)

@@ -1,17 +1,20 @@
 # encoding: utf-8
 import os
-import random
+
 import torch
-import torch.nn as nn
 import torch.distributed as dist
 
-from yolox.exp import Exp as MyExp
 from yolox.data import get_yolox_datadir
+from yolox.exp import Exp as MyExp
+
 
 class Exp(MyExp):
     def __init__(self):
+        """
+        """
         super(Exp, self).__init__()
-        self.num_classes = 1
+
+        self.n_classes = 1
         self.depth = 1.0
         self.width = 1.0
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
@@ -132,7 +135,7 @@ class Exp(MyExp):
             img_size=self.test_size,
             confthre=self.test_conf,
             nmsthre=self.nmsthre,
-            num_classes=self.num_classes,
+            num_classes=self.n_classes,
             testdev=testdev,
         )
         return evaluator

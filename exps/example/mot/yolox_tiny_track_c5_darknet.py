@@ -77,7 +77,7 @@ class Exp(MyExp):
         self.use_momentum = True
         # logger.info("Use momentum: ", self.use_momentum)
 
-        self.use_mtl = False;
+        self.use_mtl = False
 
     def get_model(self):
         """

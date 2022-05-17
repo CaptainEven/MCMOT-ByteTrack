@@ -10,6 +10,10 @@ from yolox.tracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
 
+# from trackers.ocsort_tracker.ocsort import *
+# from trackers.ocsort_tracker.association import *
+# from trackers.ocsort_tracker.kalmanfilter import *
+
 
 class MCTrackFeat(MCBaseTrack):
     shared_kalman = KalmanFilter()
@@ -869,19 +873,19 @@ class Track(BaseTrack):
 
 
 class ByteTracker(object):
-    def __init__(self, args, frame_rate=30):
+    def __init__(self, opt, frame_rate=30):
         """
-        :param args:
+        :param opt:
         :param frame_rate:
         """
         self.frame_id = 0
-        self.args = args
-        print("args:\n", self.args)
+        self.opt = opt
+        print("args:\n", self.opt)
 
         # self.det_thresh = args.track_thresh
         self.low_det_thresh = 0.1
-        self.high_det_thresh = self.args.track_thresh  # 0.5
-        self.high_match_thresh = self.args.match_thresh  # 0.8
+        self.high_det_thresh = self.opt.track_thresh  # 0.5
+        self.high_match_thresh = self.opt.match_thresh  # 0.8
         self.low_match_thresh = 0.5
         self.unconfirmed_match_thresh = 0.7
         self.new_track_thresh = self.high_det_thresh + 0.1  # 0.6
@@ -893,15 +897,15 @@ class ByteTracker(object):
         print("Tracker's unconfirmed match thresh: ", self.unconfirmed_match_thresh)
         print("Tracker's new track thresh: ", self.new_track_thresh)
 
-        self.buffer_size = int(frame_rate / 30.0 * args.track_buffer)
+        self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
         self.max_time_lost = self.buffer_size
         print("Tracker's buffer size: ", self.buffer_size)
 
         self.kalman_filter = KalmanFilter()
 
         # Get number of tracking object classes
-        self.class_names = args.class_names
-        self.num_classes = args.n_classes
+        self.class_names = opt.class_names
+        self.n_classes = opt.n_classes
 
         # Define track lists for single object class
         self.tracked_tracks = []  # type: list[Track]
@@ -912,14 +916,6 @@ class ByteTracker(object):
         self.tracked_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.lost_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.removed_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
-
-    ## TODO: add OC_SORT backend for MCMOT tracking
-    def upate_oc(self, dets, img_size, net_size):
-        """
-        @param dets:
-        @param img_size:
-        @param net_size:
-        """
 
     def update_mcmot_byte(self, dets, img_size, net_size):
         """
@@ -934,7 +930,7 @@ class ByteTracker(object):
 
         ## ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            MCTrack.init_id_dict(self.num_classes)
+            MCTrack.init_id_dict(self.n_classes)
         ## -----
 
         ## ----- image width, height and net width, height
@@ -975,7 +971,7 @@ class ByteTracker(object):
             scores_dict[int(cls_id)].append(score)
 
         ## ---------- Process each object class
-        for cls_id in range(self.num_classes):
+        for cls_id in range(self.n_classes):
             ## ----- class boxes
             cls_boxes = boxes_dict[cls_id]
             cls_boxes = np.array(cls_boxes)
@@ -989,18 +985,18 @@ class ByteTracker(object):
             cls_inds_high = cls_scores < self.high_det_thresh
 
             ## class second indices
-            cls_inds_second = np.logical_and(cls_inds_low, cls_inds_high)
+            cls_inds_2nd = np.logical_and(cls_inds_low, cls_inds_high)
 
-            cls_dets_boxes = cls_boxes[cls_remain_inds]
-            cls_dets_boxes_second = cls_boxes[cls_inds_second]
+            cls_dets_boxes_1st = cls_boxes[cls_remain_inds]
+            cls_dets_boxes_2nd = cls_boxes[cls_inds_2nd]
 
-            cls_scores_keep = cls_scores[cls_remain_inds]
-            cls_scores_second = cls_scores[cls_inds_second]
+            cls_scores_1st = cls_scores[cls_remain_inds]
+            cls_scores_2nd = cls_scores[cls_inds_2nd]
 
-            if len(cls_dets_boxes) > 0:
+            if len(cls_dets_boxes_1st) > 0:
                 '''Detections'''
                 cls_detections = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
-                                  (tlbr, s) in zip(cls_dets_boxes, cls_scores_keep)]
+                                  (tlbr, s) in zip(cls_dets_boxes_1st, cls_scores_1st)]
             else:
                 cls_detections = []
             # print(cls_detections)
@@ -1025,7 +1021,7 @@ class ByteTracker(object):
             dists = matching.iou_distance(track_pool_dict[cls_id], cls_detections)
             # print(dists)
 
-            if not self.args.mot20:
+            if not self.opt.mot20:
                 dists = matching.fuse_score(dists, cls_detections)
 
             matches, u_track, u_detection = matching.linear_assignment(dists,
@@ -1045,10 +1041,10 @@ class ByteTracker(object):
 
             ''' Step 3: Second association, with low score detection boxes'''
             # association the un-track to the low score detections
-            if len(cls_dets_boxes_second) > 0:
+            if len(cls_dets_boxes_2nd) > 0:
                 '''Detections'''
                 cls_detections_second = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
-                                         (tlbr, s) in zip(cls_dets_boxes_second, cls_scores_second)]
+                                         (tlbr, s) in zip(cls_dets_boxes_2nd, cls_scores_2nd)]
             else:
                 cls_detections_second = []
             # print(cls_detections_second)
@@ -1086,7 +1082,7 @@ class ByteTracker(object):
             # iou matching
             dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], cls_detections)
 
-            if not self.args.mot20:
+            if not self.opt.mot20:
                 dists = matching.fuse_score(dists, cls_detections)
 
             matches, u_unconfirmed, u_detection = matching.linear_assignment(dists,
@@ -1160,7 +1156,7 @@ class ByteTracker(object):
 
         ## ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            MCTrack.init_id_dict(self.num_classes)
+            MCTrack.init_id_dict(self.n_classes)
         ## -----
 
         ## ----- image width, height and net width, height
@@ -1245,7 +1241,7 @@ class ByteTracker(object):
 
         # ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            MCTrackFeat.init_id_dict(self.num_classes)
+            MCTrackFeat.init_id_dict(self.n_classes)
         # -----
 
         # ----- The current frame tracking states recording
@@ -1260,7 +1256,7 @@ class ByteTracker(object):
 
         #################### Even: Start MCMOT
         ## ---------- Process each object class
-        for cls_id in range(self.num_classes):
+        for cls_id in range(self.n_classes):
             cls_dets = box_dict[cls_id]
             cls_dets = np.array(cls_dets)
 
@@ -1418,7 +1414,7 @@ class ByteTracker(object):
 
         # ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            MCTrack.init_id_dict(self.num_classes)
+            MCTrack.init_id_dict(self.n_classes)
         # -----
 
         # ----- The current frame tracking states recording
@@ -1433,7 +1429,7 @@ class ByteTracker(object):
 
         #################### Even: Start MCMOT
         ## ---------- Process each object class
-        for cls_id in range(self.num_classes):
+        for cls_id in range(self.n_classes):
             ## ----- class boxes
             cls_boxes = box_dict[cls_id]
             cls_boxes = np.array(cls_boxes)
@@ -1446,9 +1442,9 @@ class ByteTracker(object):
             cls_feats = feat_dict[cls_id]  # n_objs × 128
             cls_feats = np.array(cls_feats)
 
-            cls_remain_1st = cls_scores > self.args.track_thresh
+            cls_remain_1st = cls_scores > self.opt.track_thresh
             cls_inds_low = cls_scores > 0.1
-            cls_inds_high = cls_scores < self.args.track_thresh
+            cls_inds_high = cls_scores < self.opt.track_thresh
 
             ## ---------- class second indices
             cls_inds_2nd = np.logical_and(cls_inds_low, cls_inds_high)
@@ -1495,11 +1491,11 @@ class ByteTracker(object):
             dists_iou = matching.iou_distance(track_pool_dict[cls_id], cls_dets_1st)
             # print(dists_iou.shape)
 
-            if not self.args.mot20:
+            if not self.opt.mot20:
                 if dists_iou.shape[0] > 0:
                     dists_iou = matching.fuse_score(dists_iou, cls_dets_1st)
 
-            matches, u_track_1st, u_det_1st = matching.linear_assignment(dists_iou, thresh=self.args.match_thresh)
+            matches, u_track_1st, u_det_1st = matching.linear_assignment(dists_iou, thresh=self.opt.match_thresh)
 
             # --- process matched pairs between track pool and current frame detection
             for i_track, i_det in matches:
@@ -1580,7 +1576,7 @@ class ByteTracker(object):
             ## ----- IOU matching
             dists_iou = matching.iou_distance(unconfirmed_tracks_dict[cls_id], cls_dets_unmatched)
 
-            if not self.args.mot20:
+            if not self.opt.mot20:
                 dists_iou = matching.fuse_score(dists_iou, cls_dets_unmatched)
 
             matches, u_unconfirmed, u_det_unconfirmed = matching.linear_assignment(dists_iou, thresh=0.7)  # 0.7
@@ -1650,7 +1646,7 @@ class ByteTracker(object):
 
         # ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            MCTrack.init_id_dict(self.num_classes)
+            MCTrack.init_id_dict(self.n_classes)
         # -----
 
         # ----- The current frame tracking states recording
@@ -1665,7 +1661,7 @@ class ByteTracker(object):
 
         #################### Even: Start MCMOT
         ## ---------- Process each object class
-        for cls_id in range(self.num_classes):
+        for cls_id in range(self.n_classes):
             ## ----- class boxes
             cls_boxes = boxes_dict[cls_id]
             cls_boxes = np.array(cls_boxes)
@@ -1681,9 +1677,9 @@ class ByteTracker(object):
             cls_feats = feats_dict[cls_id]  # n_objs × 128
             cls_feats = np.array(cls_feats)
 
-            cls_remain_1st = cls_scores > self.args.track_thresh
+            cls_remain_1st = cls_scores > self.opt.track_thresh
             cls_inds_low = cls_scores > 0.1
-            cls_inds_high = cls_scores < self.args.track_thresh
+            cls_inds_high = cls_scores < self.opt.track_thresh
 
             ## ---------- class second indices
             cls_inds_2nd = np.logical_and(cls_inds_low, cls_inds_high)
@@ -1733,14 +1729,14 @@ class ByteTracker(object):
             # ----- Embedding matching
             dists_emb = matching.embedding_distance(track_pool_dict[cls_id], cls_dets_1st)
 
-            if not self.args.mot20:
+            if not self.opt.mot20:
                 if dists_iou.shape[0] > 0:
                     dists_iou = matching.fuse_score(dists_iou, cls_dets_1st)
 
             # dists = matching.weight_sum_costs(dists_iou, dists_emb, alpha=0.9)
             dists = matching.fuse_costs(dists_iou, dists_emb)
 
-            matches, u_track_1st, u_det_1st = matching.linear_assignment(dists, thresh=self.args.match_thresh)
+            matches, u_track_1st, u_det_1st = matching.linear_assignment(dists, thresh=self.opt.match_thresh)
             # matches, u_track_1st, u_det_1st = matching.linear_assignment(dists_iou, thresh=self.args.match_thresh)
 
             # --- process matched pairs between track pool and current frame detection
@@ -1814,7 +1810,7 @@ class ByteTracker(object):
             ## ----- Embedding matching
             dists_emb = matching.embedding_distance(unconfirmed_dict[cls_id], cls_dets_remain)
 
-            if not self.args.mot20:
+            if not self.opt.mot20:
                 # dists = matching.fuse_score(dists, cls_dets_1st)
                 dists_iou = matching.fuse_score(dists_iou, cls_dets_remain)
 
@@ -1908,9 +1904,9 @@ class ByteTracker(object):
         scale = min(img_size[0] / float(img_h), img_size[1] / float(img_w))
         bboxes /= scale
 
-        remain_inds = scores > self.args.track_thresh
+        remain_inds = scores > self.opt.track_thresh
         inds_low = scores > 0.1
-        inds_high = scores < self.args.track_thresh
+        inds_high = scores < self.opt.track_thresh
 
         inds_second = np.logical_and(inds_low, inds_high)
         dets_second = bboxes[inds_second]
@@ -1941,9 +1937,9 @@ class ByteTracker(object):
         Track.multi_predict(strack_pool)
 
         dists = matching.iou_distance(strack_pool, detections)
-        if not self.args.mot20:
+        if not self.opt.mot20:
             dists = matching.fuse_score(dists, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.args.match_thresh)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.opt.match_thresh)
 
         for i_tracked, i_det in matches:
             track = strack_pool[i_tracked]
@@ -1987,7 +1983,7 @@ class ByteTracker(object):
         detections = [detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, detections)
 
-        if not self.args.mot20:
+        if not self.opt.mot20:
             dists = matching.fuse_score(dists, detections)
 
         matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
@@ -2055,14 +2051,14 @@ def sub_tracks(t_list_a, t_list_b):
     :param t_list_b:
     :return:
     """
-    stracks = {}
+    tracks = {}
     for t in t_list_a:
-        stracks[t.track_id] = t
+        tracks[t.track_id] = t
     for t in t_list_b:
         tid = t.track_id
-        if stracks.get(tid, 0):
-            del stracks[tid]
-    return list(stracks.values())
+        if tracks.get(tid, 0):
+            del tracks[tid]
+    return list(tracks.values())
 
 
 def remove_duplicate_tracks(tracks_a, tracks_b):

@@ -96,14 +96,15 @@ Copyright 2014-2018 Roger R Labbe Jr.
 
 from __future__ import absolute_import, division
 
+import sys
 from copy import deepcopy
 from math import log, exp, sqrt
-import sys
+
 import numpy as np
-from numpy import dot, zeros, eye, isscalar, shape
 import numpy.linalg as linalg
-from filterpy.stats import logpdf
 from filterpy.common import pretty_str, reshape_z
+from filterpy.stats import logpdf
+from numpy import dot, zeros, eye, isscalar, shape
 
 
 class KalmanFilterNew(object):
@@ -292,24 +293,24 @@ class KalmanFilterNew(object):
         self.dim_z = dim_z
         self.dim_u = dim_u
 
-        self.x = zeros((dim_x, 1))        # state
-        self.P = eye(dim_x)               # uncertainty covariance
-        self.Q = eye(dim_x)               # process uncertainty
-        self.B = None                     # control transition matrix
-        self.F = eye(dim_x)               # state transition matrix
-        self.H = zeros((dim_z, dim_x))    # measurement function
-        self.R = eye(dim_z)               # measurement uncertainty
-        self._alpha_sq = 1.               # fading memory control
-        self.M = np.zeros((dim_x, dim_z)) # process-measurement cross correlation
-        self.z = np.array([[None]*self.dim_z]).T
+        self.x = zeros((dim_x, 1))  # state
+        self.P = eye(dim_x)  # uncertainty covariance
+        self.Q = eye(dim_x)  # process uncertainty
+        self.B = None  # control transition matrix
+        self.F = eye(dim_x)  # state transition matrix
+        self.H = zeros((dim_z, dim_x))  # measurement function
+        self.R = eye(dim_z)  # measurement uncertainty
+        self._alpha_sq = 1.  # fading memory control
+        self.M = np.zeros((dim_x, dim_z))  # process-measurement cross correlation
+        self.z = np.array([[None] * self.dim_z]).T
 
         # gain and residual are computed during the innovation step. We
         # save them so that in case you want to inspect them for various
         # purposes
-        self.K = np.zeros((dim_x, dim_z)) # kalman gain
+        self.K = np.zeros((dim_x, dim_z))  # kalman gain
         self.y = zeros((dim_z, 1))
-        self.S = np.zeros((dim_z, dim_z)) # system uncertainty
-        self.SI = np.zeros((dim_z, dim_z)) # inverse system uncertainty
+        self.S = np.zeros((dim_z, dim_z))  # system uncertainty
+        self.SI = np.zeros((dim_z, dim_z))  # inverse system uncertainty
 
         # identity matrix. Do not alter this.
         self._I = np.eye(dim_x)
@@ -319,7 +320,7 @@ class KalmanFilterNew(object):
         self.P_prior = self.P.copy()
 
         # these will always be a copy of x,P after update() is called
-        self.x_post = self.x.copy()             
+        self.x_post = self.x.copy()
         self.P_post = self.P.copy()
 
         # Only computed only if requested via property
@@ -333,8 +334,7 @@ class KalmanFilterNew(object):
         self.inv = np.linalg.inv
 
         self.attr_saved = None
-        self.observed = False 
-
+        self.observed = False
 
     def predict(self, u=None, B=None, F=None, Q=None):
         """
@@ -364,7 +364,6 @@ class KalmanFilterNew(object):
         elif isscalar(Q):
             Q = eye(self.dim_x) * Q
 
-
         # x = Fx + Bu
         if B is not None and u is not None:
             self.x = dot(F, self.x) + dot(B, u)
@@ -378,14 +377,11 @@ class KalmanFilterNew(object):
         self.x_prior = self.x.copy()
         self.P_prior = self.P.copy()
 
-
-
     def freeze(self):
         """
             Save the parameters before non-observation forward
         """
         self.attr_saved = deepcopy(self.__dict__)
-
 
     def unfreeze(self):
         if self.attr_saved is not None:
@@ -394,33 +390,33 @@ class KalmanFilterNew(object):
             # self.history_obs = new_history 
             self.history_obs = self.history_obs[:-1]
             occur = [int(d is None) for d in new_history]
-            indices = np.where(np.array(occur)==0)[0]
+            indices = np.where(np.array(occur) == 0)[0]
             index1 = indices[-2]
             index2 = indices[-1]
             box1 = new_history[index1]
-            x1, y1, s1, r1 = box1 
+            x1, y1, s1, r1 = box1
             w1 = np.sqrt(s1 * r1)
             h1 = np.sqrt(s1 / r1)
             box2 = new_history[index2]
-            x2, y2, s2, r2 = box2 
+            x2, y2, s2, r2 = box2
             w2 = np.sqrt(s2 * r2)
             h2 = np.sqrt(s2 / r2)
             time_gap = index2 - index1
-            dx = (x2-x1)/time_gap
-            dy = (y2-y1)/time_gap 
-            dw = (w2-w1)/time_gap 
-            dh = (h2-h1)/time_gap
+            dx = (x2 - x1) / time_gap
+            dy = (y2 - y1) / time_gap
+            dw = (w2 - w1) / time_gap
+            dh = (h2 - h1) / time_gap
             for i in range(index2 - index1):
                 """
                     The default virtual trajectory generation is by linear
                     motion (constant speed hypothesis), you could modify this 
                     part to implement your own. 
                 """
-                x = x1 + (i+1) * dx 
-                y = y1 + (i+1) * dy 
-                w = w1 + (i+1) * dw 
-                h = h1 + (i+1) * dh
-                s = w * h 
+                x = x1 + (i + 1) * dx
+                y = y1 + (i + 1) * dy
+                w = w1 + (i + 1) * dw
+                h = h1 + (i + 1) * dh
+                s = w * h
                 r = w / float(h)
                 new_box = np.array([x, y, s, r]).reshape((4, 1))
                 """
@@ -430,9 +426,8 @@ class KalmanFilterNew(object):
                     easy read and understanding
                 """
                 self.update(new_box)
-                if not i == (index2-index1-1):
+                if not i == (index2 - index1 - 1):
                     self.predict()
-
 
     def update(self, z, R=None, H=None):
         """
@@ -461,7 +456,7 @@ class KalmanFilterNew(object):
 
         # append the observation
         self.history_obs.append(z)
-        
+
         if z is None:
             if self.observed:
                 """
@@ -469,13 +464,13 @@ class KalmanFilterNew(object):
                     potential online smoothing.
                 """
                 self.freeze()
-            self.observed = False 
-            self.z = np.array([[None]*self.dim_z]).T
+            self.observed = False
+            self.z = np.array([[None] * self.dim_z]).T
             self.x_post = self.x.copy()
             self.P_post = self.P.copy()
             self.y = zeros((self.dim_z, 1))
             return
-        
+
         # self.observed = True
         if not self.observed:
             """
@@ -596,7 +591,7 @@ class KalmanFilterNew(object):
         self._mahalanobis = None
 
         if z is None:
-            self.z = np.array([[None]*self.dim_z]).T
+            self.z = np.array([[None] * self.dim_z]).T
             self.x_post = self.x.copy()
             self.P_post = self.P.copy()
             self.y = zeros((self.dim_z, 1))
@@ -650,7 +645,7 @@ class KalmanFilterNew(object):
         self._mahalanobis = None
 
         if z is None:
-            self.z = np.array([[None]*self.dim_z]).T
+            self.z = np.array([[None] * self.dim_z]).T
             self.x_post = self.x.copy()
             self.P_post = self.P.copy()
             self.y = zeros((self.dim_z, 1))
@@ -671,7 +666,7 @@ class KalmanFilterNew(object):
         if self.x.ndim == 1 and shape(z) == (1, 1):
             z = z[0]
 
-        if shape(z) == (): # is it scalar, e.g. z=3 or z=np.array(3)
+        if shape(z) == ():  # is it scalar, e.g. z=3 or z=np.array(3)
             z = np.asarray([z])
 
         # y = z - Hx
@@ -778,7 +773,7 @@ class KalmanFilterNew(object):
             (xs, Ps, Ks, Pps) = kf.rts_smoother(mu, cov, Fs=Fs)
         """
 
-        #pylint: disable=too-many-statements
+        # pylint: disable=too-many-statements
         n = np.size(zs, 0)
         if Fs is None:
             Fs = [self.F] * n
@@ -888,13 +883,13 @@ class KalmanFilterNew(object):
         K = zeros((n, dim_x, dim_x))
 
         x, P, Pp = Xs.copy(), Ps.copy(), Ps.copy()
-        for k in range(n-2, -1, -1):
-            Pp[k] = dot(dot(Fs[k+1], P[k]), Fs[k+1].T) + Qs[k+1]
+        for k in range(n - 2, -1, -1):
+            Pp[k] = dot(dot(Fs[k + 1], P[k]), Fs[k + 1].T) + Qs[k + 1]
 
-            #pylint: disable=bad-whitespace
-            K[k]  = dot(dot(P[k], Fs[k+1].T), inv(Pp[k]))
-            x[k] += dot(K[k], x[k+1] - dot(Fs[k+1], x[k]))
-            P[k] += dot(dot(K[k], P[k+1] - Pp[k]), K[k].T)
+            # pylint: disable=bad-whitespace
+            K[k] = dot(dot(P[k], Fs[k + 1].T), inv(Pp[k]))
+            x[k] += dot(K[k], x[k + 1] - dot(Fs[k + 1], x[k]))
+            P[k] += dot(dot(K[k], P[k + 1] - Pp[k]), K[k].T)
 
         return (x, P, K, Pp)
 
@@ -1056,7 +1051,7 @@ class KalmanFilterNew(object):
         filter's estimates. This formulation of the Fading memory filter
         (there are many) is due to Dan Simon [1]_.
         """
-        return self._alpha_sq**.5
+        return self._alpha_sq ** .5
 
     def log_likelihood_of(self, z):
         """
@@ -1073,7 +1068,7 @@ class KalmanFilterNew(object):
         if not np.isscalar(value) or value < 1:
             raise ValueError('alpha must be a float greater than 1')
 
-        self._alpha_sq = value**2
+        self._alpha_sq = value ** 2
 
     def __repr__(self):
         return '\n'.join([
@@ -1103,7 +1098,7 @@ class KalmanFilterNew(object):
             pretty_str('mahalanobis', self.mahalanobis),
             pretty_str('alpha', self.alpha),
             pretty_str('inv', self.inv)
-            ])
+        ])
 
     def test_matrix_dimensions(self, z=None, H=None, R=None, F=None, Q=None):
         """
@@ -1132,36 +1127,36 @@ class KalmanFilterNew(object):
         P = self.P
 
         assert x.ndim == 1 or x.ndim == 2, \
-                "x must have one or two dimensions, but has {}".format(x.ndim)
+            "x must have one or two dimensions, but has {}".format(x.ndim)
 
         if x.ndim == 1:
             assert x.shape[0] == self.dim_x, \
-                   "Shape of x must be ({},{}), but is {}".format(
-                       self.dim_x, 1, x.shape)
+                "Shape of x must be ({},{}), but is {}".format(
+                    self.dim_x, 1, x.shape)
         else:
             assert x.shape == (self.dim_x, 1), \
-                   "Shape of x must be ({},{}), but is {}".format(
-                       self.dim_x, 1, x.shape)
+                "Shape of x must be ({},{}), but is {}".format(
+                    self.dim_x, 1, x.shape)
 
         assert P.shape == (self.dim_x, self.dim_x), \
-               "Shape of P must be ({},{}), but is {}".format(
-                   self.dim_x, self.dim_x, P.shape)
+            "Shape of P must be ({},{}), but is {}".format(
+                self.dim_x, self.dim_x, P.shape)
 
         assert Q.shape == (self.dim_x, self.dim_x), \
-               "Shape of Q must be ({},{}), but is {}".format(
-                   self.dim_x, self.dim_x, P.shape)
+            "Shape of Q must be ({},{}), but is {}".format(
+                self.dim_x, self.dim_x, P.shape)
 
         assert F.shape == (self.dim_x, self.dim_x), \
-               "Shape of F must be ({},{}), but is {}".format(
-                   self.dim_x, self.dim_x, F.shape)
+            "Shape of F must be ({},{}), but is {}".format(
+                self.dim_x, self.dim_x, F.shape)
 
         assert np.ndim(H) == 2, \
-               "Shape of H must be (dim_z, {}), but is {}".format(
-                   P.shape[0], shape(H))
+            "Shape of H must be (dim_z, {}), but is {}".format(
+                P.shape[0], shape(H))
 
         assert H.shape[1] == P.shape[0], \
-               "Shape of H must be (dim_z, {}), but is {}".format(
-                   P.shape[0], H.shape)
+            "Shape of H must be (dim_z, {}), but is {}".format(
+                P.shape[0], H.shape)
 
         # shape of R must be the same as HPH'
         hph_shape = (H.shape[0], H.shape[0])
@@ -1170,12 +1165,11 @@ class KalmanFilterNew(object):
         if H.shape[0] == 1:
             # r can be scalar, 1D, or 2D in this case
             assert r_shape in [(), (1,), (1, 1)], \
-            "R must be scalar or one element array, but is shaped {}".format(
-                r_shape)
+                "R must be scalar or one element array, but is shaped {}".format(
+                    r_shape)
         else:
             assert r_shape == hph_shape, \
-            "shape of R should be {} but it is {}".format(hph_shape, r_shape)
-
+                "shape of R should be {} but it is {}".format(hph_shape, r_shape)
 
         if z is not None:
             z_shape = shape(z)
@@ -1185,10 +1179,10 @@ class KalmanFilterNew(object):
         # H@x must have shape of z
         Hx = dot(H, x)
 
-        if z_shape == (): # scalar or np.array(scalar)
+        if z_shape == ():  # scalar or np.array(scalar)
             assert Hx.ndim == 1 or shape(Hx) == (1, 1), \
-            "shape of z should be {}, not {} for the given H".format(
-                shape(Hx), z_shape)
+                "shape of z should be {}, not {} for the given H".format(
+                    shape(Hx), z_shape)
 
         elif shape(Hx) == (1,):
             assert z_shape[0] == 1, 'Shape of z must be {} for the given H'.format(shape(Hx))
@@ -1196,13 +1190,13 @@ class KalmanFilterNew(object):
         else:
             assert (z_shape == shape(Hx) or
                     (len(z_shape) == 1 and shape(Hx) == (z_shape[0], 1))), \
-                    "shape of z should be {}, not {} for the given H".format(
-                        shape(Hx), z_shape)
+                "shape of z should be {}, not {} for the given H".format(
+                    shape(Hx), z_shape)
 
         if np.ndim(Hx) > 1 and shape(Hx) != (1, 1):
             assert shape(Hx) == z_shape, \
-               'shape of z should be {} for the given H, but it is {}'.format(
-                   shape(Hx), z_shape)
+                'shape of z should be {} for the given H, but it is {}'.format(
+                    shape(Hx), z_shape)
 
 
 def update(x, P, z, R, H=None, return_all=False):
@@ -1246,7 +1240,7 @@ def update(x, P, z, R, H=None, return_all=False):
         log likelihood of the measurement
     """
 
-    #pylint: disable=bare-except
+    # pylint: disable=bare-except
 
     if z is None:
         if return_all:
@@ -1268,14 +1262,12 @@ def update(x, P, z, R, H=None, return_all=False):
     # project system uncertainty into measurement space
     S = dot(dot(H, P), H.T) + R
 
-
     # map system uncertainty into kalman gain
     try:
         K = dot(dot(P, H.T), linalg.inv(S))
     except:
         # can't invert a 1D array, annoyingly
-        K = dot(dot(P, H.T), 1./S)
-
+        K = dot(dot(P, H.T), 1. / S)
 
     # predict new x with residual scaled by the kalman gain
     x = x + dot(K, y)
@@ -1288,7 +1280,6 @@ def update(x, P, z, R, H=None, return_all=False):
     except:
         I_KH = np.array([1 - KH])
     P = dot(dot(I_KH, P), I_KH.T) + dot(dot(K, R), K.T)
-
 
     if return_all:
         # compute log likelihood
@@ -1324,7 +1315,6 @@ def update_steadystate(x, z, K, H=None):
     >>> update_steadystate(1, 2, 1)  # univariate
     >>> update_steadystate(x, P, z, H)
     """
-
 
     if z is None:
         return x
@@ -1415,7 +1405,6 @@ def predict_steadystate(x, F=1, u=0, B=1):
     x = dot(F, x) + dot(B, u)
 
     return x
-
 
 
 def batch_filter(x, P, zs, Fs, Qs, Hs, Rs, Bs=None, us=None,
@@ -1525,7 +1514,6 @@ def batch_filter(x, P, zs, Fs, Qs, Hs, Rs, Bs=None, us=None,
     return (means, covariances, means_p, covariances_p)
 
 
-
 def rts_smoother(Xs, Ps, Fs, Qs):
     """
     Runs the Rauch-Tung-Striebel Kalman smoother on a set of
@@ -1570,12 +1558,12 @@ def rts_smoother(Xs, Ps, Fs, Qs):
     K = zeros((n, dim_x, dim_x))
     x, P, pP = Xs.copy(), Ps.copy(), Ps.copy()
 
-    for k in range(n-2, -1, -1):
+    for k in range(n - 2, -1, -1):
         pP[k] = dot(dot(Fs[k], P[k]), Fs[k].T) + Qs[k]
 
-        #pylint: disable=bad-whitespace
-        K[k]  = dot(dot(P[k], Fs[k].T), linalg.inv(pP[k]))
-        x[k] += dot(K[k], x[k+1] - dot(Fs[k], x[k]))
-        P[k] += dot(dot(K[k], P[k+1] - pP[k]), K[k].T)
+        # pylint: disable=bad-whitespace
+        K[k] = dot(dot(P[k], Fs[k].T), linalg.inv(pP[k]))
+        x[k] += dot(K[k], x[k + 1] - dot(Fs[k], x[k]))
+        P[k] += dot(dot(K[k], P[k + 1] - pP[k]), K[k].T)
 
     return (x, P, K, pP)

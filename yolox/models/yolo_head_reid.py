@@ -39,7 +39,7 @@ class YOLOXHeadReID(nn.Module):
         super().__init__()
 
         self.n_anchors = 1
-        self.num_classes = num_classes
+        self.n_classes = num_classes
 
         self.net_size = net_size
         print("Net size: ", self.net_size)
@@ -117,7 +117,7 @@ class YOLOXHeadReID(nn.Module):
 
             ## ---------- Predictions
             self.cls_preds.append(nn.Conv2d(in_channels=int(256 * width),
-                                            out_channels=self.n_anchors * self.num_classes,
+                                            out_channels=self.n_anchors * self.n_classes,
                                             kernel_size=1,
                                             stride=1,
                                             padding=0, ))
@@ -300,7 +300,7 @@ class YOLOXHeadReID(nn.Module):
         grid = self.grids[k]
 
         batch_size = output.shape[0]
-        n_ch = 5 + self.num_classes
+        n_ch = 5 + self.n_classes
         hsize, wsize = output.shape[-2:]
         if grid.shape[2:4] != output.shape[2:4]:
             yv, xv = torch.meshgrid([torch.arange(hsize), torch.arange(wsize)])
@@ -403,7 +403,7 @@ class YOLOXHeadReID(nn.Module):
             num_gt = int(nlabel[batch_idx])
             num_gts += num_gt
             if num_gt == 0:
-                cls_target = outputs.new_zeros((0, self.num_classes))
+                cls_target = outputs.new_zeros((0, self.n_classes))
                 reg_target = outputs.new_zeros((0, 4))
                 l1_target = outputs.new_zeros((0, 4))
                 obj_target = outputs.new_zeros((total_num_anchors, 1))
@@ -476,7 +476,7 @@ class YOLOXHeadReID(nn.Module):
                 num_fg += num_fg_img
 
                 ## ---------- build targets by matched GT inds
-                cls_target = F.one_hot(gt_matched_classes.to(torch.int64), self.num_classes) \
+                cls_target = F.one_hot(gt_matched_classes.to(torch.int64), self.n_classes) \
                              * pred_ious_this_matching.unsqueeze(-1)
                 obj_target = fg_mask.unsqueeze(-1)
                 reg_target = gt_bboxes_per_image[matched_gt_inds]
@@ -531,7 +531,7 @@ class YOLOXHeadReID(nn.Module):
         num_fg = max(num_fg, 1)
         loss_iou = (self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)).sum() / num_fg
         loss_obj = (self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)).sum() / num_fg
-        loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum() \
+        loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.n_classes)[fg_masks], cls_targets)).sum() \
                    / num_fg
 
         ## ----- compute ReID loss
@@ -640,7 +640,7 @@ class YOLOXHeadReID(nn.Module):
             num_gt = int(nlabel[batch_idx])
             num_gts += num_gt
             if num_gt == 0:
-                cls_target = outputs.new_zeros((0, self.num_classes))
+                cls_target = outputs.new_zeros((0, self.n_classes))
                 reg_target = outputs.new_zeros((0, 4))
                 l1_target = outputs.new_zeros((0, 4))
                 obj_target = outputs.new_zeros((total_num_anchors, 1))
@@ -710,7 +710,7 @@ class YOLOXHeadReID(nn.Module):
                 num_fg += num_fg_img
 
                 ## ---------- build targets by matched GT inds
-                cls_target = F.one_hot(gt_matched_classes.to(torch.int64), self.num_classes) \
+                cls_target = F.one_hot(gt_matched_classes.to(torch.int64), self.n_classes) \
                              * pred_ious_this_matching.unsqueeze(-1)
                 obj_target = fg_mask.unsqueeze(-1)
                 reg_target = gt_bboxes_per_image[matched_gt_inds]
@@ -740,7 +740,7 @@ class YOLOXHeadReID(nn.Module):
         num_fg = max(num_fg, 1)
         loss_iou = (self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)).sum() / num_fg
         loss_obj = (self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)).sum() / num_fg
-        loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum() \
+        loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.n_classes)[fg_masks], cls_targets)).sum() \
                    / num_fg
         if self.use_l1:
             loss_l1 = (
@@ -843,7 +843,7 @@ class YOLOXHeadReID(nn.Module):
         ## ----- cxcywh
         pair_wise_ious = bboxes_iou(gt_bboxes_per_image, bboxes_preds_per_image, False)
 
-        gt_cls_per_image = (F.one_hot(gt_classes.to(torch.int64), self.num_classes)
+        gt_cls_per_image = (F.one_hot(gt_classes.to(torch.int64), self.n_classes)
                             .float()
                             .unsqueeze(1)
                             .repeat(1, num_in_boxes_anchor, 1))

@@ -347,8 +347,8 @@ class opts(object):
 
 
   def update_dataset_info_and_set_heads(self, opt, dataset):
-    opt.num_classes = dataset.num_categories \
-                      if opt.num_classes < 0 else opt.num_classes
+    opt.n_classes = dataset.num_categories \
+                      if opt.n_classes < 0 else opt.n_classes
     # input_h(w): opt.input_h overrides opt.input_res overrides dataset default
     input_h, input_w = dataset.default_resolution
     input_h = opt.input_res if opt.input_res > 0 else input_h
@@ -360,7 +360,7 @@ class opts(object):
     opt.input_res = max(opt.input_h, opt.input_w)
     opt.output_res = max(opt.output_h, opt.output_w)
   
-    opt.heads = {'hm': opt.num_classes, 'reg': 2, 'wh': 2}
+    opt.heads = {'hm': opt.n_classes, 'reg': 2, 'wh': 2}
 
     if not opt.trades:
         if 'tracking' in opt.task:

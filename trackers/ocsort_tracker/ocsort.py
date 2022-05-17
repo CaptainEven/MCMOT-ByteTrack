@@ -99,8 +99,8 @@ class KalmanBoxTracker(object):
         """
         # define constant velocity model
         if not orig:
-            from . import kalmanfilter
-            self.kf = kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
+            from . import oc_kalmanfilter
+            self.kf = oc_kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
         else:
             from filterpy.kalman import KalmanFilter
             # 此模型没有控制向量输入dim_u=0
@@ -291,10 +291,13 @@ class MCKalmanTrack(MCTrackBase):
         ## ----- record
         self.cls_id = cls_id
 
+        ## ----- update track id
+        self.track_id = MCTrackBase.next_id(self.cls_id)
+
         # define constant velocity model
         if not orig:
-            from . import kalmanfilter
-            self.kf = kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
+            from . import oc_kalmanfilter
+            self.kf = oc_kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
         else:
             from filterpy.kalman import KalmanFilter
             # 此模型没有控制向量输入dim_u=0
@@ -325,9 +328,6 @@ class MCKalmanTrack(MCTrackBase):
         self.kf.x[:4] = convert_bbox_to_z(bbox)
 
         self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
-
-        ## ----- update track id
-        self.id = MCTrackBase.next_id(self.cls_id)
 
         self.history = []
 
@@ -440,46 +440,54 @@ ASSO_FUNCS = {
 
 class MCOCSort(object):
     def __init__(self,
-                 n_classes,
+                 class_names,
                  det_thresh,
+                 low_det_thresh=0.1,
+                 iou_thresh=0.3,
                  max_age=30,
                  min_hits=3,
-                 iou_threshold=0.3,
                  delta_t=3,
-                 asso_func="iou",
-                 inertia=0.2,
-                 use_byte=False):
+                 associate_func="iou",
+                 vel_dir_weight=0.2):
         """
         Sets key parameters for SORT
         @param n_classes: number of object classes
         """
-        self.n_classes = n_classes
+        self.class_names = class_names
+        self.n_classes = len(self.class_names)
+        logger.info("number of object classes: {:d}".format(self.n_classes))
 
         self.max_age = max_age
         self.min_hits = min_hits
-        self.iou_threshold = iou_threshold
+        self.iou_threshold = iou_thresh
 
         self.tracks = []
-        self.tracks_dict = defaultdict(MCKalmanTrack)
+        self.tracks_dict = {}
+        for i in range(self.n_classes):
+            self.tracks_dict[i] = []
 
-        self.frame_count = 0
+        self.frame_id = 0
 
         self.det_thresh = det_thresh
         logger.info("det_thresh: {:.3f}".format(self.det_thresh))
+        self.low_det_thresh = low_det_thresh
+        logger.info("low_det_thresh: {:.3f}".format(self.low_det_thresh))
 
         self.delta_t = delta_t
 
-        self.associate_func = ASSO_FUNCS[asso_func]  # iou functions
-        logger.info("using IOU function: {:s}.".format(asso_func))
+        self.associate_func = ASSO_FUNCS[associate_func]  # iou functions
+        logger.info("using IOU function: {:s}.".format(associate_func))
 
-        self.vel_dir_weight = inertia
+        self.vel_dir_weight = vel_dir_weight
         logger.info("vel_dir_weight: ", self.vel_dir_weight)
-
-        self.use_byte = use_byte
 
         ## ----- Initialize the id dict
         # KalmanBoxTracker.count = 0
         MCKalmanTrack.init_id_dict(self.n_classes)
+
+    def x1y1x2y2_to_tlwh(self):
+        """
+        """
 
     def update_frame(self, dets, img_size, net_size):
         """
@@ -497,8 +505,8 @@ class MCOCSort(object):
         ## ----- the track dict to be returned
         ret_dict = defaultdict(list)
 
-        self.frame_count += 1
-        if self.frame_count == 1:
+        self.frame_id += 1
+        if self.frame_id == 1:
             MCKalmanTrack.init_id_dict(self.n_classes)
 
         ## ----- image width, height and net width, height
@@ -529,7 +537,7 @@ class MCOCSort(object):
             scores_dict[int(cls_id)].append(score)
 
         ## ---------- Process each object class
-        for cls_id in range(self.num_classes):
+        for cls_id in range(self.n_classes):
             ## ----- class boxes
             cls_boxes = boxes_dict[cls_id]
             cls_boxes = np.array(cls_boxes)
@@ -538,9 +546,9 @@ class MCOCSort(object):
             cls_scores = scores_dict[cls_id]
             cls_scores = np.array(cls_scores)
 
-            cls_remain_inds = cls_scores > self.high_det_thresh
+            cls_remain_inds = cls_scores > self.det_thresh
             cls_inds_low = cls_scores > self.low_det_thresh
-            cls_inds_high = cls_scores < self.high_det_thresh
+            cls_inds_high = cls_scores < self.det_thresh
 
             ## class second indices
             cls_inds_2nd = np.logical_and(cls_inds_low, cls_inds_high)
@@ -552,9 +560,12 @@ class MCOCSort(object):
             cls_scores_2nd = cls_scores[cls_inds_2nd]
 
             ## ----- Build dets for the object class
-            cls_dets = np.concatenate((cls_dets_boxes_1st,
-                                       np.expand_dims(cls_scores_1st, axis=-1)),
-                                      axis=1)
+            if len(cls_dets_boxes_1st) > 0:
+                cls_dets = np.concatenate((cls_dets_boxes_1st,
+                                           np.expand_dims(cls_scores_1st, axis=-1)),
+                                          axis=1)
+            else:
+                cls_dets = np.array([])
 
             # get predicted locations from existing trackers.
             cls_trks = np.zeros((len(self.tracks_dict[cls_id]), 5))
@@ -643,7 +654,9 @@ class MCOCSort(object):
             ## ---------- create and initialized
             # new trackers for unmatched detections
             for i in unmatched_dets:
-                cls_trk = KalmanBoxTracker(cls_dets[i, :], delta_t=self.delta_t)
+                cls_trk = MCKalmanTrack(bbox=cls_dets[i, :],
+                                        cls_id=cls_id,
+                                        delta_t=self.delta_t)
                 self.tracks_dict[cls_id].append(cls_trk)
 
             ## ----- determine the tracks to be returned of this frame
@@ -661,8 +674,7 @@ class MCOCSort(object):
 
                 if (trk.time_since_last_update < 1) \
                         and (trk.hit_streak >= self.min_hits
-                             or self.frame_count <= self.min_hits):
-
+                             or self.frame_id <= self.min_hits):
                     # +1 as MOT benchmark requires positive
                     ret_dict[cls_id].append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))
                 i -= 1
@@ -674,121 +686,11 @@ class MCOCSort(object):
             if len(ret_dict[cls_id]) > 0:
                 ret_dict[cls_id] = np.concatenate(ret_dict[cls_id])
 
-        for k, v in ret_dict:
+        for k, v in ret_dict.items():
             if len(v) == 0:
                 v = np.empty((0, 5))
 
         return ret_dict
-
-    def update_public(self, dets, cates, scores):
-        """
-        @param dets:
-        @param cates:
-        @param scores:
-        """
-        self.frame_count += 1
-
-        det_scores = np.ones((dets.shape[0], 1))
-        dets = np.concatenate((dets, det_scores), axis=1)
-
-        remain_inds = scores > self.det_thresh
-
-        cates = cates[remain_inds]
-        dets = dets[remain_inds]
-
-        trks = np.zeros((len(self.tracks), 5))
-        to_del = []
-        ret = []
-        for t, trk in enumerate(trks):
-            pos = self.tracks[t].predict()[0]
-            cat = self.tracks[t].cate
-            trk[:] = [pos[0], pos[1], pos[2], pos[3], cat]
-            if np.any(np.isnan(pos)):
-                to_del.append(t)
-        trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
-        for t in reversed(to_del):
-            self.tracks.pop(t)
-
-        velocities = np.array([trk.vel_dir if trk.vel_dir is not None else np.array((0, 0)) for trk in self.tracks])
-        last_boxes = np.array([trk.last_observation for trk in self.tracks])
-        k_observations = np.array([k_previous_obs(trk.observations_dict, trk.age, self.delta_t) for trk in self.tracks])
-
-        matched, unmatched_dets, unmatched_trks = associate_kitti \
-            (dets, trks, cates, self.iou_threshold, velocities, k_observations, self.vel_dir_weight)
-
-        for m in matched:
-            self.tracks[m[1]].update(dets[m[0], :])
-
-        if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
-            """
-                The re-association stage by OCR.
-                NOTE: at this stage, adding other strategy might be able to continue improve
-                the performance, such as BYTE association by ByteTrack. 
-            """
-            left_dets = dets[unmatched_dets]
-            left_trks = last_boxes[unmatched_trks]
-            left_dets_c = left_dets.copy()
-            left_trks_c = left_trks.copy()
-
-            iou_left = self.associate_func(left_dets_c, left_trks_c)
-            iou_left = np.array(iou_left)
-            det_cates_left = cates[unmatched_dets]
-            trk_cates_left = trks[unmatched_trks][:, 4]
-            num_dets = unmatched_dets.shape[0]
-            num_trks = unmatched_trks.shape[0]
-            cate_matrix = np.zeros((num_dets, num_trks))
-            for i in range(num_dets):
-                for j in range(num_trks):
-                    if det_cates_left[i] != trk_cates_left[j]:
-                        """
-                            For some datasets, such as KITTI, there are different categories,
-                            we have to avoid associate them together.
-                        """
-                        cate_matrix[i][j] = -1e6
-            iou_left = iou_left + cate_matrix
-            if iou_left.max() > self.iou_threshold - 0.1:
-                rematched_indices = linear_assignment(-iou_left)
-                to_remove_det_indices = []
-                to_remove_trk_indices = []
-                for m in rematched_indices:
-                    det_ind, trk_ind = unmatched_dets[m[0]], unmatched_trks[m[1]]
-                    if iou_left[m[0], m[1]] < self.iou_threshold - 0.1:
-                        continue
-                    self.tracks[trk_ind].update(dets[det_ind, :])
-                    to_remove_det_indices.append(det_ind)
-                    to_remove_trk_indices.append(trk_ind)
-                unmatched_dets = np.setdiff1d(unmatched_dets, np.array(to_remove_det_indices))
-                unmatched_trks = np.setdiff1d(unmatched_trks, np.array(to_remove_trk_indices))
-
-        for i in unmatched_dets:
-            trk = KalmanBoxTracker(dets[i, :])
-            trk.cate = cates[i]
-            self.tracks.append(trk)
-        i = len(self.tracks)
-
-        for trk in reversed(self.tracks):
-            if trk.last_observation.sum() > 0:
-                d = trk.last_observation[:4]
-            else:
-                d = trk.get_state()[0]
-            if trk.time_since_last_update < 1:
-                if (self.frame_count <= self.min_hits) or (trk.hit_streak >= self.min_hits):
-                    # id+1 as MOT benchmark requires positive
-                    ret.append(np.concatenate((d, [trk.id + 1], [trk.cate], [0])).reshape(1, -1))
-                if trk.hit_streak == self.min_hits:
-                    # Head Padding (HP): recover the lost steps during initializing the track
-                    for prev_i in range(self.min_hits - 1):
-                        prev_observation = trk.history_observations[-(prev_i + 2)]
-                        ret.append((np.concatenate((prev_observation[:4], [trk.id + 1], [trk.cate],
-                                                    [-(prev_i + 1)]))).reshape(1, -1))
-            i -= 1
-            if trk.time_since_last_update > self.max_age:
-                self.tracks.pop(i)
-
-        if len(ret) > 0:
-            return np.concatenate(ret)
-
-        return np.empty((0, 7))
 
 
 class OCSort(object):
@@ -799,8 +701,7 @@ class OCSort(object):
                  iou_threshold=0.3,
                  delta_t=3,
                  asso_func="iou",
-                 inertia=0.2,
-                 use_byte=False):
+                 inertia=0.2):
         """
         Sets key parameters for SORT
         """
@@ -815,7 +716,6 @@ class OCSort(object):
         self.asso_func = ASSO_FUNCS[asso_func]  # iou functions
         logger.info("using IOU function: {:s}.".format(asso_func))
         self.inertia = inertia
-        self.use_byte = use_byte
         KalmanBoxTracker.count = 0
 
     def update_frame(self, dets, img_size, net_size):
@@ -895,28 +795,6 @@ class OCSort(object):
         """
         Second round of association by OCR
         """
-        # BYTE association
-        if self.use_byte and len(dets_second) > 0 and unmatched_trks.shape[0] > 0:
-            u_trks = trks[unmatched_trks]
-            iou_left = self.asso_func(dets_second, u_trks)  # iou between low score detections and unmatched tracks
-            iou_left = np.array(iou_left)
-            if iou_left.max() > self.iou_threshold:
-                """
-                NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, 
-                you may get a higher performance especially on MOT17/MOT20 datasets.
-                But we keep it uniform here for simplicity
-                """
-                matched_indices = linear_assignment(-iou_left)
-                to_remove_from_unmatch_trk_indices = []
-
-                for m in matched_indices:
-                    det_idx, trk_idx = m[0], unmatched_trks[m[1]]
-                    if iou_left[m[0], m[1]] < self.iou_threshold:
-                        continue
-                    self.tracks[trk_idx].update(dets_second[det_idx, :])
-                    to_remove_from_unmatch_trk_indices.append(trk_idx)
-                unmatched_trks = np.setdiff1d(unmatched_trks, np.array(to_remove_from_unmatch_trk_indices))
-
         ## ----- 处理第一轮匹配中未匹配的dets和trks
         if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
             left_dets = dets[unmatched_dets]

@@ -192,7 +192,7 @@ class Predictor(object):
         """
         self.model = model
         self.decoder = decoder
-        self.num_classes = exp.num_classes
+        self.num_classes = exp.n_classes
         self.confthre = exp.test_conf
         self.nmsthre = exp.nms_thresh
         self.test_size = exp.test_size
@@ -478,7 +478,7 @@ def main(exp, args):
 if __name__ == "__main__":
     args = make_parser().parse_args()
     exp = get_exp(args.exp_file, args.name)
-    exp.num_classes = args.n_classes
-    print("Number of classes: ", exp.num_classes)
+    exp.n_classes = args.n_classes
+    print("Number of classes: ", exp.n_classes)
 
     main(exp, args)

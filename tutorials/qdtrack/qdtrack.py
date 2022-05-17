@@ -103,15 +103,15 @@ class QDTrack(TwoStageDetector):
 #                 frame_id=frame_id)
         
         bbox_result = bbox2result(det_bboxes, det_labels,
-                                  self.roi_head.bbox_head.num_classes)
+                                  self.roi_head.bbox_head.n_classes)
 
         if track_feats is not None:
             track_result = track2result(bboxes, labels, ids,
-                                        self.roi_head.bbox_head.num_classes)
+                                        self.roi_head.bbox_head.n_classes)
         else:
             track_result = [
                 np.zeros((0, 6), dtype=np.float32)
-                for i in range(self.roi_head.bbox_head.num_classes)
+                for i in range(self.roi_head.bbox_head.n_classes)
             ]
         return dict(bbox_results=bbox_result, track_results=track_result)
 

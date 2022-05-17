@@ -175,7 +175,7 @@ def main(exp, args, num_gpu):
         img_size=exp.test_size,
         confthre=exp.test_conf,
         nmsthre=exp.nms_thresh,
-        num_classes=exp.num_classes,
+        num_classes=exp.n_classes,
         )
 
     torch.cuda.set_device(rank)

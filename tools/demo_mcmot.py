@@ -9,6 +9,7 @@ import cv2
 import torch
 from loguru import logger
 
+from trackers.ocsort_tracker.ocsort import MCOCSort
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import ByteTracker
@@ -28,6 +29,10 @@ def make_parser():
     parser.add_argument("--demo",
                         default="video",  # image
                         help="demo type, eg. image, video, videos, and webcam")
+    parser.add_argument("--tracker",
+                        type=str,
+                        default="oc",
+                        help="byte | oc")
     parser.add_argument("-expn",
                         "--experiment-name",
                         type=str,
@@ -132,15 +137,19 @@ def make_parser():
     parser.add_argument("--track_thresh",
                         type=float,
                         default=0.5,
-                        help="tracking confidence threshold")
-    parser.add_argument("--track_buffer",
-                        type=int,
-                        default=240,  # 30
-                        help="the frames for keep lost tracks")
+                        help="detection confidence threshold")
+    parser.add_argument("--iou_thresh",
+                        type=float,
+                        default=0.3,
+                        help="the iou threshold in Sort for matching")
     parser.add_argument("--match_thresh",
                         type=int,
                         default=0.8,
                         help="matching threshold for tracking")
+    parser.add_argument("--track_buffer",
+                        type=int,
+                        default=240,  # 30
+                        help="the frames for keep lost tracks")
     parser.add_argument('--min-box-area',
                         type=float,
                         default=10,
@@ -216,7 +225,7 @@ class Predictor(object):
         """
         self.model = model
         self.decoder = decoder
-        self.num_classes = exp.num_classes
+        self.num_classes = exp.n_classes
         self.conf_thresh = exp.test_conf
         self.nms_thresh = exp.nms_thresh
         self.test_size = exp.test_size
@@ -306,7 +315,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
         files = [path]
 
     files.sort()
-    tracker = ByteTracker(args, frame_rate=30)
+    tracker = ByteTracker(opt, frame_rate=30)
     timer = Timer()
     frame_id = 0
     results = []
@@ -332,7 +341,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
                 tlwh = t.tlwh
                 tid = t.track_id
                 vertical = tlwh[2] / tlwh[3] > 1.6
-                if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
+                if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:
                     online_tlwhs.append(tlwh)
                     online_ids.append(tid)
                     online_scores.append(t.score)
@@ -364,13 +373,13 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     # write_results(result_filename, results)
 
 
-def video_tracking(predictor, cap, save_path, args):
+def video_tracking(predictor, cap, save_path, opt):
     """
     online or offline tracking
     :param predictor:
     :param cap:
     :param save_path:
-    :param args:
+    :param opt:
     :return:
     """
     width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
@@ -385,7 +394,12 @@ def video_tracking(predictor, cap, save_path, args):
                                  (int(width), int(height)))
 
     ## ---------- define the tracker
-    tracker = ByteTracker(args, frame_rate=30)
+    if opt.tracker == "byte":
+        tracker = ByteTracker(opt, frame_rate=30)
+    elif opt.tracker == "oc":
+        tracker = MCOCSort(class_names=opt.class_names,
+                           det_thresh=opt.track_thresh,
+                           iou_thresh=opt.iou_thresh)
     ## ----------
 
     ## ----- class name to class id and class id to class name
@@ -417,7 +431,7 @@ def video_tracking(predictor, cap, save_path, args):
         ret_val, frame = cap.read()
 
         if ret_val:
-            if args.reid:
+            if opt.reid:
                 outputs, feature_map, img_info = predictor.inference(frame, timer)
             else:
                 outputs, img_info = predictor.inference(frame, timer)
@@ -429,25 +443,33 @@ def video_tracking(predictor, cap, save_path, args):
                 img_size = [img_info['height'], img_info['width']]
                 # online_targets = tracker.update(dets, img_size, exp.test_size)
 
-                if args.reid:
-                    online_dict = tracker.update_mcmot_emb(dets, feature_map, img_size, exp.test_size)
-                else:
-                    online_dict = tracker.update_mcmot_byte(dets, img_size, exp.test_size)
+                if opt.tracker == "byte":
+                    if opt.reid:
+                        online_dict = tracker.update_mcmot_emb(dets,
+                                                               feature_map,
+                                                               img_size,
+                                                               exp.test_size)
+                    else:
+                        online_dict = tracker.update_mcmot_byte(dets,
+                                                                img_size,
+                                                                exp.test_size)
+                elif opt.tracker == "oc":
+                    online_dict = tracker.update_frame(dets, img_size, exp.test_size)
 
                 ## ----- plot single-class multi-object tracking results
-                if tracker.num_classes == 1:
+                if tracker.n_classes == 1:
                     online_tlwhs = []
                     online_ids = []
                     online_scores = []
-                    for t in online_targets:
-                        tlwh = t.tlwh
-                        tid = t.track_id
+                    for track in online_targets:
+                        tlwh = track.tlwh
+                        tid = track.track_id
                         # vertical = tlwh[2] / tlwh[3] > 1.6
                         # if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
-                        if tlwh[2] * tlwh[3] > args.min_box_area:
+                        if tlwh[2] * tlwh[3] > opt.min_box_area:
                             online_tlwhs.append(tlwh)
                             online_ids.append(tid)
-                            online_scores.append(t.score)
+                            online_scores.append(track.score)
 
                     results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
 
@@ -459,11 +481,11 @@ def video_tracking(predictor, cap, save_path, args):
                                                  fps=1.0 / timer.average_time)
 
                 ## ----- plot multi-class multi-object tracking results
-                elif tracker.num_classes > 1:
+                elif tracker.n_classes > 1:
                     ## ---------- aggregate current frame's results for each object class
                     online_tlwhs_dict = defaultdict(list)
                     online_ids_dict = defaultdict(list)
-                    for cls_id in range(tracker.num_classes):  # process each object class
+                    for cls_id in range(tracker.n_classes):  # process each object class
                         online_targets = online_dict[cls_id]
                         for track in online_targets:
                             online_tlwhs_dict[cls_id].append(track.tlwh)
@@ -473,7 +495,7 @@ def video_tracking(predictor, cap, save_path, args):
                     online_im = plot_tracking_mc(image=img_info['raw_img'],
                                                  tlwhs_dict=online_tlwhs_dict,
                                                  obj_ids_dict=online_ids_dict,
-                                                 num_classes=tracker.num_classes,
+                                                 num_classes=tracker.n_classes,
                                                  frame_id=frame_id + 1,
                                                  fps=1.0 / timer.average_time,
                                                  id2cls=id2cls)
@@ -481,7 +503,7 @@ def video_tracking(predictor, cap, save_path, args):
                 timer.toc()
                 online_im = img_info['raw_img']
 
-            if args.save_result:
+            if opt.save_result:
                 vid_writer.write(online_im)
 
             ch = cv2.waitKey(1)
@@ -649,14 +671,14 @@ def run(exp, opt):
 
 
 if __name__ == "__main__":
-    args = make_parser().parse_args()
-    exp = get_exp(args.exp_file, args.name)
+    opt = make_parser().parse_args()
+    exp = get_exp(opt.exp_file, opt.name)
 
-    class_names = args.class_names.split(",")
-    args.class_names = class_names
+    class_names = opt.class_names.split(",")
+    opt.class_names = class_names
     exp.class_names = class_names
-    exp.num_classes = len(exp.class_names)
-    print("Number of classes: ", exp.num_classes)
+    exp.n_classes = len(exp.class_names)
+    print("Number of classes: ", exp.n_classes)
 
     ## ----- run the tracking
-    run(exp, args)
+    run(exp, opt)

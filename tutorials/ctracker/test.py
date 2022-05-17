@@ -49,7 +49,7 @@ class detect_rect:
 
 class tracklet:
 	def __init__(self, det_rect):
-		self.id = det_rect.id
+		self.id = det_rect.track_id
 		self.rect_list = [det_rect]
 		self.rect_num = 1
 		self.last_rect = det_rect
@@ -201,7 +201,7 @@ def run_each_dataset(model_dir, retinanet, dataset_path, subset, cur_dataset):
 # 				if i == 0:
 				if i == int(img_len / 2):
 					for j in range(len(det_list_all[i])):
-						det_list_all[i][j].id = j + 1
+						det_list_all[i][j].track_id = j + 1
 						max_id = max(max_id, j + 1)
 						track = tracklet(det_list_all[i][j])
 						tracklet_all.append(track)
@@ -255,7 +255,7 @@ def run_each_dataset(model_dir, retinanet, dataset_path, subset, cur_dataset):
 		for j in range(len(det_list_all[i])):
 
 			x1, y1, x2, y2 = det_list_all[i][j].curr_rect.astype(int)
-			trace_id = det_list_all[i][j].id
+			trace_id = det_list_all[i][j].track_id
 
 			id_dict.setdefault(str(trace_id),[]).append((int((x1+x2)/2), y2))
 			draw_trace_id = str(trace_id)

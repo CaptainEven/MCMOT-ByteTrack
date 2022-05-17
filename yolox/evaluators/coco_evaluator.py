@@ -46,7 +46,7 @@ class COCOEvaluator:
         self.img_size = img_size
         self.confthre = confthre
         self.nmsthre = nmsthre
-        self.num_classes = num_classes
+        self.n_classes = num_classes
         self.testdev = testdev
 
     def evaluate(
@@ -115,7 +115,7 @@ class COCOEvaluator:
                     inference_time += infer_end - start
 
                 outputs = post_process(
-                    outputs, self.num_classes, self.confthre, self.nmsthre
+                    outputs, self.n_classes, self.confthre, self.nmsthre
                 )
                 if is_time_record:
                     nms_end = time_synchronized()

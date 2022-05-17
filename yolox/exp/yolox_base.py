@@ -17,7 +17,7 @@ class Exp(BaseExp):
         super().__init__()
 
         # ---------------- model config ---------------- #
-        self.num_classes = 80
+        self.n_classes = 80
         self.depth = 1.00
         self.width = 1.00
 
@@ -81,7 +81,7 @@ class Exp(BaseExp):
 
             ## ----- backbone and head
             backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels)
-            head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels)
+            head = YOLOXHead(self.n_classes, self.width, in_channels=in_channels)
 
             ## ----- combine backbone abd head
             self.model = YOLOX(backbone, head)
@@ -285,7 +285,7 @@ class Exp(BaseExp):
             img_size=self.test_size,
             confthre=self.test_conf,
             nmsthre=self.nms_thresh,
-            num_classes=self.num_classes,
+            num_classes=self.n_classes,
             testdev=testdev,
         )
         return evaluator
