@@ -137,7 +137,7 @@ class MCTrackFeat(MCBaseTrack):
         # kalman update
         self.mean, self.covariance = self.kalman_filter.update(self.mean,
                                                                self.covariance,
-                                                               self.tlwh_to_xyah(new_track._tlwh))
+                                                               self.tlwh_to_xyah(new_track.tlwh))
 
         # feature vector update
         self.update_features(new_track.curr_feat)
@@ -381,7 +381,7 @@ class MCTrackEmb(MCBaseTrack):
         # kalman update
         self.mean, self.covariance = self.KF.update(self.mean,
                                                     self.covariance,
-                                                    self.tlwh_to_xyah(new_track._tlwh))
+                                                    self.tlwh_to_xyah(new_track.tlwh))
 
         # feature vector update
         self.update_features(new_track.curr_feat)
@@ -587,7 +587,7 @@ class MCTrack(MCBaseTrack):
         """
         self.mean, self.covariance = self.kalman_filter.update(self.mean,
                                                                self.covariance,
-                                                               self.tlwh_to_xyah(new_track._tlwh))
+                                                               self.tlwh_to_xyah(new_track.tlwh))
 
         self.tracklet_len = 0
         self.frame_id = frame_id
@@ -612,7 +612,7 @@ class MCTrack(MCBaseTrack):
         self.frame_id = frame_id
         self.tracklet_len += 1
 
-        new_tlwh = new_track._tlwh
+        new_tlwh = new_track.tlwh
         self.mean, self.covariance = self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
 
         ## ----- Update the states
@@ -772,7 +772,7 @@ class Track(BaseTrack):
         """
         self.mean, self.covariance = self.kalman_filter.update(self.mean,
                                                                self.covariance,
-                                                               self.tlwh_to_xyah(new_track._tlwh))
+                                                               self.tlwh_to_xyah(new_track.tlwh))
 
         self.tracklet_len = 0
         self.frame_id = frame_id

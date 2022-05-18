@@ -290,7 +290,7 @@ class MCKalmanTrack(MCTrackBase):
         ## ----- record
         self.cls_id = cls_id
 
-        self.x1y1x2y2, self._tlwh = None, None
+        self.x1y1x2y2, self.tlwh = None, None
 
         ## ----- update track id
         self.track_id = MCTrackBase.next_id(self.cls_id)
@@ -437,15 +437,15 @@ class MCKalmanTrack(MCTrackBase):
 
     @property
     # @jit(nopython=True)
-    def tlwh(self):
+    def get_tlwh(self):
         """
         :return tlwh
         """
         if self.x1y1x2y2 is None:
             self.get_state()
 
-        self._tlwh = MCKalmanTrack.tlbr_to_tlwh(self.x1y1x2y2)
-        return self._tlwh
+        self.tlwh = MCKalmanTrack.tlbr_to_tlwh(self.x1y1x2y2)
+        return self.tlwh
 
 
 """

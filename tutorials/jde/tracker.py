@@ -71,7 +71,7 @@ class STrack(BaseTrack):
 
     def re_activate(self, new_track, frame_id, new_id=False):
         self.mean, self.covariance = self.kalman_filter.update(
-            self.mean, self.covariance, self.tlwh_to_xyah(new_track._tlwh)
+            self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
         )
 
         self.update_features(new_track.curr_feat)
