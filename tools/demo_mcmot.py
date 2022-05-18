@@ -506,7 +506,6 @@ def video_tracking(predictor, cap, save_path, opt):
                                                       id2cls=id2cls)
                     elif opt.tracker == "oc":
                         timer.toc()
-
                         online_img = plot_tracking_ocsort(img=img_info['raw_img'],
                                                           tracks_dict=online_dict,
                                                           frame_id=frame_id + 1,
