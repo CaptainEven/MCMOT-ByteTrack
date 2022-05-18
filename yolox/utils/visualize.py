@@ -138,6 +138,7 @@ def plot_tracking_ocsort(img,
 
     return img
 
+
 def plot_tracking_mc(img,
                      tlwhs_dict,
                      obj_ids_dict,
