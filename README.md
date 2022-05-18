@@ -4,7 +4,7 @@
 This is an extention work of ByteTrack, which extends the one-class multi-object tracking to multi-class multi-object tracking
 </br>
 You can refer to origin fork [ByteTrack](https://github.com/ifzhang/ByteTrack)
-and the original fork of OC_SORT [OC_SORT](https://github.com/noahcao/OC_SORT)
+and the original fork of [OC_SORT](https://github.com/noahcao/OC_SORT)
 ## Tracking demo of C5(car, bicycle, person, cyclist, tricycle)
 ![image](https://github.com/CaptainEven/MCMOT-ByteTrack/blob/master/test_13.gif)
 
