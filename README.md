@@ -7,7 +7,7 @@ You can refer to origin fork [ByteTrack](https://github.com/ifzhang/ByteTrack)
 ## Tracking demo of C5(car, bicycle, person, cyclist, tricycle)
 ![image](https://github.com/CaptainEven/MCMOT-ByteTrack/blob/master/test_13.gif)
 
-## update! 2022/0518 
+## update news! 2022/0518 
 Add OC_SORT as tracker's backend.
 ```
     parser.add_argument("--tracker",
@@ -15,6 +15,9 @@ Add OC_SORT as tracker's backend.
                         default="byte",
                         help="byte | oc")
 ```
+
+## update news! 2021/12/01 TensorRT deployment updated! (Compile, release, debug with Visual Studio On Windows)
+[TensorRT Deployment](https://github.com/CaptainEven/ByteTrack-MCMOT-TensorRT)
 
 ## How to Run the demo
 Run the demo_mcmot.py python3 script for demo testing.
@@ -29,5 +32,4 @@ ckpt
 ### video extract code
 test
 
-## TensorRT deployment updated! (Compile, release, debug with Visual Studio On Windows)
-[TensorRT Deployment](https://github.com/CaptainEven/ByteTrack-MCMOT-TensorRT)
+
