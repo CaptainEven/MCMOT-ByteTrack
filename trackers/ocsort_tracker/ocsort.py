@@ -441,9 +441,6 @@ class MCKalmanTrack(MCTrackBase):
         """
         :return tlwh
         """
-        if self.x1y1x2y2 is None:
-            self.get_state()
-
         self.tlwh = MCKalmanTrack.tlbr_to_tlwh(self.x1y1x2y2)
         return self.tlwh
 
