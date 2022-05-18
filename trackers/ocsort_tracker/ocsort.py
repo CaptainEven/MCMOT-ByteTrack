@@ -485,8 +485,8 @@ class MCOCSort(object):
         self.max_age = max_age
         self.min_hits = min_hits
         self.iou_threshold = iou_thresh
+        logger.info("iou_threshold: {:.3f}".format(self.iou_threshold))
 
-        self.tracks = []
         self.tracks_dict = {}
         for i in range(self.n_classes):
             self.tracks_dict[i] = []
@@ -577,12 +577,10 @@ class MCOCSort(object):
                 scores_2d = np.empty((0, 1), dtype=float)
             dets = np.concatenate((bboxes, scores_2d), axis=1)
 
-            remain_inds = scores > self.det_thresh
             inds_low = scores > self.low_det_thresh
             inds_high = scores < self.det_thresh
-
-            ## class second indices
             inds_2nd = np.logical_and(inds_low, inds_high)
+            remain_inds = scores > self.det_thresh
 
             bboxes_1st = bboxes[remain_inds]
             bboxes_2nd = bboxes[inds_2nd]
@@ -606,9 +604,7 @@ class MCOCSort(object):
                 ## ----- prediction
                 pos = tracks[i].predict()[0]
 
-                ## ----- fill the cls_trks
                 trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
-
                 if np.any(np.isnan(pos)):
                     to_del.append(i)
 
@@ -617,8 +613,8 @@ class MCOCSort(object):
                 tracks.pop(i)
 
             ## ----- Compute velocity directions
-            velocities = np.array([trk.vel_dir if trk.vel_dir is not None
-                                   else np.array((0, 0))
+            velocities = np.array([trk.vel_dir  # velocity direction
+                                   if trk.vel_dir is not None else np.array((0, 0))
                                    for trk in tracks])
 
             ## ----- Get thee last observations for current tracks

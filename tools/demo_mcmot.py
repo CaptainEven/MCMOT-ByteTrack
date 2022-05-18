@@ -464,8 +464,10 @@ def video_tracking(predictor, cap, save_path, opt):
                     for track in online_targets:
                         tlwh = track._tlwh
                         tid = track.track_id
+
                         # vertical = tlwh[2] / tlwh[3] > 1.6
                         # if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
+
                         if tlwh[2] * tlwh[3] > opt.min_box_area:
                             online_tlwhs.append(tlwh)
                             online_ids.append(tid)
