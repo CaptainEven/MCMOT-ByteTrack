@@ -8,7 +8,7 @@ and the original fork of OC_SORT [OC_SORT](https://github.com/noahcao/OC_SORT)
 ## Tracking demo of C5(car, bicycle, person, cyclist, tricycle)
 ![image](https://github.com/CaptainEven/MCMOT-ByteTrack/blob/master/test_13.gif)
 
-## update news! 2022/0518 
+## update news! 2022/05/18 
 Add OC_SORT as tracker's backend.
 ```
     parser.add_argument("--tracker",
