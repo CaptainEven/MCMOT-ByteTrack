@@ -32,7 +32,7 @@ def make_parser():
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("--tracker",
                         type=str,
-                        default="byte",
+                        default="oc",
                         help="byte | oc")
     parser.add_argument("-expn",
                         "--experiment-name",
@@ -400,7 +400,8 @@ def video_tracking(predictor, cap, save_path, opt):
     elif opt.tracker == "oc":
         tracker = MCOCSort(class_names=opt.class_names,
                            det_thresh=opt.track_thresh,
-                           iou_thresh=opt.iou_thresh)
+                           iou_thresh=opt.iou_thresh,
+                           max_age=opt.track_buffer)
     ## ----------
 
     ## ----- class name to class id and class id to class name
