@@ -417,14 +417,6 @@ class MCKalmanTrack(MCTrackBase):
 
         return self.history[-1]
 
-    def get_state(self):
-        """
-        Returns the current bounding box estimate.
-        """
-        self.x1y1x2y2 = np.squeeze(convert_x_to_bbox(self.kf.x))
-        self.get_tlwh()
-        return self.x1y1x2y2
-
     @staticmethod
     # @jit(nopython=True)
     def tlbr_to_tlwh(tlbr):
@@ -435,6 +427,14 @@ class MCKalmanTrack(MCTrackBase):
         ret = np.asarray(tlbr).copy()  # numpy中的.copy()是深拷贝
         ret[2:] -= ret[:2]
         return ret
+
+    def get_state(self):
+        """
+        Returns the current bounding box estimate.
+        """
+        self.x1y1x2y2 = np.squeeze(convert_x_to_bbox(self.kf.x))
+        self.get_tlwh()
+        return self.x1y1x2y2
 
     # @jit(nopython=True)
     def get_tlwh(self):
