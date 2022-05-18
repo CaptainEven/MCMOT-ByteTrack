@@ -432,7 +432,9 @@ class MCKalmanTrack(MCTrackBase):
         """
         Returns the current bounding box estimate.
         """
-        self.x1y1x2y2 = np.squeeze(convert_x_to_bbox(self.kf.x))
+        x1y1x2y2 = np.squeeze(convert_x_to_bbox(self.kf.x))
+        self.x1y1x2y2 = np.array([x1y1x2y2]).reshape((1, 4))
+
         self.get_tlwh()
         return self.x1y1x2y2
 
@@ -471,11 +473,18 @@ class MCOCSort(object):
                  min_hits=3,
                  delta_t=3,
                  associate_func="iou",
-                 vel_dir_weight=0.2):
+                 vel_dir_weight=0.2,
+                 use_byte=False):
         """
         Sets key parameters for SORT
         @param n_classes: number of object classes
         """
+        self.use_byte = use_byte
+        if self.use_byte:
+            logger.info("Tracker backend: byte.")
+        else:
+            logger.info("Tracker backend: oc_sort.")
+
         self.class_names = class_names
         self.n_classes = len(self.class_names)
         logger.info("number of object classes: {:d}".format(self.n_classes))
@@ -485,6 +494,7 @@ class MCOCSort(object):
         self.iou_threshold = iou_thresh
         logger.info("iou_threshold: {:.3f}".format(self.iou_threshold))
 
+        self.tracks = []
         self.tracks_dict = {}
         for i in range(self.n_classes):
             self.tracks_dict[i] = []
@@ -592,15 +602,15 @@ class MCOCSort(object):
             else:
                 dets = np.empty((0, 5), dtype=float)
 
-            ## ----- object class tracks
-            tracks = self.tracks_dict[cls_id]
+            ## ----- get current frame's object class tracks
+            self.tracks = self.tracks_dict[cls_id]
 
             # get predicted locations from existing trackers.
-            trks = np.zeros((len(tracks), 5))
+            trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, trk in enumerate(trks):
                 ## ----- prediction
-                pos = tracks[i].predict()[0]
+                pos = self.tracks[i].predict()[0]
 
                 trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
                 if np.any(np.isnan(pos)):
@@ -608,26 +618,20 @@ class MCOCSort(object):
 
             trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
             for i in reversed(to_del):
-                tracks.pop(i)
+                self.tracks.pop(i)
 
-            ## ----- Compute velocity directions
             velocities = np.array([trk.vel_dir  # velocity direction
                                    if trk.vel_dir is not None else np.array((0, 0))
-                                   for trk in tracks])
-
-            ## ----- Get thee last observations for current tracks
-            last_boxes = np.array([trk.last_observation for trk in tracks])
-
-            ## ----- Get current tracks' previous observations
+                                   for trk in self.tracks])
+            last_boxes = np.array([trk.last_observation for trk in self.tracks])
             k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
-                              for trk in tracks]
+                              for trk in self.tracks]
             k_observations = np.array(k_observations)
 
             """
             First round of association
             using high confidence dets and existed trks
             """
-
             matched, unmatched_dets, unmatched_trks = associate(dets,
                                                                 k_observations,
                                                                 trks,
@@ -635,11 +639,38 @@ class MCOCSort(object):
                                                                 self.iou_threshold,
                                                                 self.vel_dir_weight)
             for m in matched:
-                tracks[m[1]].update(dets[m[0], :])
+                self.tracks[m[1]].update(dets[m[0], :])
 
             """
             Second round of association by OCR
             """
+            # BYTE association
+            if self.use_byte and len(bboxes_2nd) > 0 and unmatched_trks.shape[0] > 0:
+                u_trks = trks[unmatched_trks]
+
+                scores_2nd = np.expand_dims(scores_2nd, axis=1)
+                dets_2nd = np.concatenate((bboxes_2nd, scores_2nd), axis=1)
+
+                # iou between low score detections and unmatched tracks
+                iou_left = self.associate_func(dets_2nd, u_trks)
+                iou_left = np.array(iou_left)
+                if iou_left.max() > self.iou_threshold:
+                    """
+                    NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, 
+                    you may get a higher performance especially on MOT17/MOT20 datasets.
+                    But we keep it uniform here for simplicity
+                    """
+                    matched_indices = linear_assignment(-iou_left)
+                    to_remove_from_unmatch_trk_inds = []
+
+                    for m in matched_indices:
+                        det_idx, trk_idx = m[0], unmatched_trks[m[1]]
+                        if iou_left[m[0], m[1]] < self.iou_threshold:
+                            continue
+                        self.tracks[trk_idx].update(dets_2nd[det_idx, :])
+                        to_remove_from_unmatch_trk_inds.append(trk_idx)
+                    unmatched_trks = np.setdiff1d(unmatched_trks, np.array(to_remove_from_unmatch_trk_inds))
+
             ## ----- 处理第一轮匹配中未匹配的dets和trks
             if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
                 left_dets = dets[unmatched_dets]
@@ -663,7 +694,7 @@ class MCOCSort(object):
                         if iou_left[m[0], m[1]] < self.iou_threshold:
                             continue
 
-                        tracks[trk_idx].update(dets[det_idx, :])
+                        self.tracks[trk_idx].update(dets[det_idx, :])
 
                         # record matched det inds and trk inds
                         to_remove_from_unmatch_det_inds.append(det_idx)
@@ -675,19 +706,21 @@ class MCOCSort(object):
                                                   np.array(to_remove_from_unmatch_trk_inds))
 
             for m in unmatched_trks:
-                tracks[m].update(None)
+                self.tracks[m].update(None)
 
-            ## ---------- new track and initialization
-            # build new trackers for unmatched detections
+            ## ---------- create and initialized
+            # new trackers for unmatched detections
             for i in unmatched_dets:
+                # trk = KalmanBoxTracker(bbox=dets[i, :],
+                #                        delta_t=self.delta_t)
                 trk = MCKalmanTrack(bbox=dets[i, :],
                                     cls_id=cls_id,
                                     delta_t=self.delta_t)
-                tracks.append(trk)
+                self.tracks.append(trk)
 
-            ## ----- determine the tracks to be returned of this frame
-            i = len(tracks)
-            for trk in reversed(tracks):
+            ## ----- determine the tracks to be returned of this frame(time step)
+            i = len(self.tracks)
+            for trk in reversed(self.tracks):
                 if trk.last_observation.sum() < 0:
                     d = trk.get_state()[0]  # get current state, not previous observation
                 else:
@@ -702,25 +735,25 @@ class MCOCSort(object):
                         and (trk.hit_streak >= self.min_hits
                              or self.frame_id <= self.min_hits):
                     # +1 as MOT benchmark requires positive
-
                     # ## ----- only return bbox and track id
-                    # ret_dict[cls_id].append(np.concatenate((d, [trk.track_id + 1])).reshape(1, -1))
+                    ret_dict[cls_id].append(np.concatenate((d, [trk.track_id + 1])).reshape(1, -1))
 
                     # ## ------ return the track object
-                    ret_dict[cls_id].append(trk)
+                    # ret_dict[cls_id].append(trk)
 
                 i -= 1
 
                 # remove the dead track
                 if trk.time_since_last_update > self.max_age:
-                    tracks.pop(i)
+                    self.tracks.pop(i)
 
-            # if len(ret_dict[cls_id]) > 0:  # turn 2d list to 2d array
-            #     ret_dict[cls_id] = np.concatenate(ret_dict[cls_id])
+            if len(ret_dict[cls_id]) > 0:  # turn 2d list to 2d array
+                ret_dict[cls_id] = np.concatenate(ret_dict[cls_id])
 
         for k, v in ret_dict.items():
             if len(v) == 0:
                 v = np.empty((0, 5))
+                ret_dict[k] = v
 
         return ret_dict
 

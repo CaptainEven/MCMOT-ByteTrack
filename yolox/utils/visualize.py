@@ -61,7 +61,84 @@ def get_color(idx):
     return color
 
 
-def plot_tracking_mc(image,
+def plot_tracking_ocsort(img,
+                         tracks_dict,
+                         frame_id=0,
+                         fps=0.0,
+                         id2cls=None):
+    """
+    :param img:
+    :param tracks_dict:
+    :param fps:
+    :param id2cls:
+    """
+    img = np.ascontiguousarray(np.copy(img))
+    im_h, im_w = img.shape[:2]
+
+    # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
+
+    text_scale = max(1.0, img.shape[1] / 1000.0)  # 1600.
+    # text_thickness = 1 if text_scale > 1.1 else 1
+    text_thickness = 2  # 自定义ID文本线宽
+    line_thickness = max(1, int(img.shape[1] / 500.0))
+
+    radius = max(5, int(im_w / 140.0))
+
+    ## ----- draw fps
+    cv2.putText(img,
+                'frame: %d fps: %.2f' % (frame_id, fps),
+                (0, int(15 * text_scale)),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                (0, 255, 255),
+                thickness=2)
+
+    for k, v in tracks_dict.items():
+        x1y1x2y2_list = v[:, :-1]
+        id_list = v[:, -1]
+
+        for (x1y1x2y2, tr_id) in zip(x1y1x2y2_list, id_list):
+            x1y1x2y2 = np.squeeze(x1y1x2y2)
+            x1, y1, x2, y2 = x1y1x2y2
+
+            int_box = tuple(map(int, (x1, y1, x2, y2)))  # x1, y1, x2, y2
+            tr_id_text = '{}'.format(int(tr_id))
+
+            _line_thickness = 1 if tr_id <= 0 else line_thickness
+            color = get_color(abs(tr_id))
+
+            # draw bbox
+            cv2.rectangle(img=img,
+                          pt1=int_box[0:2],  # (x1, y1)
+                          pt2=int_box[2:4],  # (x2, y2)
+                          color=color,
+                          thickness=line_thickness)
+
+            ## draw class name
+            cv2.putText(img,
+                        id2cls[k],
+                        (int(x1), int(y1)),
+                        cv2.FONT_HERSHEY_PLAIN,
+                        text_scale,
+                        (0, 255, 255),  # cls_id: yellow
+                        thickness=text_thickness)
+
+            txt_w, txt_h = cv2.getTextSize(id2cls[k],
+                                           fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                           fontScale=text_scale, thickness=text_thickness)
+
+            ## draw track id
+            cv2.putText(img,
+                        tr_id_text,
+                        (int(x1), int(y1) - txt_h),
+                        cv2.FONT_HERSHEY_PLAIN,
+                        text_scale * 1.2,
+                        (0, 255, 255),  # cls_id: yellow
+                        thickness=text_thickness)
+
+    return img
+
+def plot_tracking_mc(img,
                      tlwhs_dict,
                      obj_ids_dict,
                      num_classes,
@@ -70,7 +147,7 @@ def plot_tracking_mc(image,
                      fps=0.0,
                      id2cls=None):
     """
-    :param image:
+    :param img:
     :param tlwhs_dict:
     :param obj_ids_dict:
     :param num_classes:
@@ -80,17 +157,17 @@ def plot_tracking_mc(image,
     :param id2cls:
     :return:
     """
-    img = np.ascontiguousarray(np.copy(image))
+    img = np.ascontiguousarray(np.copy(img))
     im_h, im_w = img.shape[:2]
 
     # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
 
-    text_scale = max(1.0, image.shape[1] / 1000.0)  # 1600.
+    text_scale = max(1.0, img.shape[1] / 1000.0)  # 1600.
     # text_thickness = 1 if text_scale > 1.1 else 1
     text_thickness = 2  # 自定义ID文本线宽
-    line_thickness = max(1, int(image.shape[1] / 500.0))
+    line_thickness = max(1, int(img.shape[1] / 500.0))
 
-    radius = max(5, int(im_w / 140.))
+    radius = max(5, int(im_w / 140.0))
 
     ## ----- draw fps
     cv2.putText(img,
@@ -108,6 +185,7 @@ def plot_tracking_mc(image,
         for i, tlwh in enumerate(cls_tlwhs):
             tlwh = np.squeeze(tlwh)
             x1, y1, w, h = tlwh
+
             int_box = tuple(map(int, (x1, y1, x1 + w, y1 + h)))  # x1, y1, x2, y2
             obj_id = int(obj_ids[i])
             tr_id_text = '{}'.format(int(obj_id))

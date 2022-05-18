@@ -274,7 +274,10 @@ def associate(detections,
 
     ## ----- Velocity direction cost matrix
     ## Get detections velocity of current frame, size: num_track x num_det
-    det_vel_y, det_vel_x = velocity_direction_batch(detections, previous_obs)
+    try:
+        det_vel_y, det_vel_x = velocity_direction_batch(detections, previous_obs)
+    except Exception as e:
+        print(e)
 
     ## Get track velocity of current frame, size: num_track x num_det
     trk_vel_y, trk_vel_x = velocities[:, 0], velocities[:, 1]

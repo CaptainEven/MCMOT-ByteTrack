@@ -15,7 +15,8 @@ from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
-from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc
+from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc, plot_tracking_ocsort
+
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -31,7 +32,7 @@ def make_parser():
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("--tracker",
                         type=str,
-                        default="oc",
+                        default="byte",
                         help="byte | oc")
     parser.add_argument("-expn",
                         "--experiment-name",
@@ -476,37 +477,47 @@ def video_tracking(predictor, cap, save_path, opt):
                     results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
 
                     timer.toc()
-                    online_im = plot_tracking_sc(img_info['raw_img'],
-                                                 online_tlwhs,
-                                                 online_ids,
-                                                 frame_id=frame_id + 1,
-                                                 fps=1.0 / timer.average_time)
+                    online_img = plot_tracking_sc(img_info['raw_img'],
+                                                  online_tlwhs,
+                                                  online_ids,
+                                                  frame_id=frame_id + 1,
+                                                  fps=1.0 / timer.average_time)
 
                 ## ----- plot multi-class multi-object tracking results
                 elif tracker.n_classes > 1:
-                    ## ---------- aggregate current frame's results for each object class
-                    online_tlwhs_dict = defaultdict(list)
-                    online_ids_dict = defaultdict(list)
-                    for cls_id in range(tracker.n_classes):  # process each object class
-                        online_targets = online_dict[cls_id]
-                        for track in online_targets:
-                            online_tlwhs_dict[cls_id].append(track.tlwh)
-                            online_ids_dict[cls_id].append(track.track_id)
+                    if opt.tracker == "byte":
+                        ## ---------- aggregate current frame's results for each object class
+                        online_tlwhs_dict = defaultdict(list)
+                        online_ids_dict = defaultdict(list)
+                        for cls_id in range(tracker.n_classes):  # process each object class
+                            online_targets = online_dict[cls_id]
+                            for track in online_targets:
+                                online_tlwhs_dict[cls_id].append(track.tlwh)
+                                online_ids_dict[cls_id].append(track.track_id)
 
-                    timer.toc()
-                    online_im = plot_tracking_mc(image=img_info['raw_img'],
-                                                 tlwhs_dict=online_tlwhs_dict,
-                                                 obj_ids_dict=online_ids_dict,
-                                                 num_classes=tracker.n_classes,
-                                                 frame_id=frame_id + 1,
-                                                 fps=1.0 / timer.average_time,
-                                                 id2cls=id2cls)
+                        timer.toc()
+                        online_img = plot_tracking_mc(img=img_info['raw_img'],
+                                                      tlwhs_dict=online_tlwhs_dict,
+                                                      obj_ids_dict=online_ids_dict,
+                                                      num_classes=tracker.n_classes,
+                                                      frame_id=frame_id + 1,
+                                                      fps=1.0 / timer.average_time,
+                                                      id2cls=id2cls)
+                    elif opt.tracker == "oc":
+                        timer.toc()
+
+                        online_img = plot_tracking_ocsort(img=img_info['raw_img'],
+                                                          tracks_dict=online_dict,
+                                                          frame_id=frame_id + 1,
+                                                          fps=1.0 / timer.average_time,
+                                                          id2cls=id2cls)
+
             else:
                 timer.toc()
-                online_im = img_info['raw_img']
+                online_img = img_info['raw_img']
 
             if opt.save_result:
-                vid_writer.write(online_im)
+                vid_writer.write(online_img)
 
             ch = cv2.waitKey(1)
             if ch == 27 or ch == ord("q") or ch == ord("Q"):
