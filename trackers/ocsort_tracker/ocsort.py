@@ -585,14 +585,14 @@ class MCOCSort(object):
             ## class second indices
             inds_2nd = np.logical_and(inds_low, inds_high)
 
-            boxes_1st = bboxes[remain_inds]
+            bboxes_1st = bboxes[remain_inds]
             boxes_2nd = bboxes[inds_2nd]
 
             scores_1st = scores[remain_inds]
             scores_2nd = scores[inds_2nd]
 
             ## ----- Build dets for the object class
-            if len(boxes_1st) > 0:
+            if remain_inds.size > 0:
                 dets = dets[remain_inds]
             else:
                 dets = np.empty((0, 5), dtype=float)
