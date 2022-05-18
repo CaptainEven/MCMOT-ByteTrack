@@ -436,7 +436,6 @@ class MCKalmanTrack(MCTrackBase):
         ret[2:] -= ret[:2]
         return ret
 
-    @property
     # @jit(nopython=True)
     def get_tlwh(self):
         """
