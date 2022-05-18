@@ -564,113 +564,111 @@ class MCOCSort(object):
         ## ---------- Process each object class
         for cls_id in range(self.n_classes):
             ## ----- class boxes
-            cls_bboxes = boxes_dict[cls_id]
-            cls_bboxes = np.array(cls_bboxes)
+            bboxes = boxes_dict[cls_id]
+            bboxes = np.array(bboxes)
 
             ## ----- class scores
-            cls_scores = scores_dict[cls_id]
-            cls_scores = np.array(cls_scores)
+            scores = scores_dict[cls_id]
+            scores = np.array(scores)
 
-            cls_scores_2d = np.expand_dims(cls_scores, axis=1)
-            if cls_bboxes.shape[0] == 0:
-                cls_bboxes = np.empty((0, 4), dtype=float)
-                cls_scores_2d = np.empty((0, 1), dtype=float)
-            cls_dets = np.concatenate((cls_bboxes, cls_scores_2d), axis=1)
+            ## ----- build cls_dets
+            scores_2d = np.expand_dims(scores, axis=1)
+            if bboxes.shape[0] == 0:
+                bboxes = np.empty((0, 4), dtype=float)
+                scores_2d = np.empty((0, 1), dtype=float)
+            dets = np.concatenate((bboxes, scores_2d), axis=1)
 
-            cls_remain_inds = cls_scores > self.det_thresh
-            cls_inds_low = cls_scores > self.low_det_thresh
-            cls_inds_high = cls_scores < self.det_thresh
+            remain_inds = scores > self.det_thresh
+            inds_low = scores > self.low_det_thresh
+            inds_high = scores < self.det_thresh
 
             ## class second indices
-            cls_inds_2nd = np.logical_and(cls_inds_low, cls_inds_high)
+            inds_2nd = np.logical_and(inds_low, inds_high)
 
-            cls_dets_boxes_1st = cls_bboxes[cls_remain_inds]
-            cls_dets_boxes_2nd = cls_bboxes[cls_inds_2nd]
+            boxes_1st = bboxes[remain_inds]
+            boxes_2nd = bboxes[inds_2nd]
 
-            cls_scores_1st = cls_scores[cls_remain_inds]
-            cls_scores_2nd = cls_scores[cls_inds_2nd]
+            scores_1st = scores[remain_inds]
+            scores_2nd = scores[inds_2nd]
 
             ## ----- Build dets for the object class
-            if len(cls_dets_boxes_1st) > 0:
-                # cls_dets = np.concatenate((cls_dets_boxes_1st,
-                #                            np.expand_dims(cls_scores_1st, axis=-1)),
-                #                           axis=1)
-                cls_dets = cls_dets[cls_remain_inds]
+            if len(boxes_1st) > 0:
+                dets = dets[remain_inds]
             else:
-                cls_dets = np.array([])
+                dets = np.empty((0, 5), dtype=float)
 
             # get predicted locations from existing trackers.
-            cls_trks = np.zeros((len(self.tracks_dict[cls_id]), 5))
+            trks = np.zeros((len(self.tracks_dict[cls_id]), 5))
             to_del = []
-            for i, cls_trk in enumerate(cls_trks):
+            for i, trk in enumerate(trks):
                 ## ----- prediction
                 pos = self.tracks_dict[cls_id][i].predict()[0]
 
                 ## ----- fill the cls_trks
-                cls_trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
+                trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
 
                 if np.any(np.isnan(pos)):
                     to_del.append(i)
 
-            cls_trks = np.ma.compress_rows(np.ma.masked_invalid(cls_trks))
+            trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
             for i in reversed(to_del):
                 self.tracks_dict[cls_id].pop(i)
 
             ## ----- Compute velocity directions
-            cls_velocities = np.array([trk.vel_dir if trk.vel_dir is not None
+            velocities = np.array([trk.vel_dir if trk.vel_dir is not None
                                        else np.array((0, 0))
-                                       for trk in self.tracks_dict[cls_id]])
+                                   for trk in self.tracks_dict[cls_id]])
 
             ## ----- Get thee last observations for current tracks
-            cls_last_boxes = np.array([trk.last_observation
-                                       for trk in self.tracks_dict[cls_id]])
+            last_boxes = np.array([trk.last_observation
+                                   for trk in self.tracks_dict[cls_id]])
 
             ## ----- Get current tracks' previous observations
-            cls_k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
-                                  for trk in self.tracks_dict[cls_id]]
-            cls_k_observations = np.array(cls_k_observations)
+            k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
+                              for trk in self.tracks_dict[cls_id]]
+            k_observations = np.array(k_observations)
 
             """
             First round of association
             using high confidence dets and existed trks
             """
 
-            matched, unmatched_dets, unmatched_trks = associate(cls_dets,
-                                                                cls_trks,
+            matched, unmatched_dets, unmatched_trks = associate(dets,
+                                                                k_observations,
+                                                                trks,
+                                                                velocities,
                                                                 self.iou_threshold,
-                                                                cls_velocities,
-                                                                cls_k_observations,
                                                                 self.vel_dir_weight)
             for m in matched:
-                self.tracks_dict[cls_id][m[1]].update(cls_dets[m[0], :])
+                self.tracks_dict[cls_id][m[1]].update(dets[m[0], :])
 
             """
             Second round of association by OCR
             """
             ## ----- 处理第一轮匹配中未匹配的dets和trks
             if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
-                cls_left_dets = dets[unmatched_dets]
-                cls_left_trks = cls_last_boxes[unmatched_trks]
-                cls_iou_left = self.associate_func(cls_left_dets, cls_left_trks)  # calculate iou
-                cls_iou_left = np.array(cls_iou_left)
+                left_dets = dets[unmatched_dets]
+                left_trks = last_boxes[unmatched_trks]
+                iou_left = self.associate_func(left_dets, left_trks)  # calculate iou
+                iou_left = np.array(iou_left)
 
-                if cls_iou_left.max() > self.iou_threshold:
+                if iou_left.max() > self.iou_threshold:
                     """
                     NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
                     get a higher performance especially on MOT17/MOT20 datasets. But we keep it
                     uniform here for simplicity
                     """
-                    cls_rematched_inds = linear_assignment(-cls_iou_left)
+                    rematched_inds = linear_assignment(-iou_left)
 
                     to_remove_from_unmatch_det_inds = []
                     to_remove_from_unmatch_trk_inds = []
-                    for m in cls_rematched_inds:
+                    for m in rematched_inds:
                         det_idx, trk_idx = unmatched_dets[m[0]], unmatched_trks[m[1]]
 
-                        if cls_iou_left[m[0], m[1]] < self.iou_threshold:
+                        if iou_left[m[0], m[1]] < self.iou_threshold:
                             continue
 
-                        self.tracks_dict[cls_id][trk_idx].update(cls_dets[det_idx, :])
+                        self.tracks_dict[cls_id][trk_idx].update(dets[det_idx, :])
 
                         # record matched det inds and trk inds
                         to_remove_from_unmatch_det_inds.append(det_idx)
@@ -684,13 +682,13 @@ class MCOCSort(object):
             for m in unmatched_trks:
                 self.tracks_dict[cls_id][m].update(None)
 
-            ## ---------- create new track and initialized
-            # new trackers for unmatched detections
+            ## ---------- new track and initialization
+            # build new trackers for unmatched detections
             for i in unmatched_dets:
-                cls_trk = MCKalmanTrack(bbox=cls_dets[i, :],
-                                        cls_id=cls_id,
-                                        delta_t=self.delta_t)
-                self.tracks_dict[cls_id].append(cls_trk)
+                trk = MCKalmanTrack(bbox=dets[i, :],
+                                    cls_id=cls_id,
+                                    delta_t=self.delta_t)
+                self.tracks_dict[cls_id].append(trk)
 
             ## ----- determine the tracks to be returned of this frame
             i = len(self.tracks_dict[cls_id])
@@ -713,7 +711,7 @@ class MCOCSort(object):
                     # ## ----- only return bbox and track id
                     # ret_dict[cls_id].append(np.concatenate((d, [trk.track_id + 1])).reshape(1, -1))
 
-                    # ## ------ TODO: return the track object
+                    # ## ------ return the track object
                     ret_dict[cls_id].append(trk)
 
                 i -= 1

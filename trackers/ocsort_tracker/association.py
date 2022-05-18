@@ -255,16 +255,16 @@ def associate_detections_to_trackers(detections, trackers, iou_threshold=0.3):
 
 
 def associate(detections,
-              tracks,
-              iou_threshold,
-              velocities,
               previous_obs,
+              tracks,
+              velocities,
+              iou_threshold,
               vel_dir_weight):
     """
-    @parma detections: current detections
-    @param tracks:  current tracks
-    @param velocities: velocity directions of current tracks
+    @parma detections: current detections: x1y1x2y2score
     @param previous_obs: current tracks' previous observations
+    @param tracks:  current tracks: x1y1x2y2score
+    @param velocities: velocity directions of current tracks
     @param vel_dir_weight: velocity direction weight(λ)
     """
     if len(tracks) == 0 or len(detections) == 0:
@@ -314,22 +314,22 @@ def associate(detections,
     else:
         matched_indices = np.empty(shape=(0, 2))
 
-    unmatched_detections = []
+    unmatched_dets = []
     for i, det in enumerate(detections):
         if i not in matched_indices[:, 0]:
-            unmatched_detections.append(i)
+            unmatched_dets.append(i)
 
-    unmatched_trackers = []
+    unmatched_trks = []
     for t, trk in enumerate(tracks):
         if t not in matched_indices[:, 1]:
-            unmatched_trackers.append(t)
+            unmatched_trks.append(t)
 
     # filter out matched with low IOU
     matches = []
     for m in matched_indices:
         if iou_matrix[m[0], m[1]] < iou_threshold:
-            unmatched_detections.append(m[0])
-            unmatched_trackers.append(m[1])
+            unmatched_dets.append(m[0])
+            unmatched_trks.append(m[1])
         else:
             matches.append(m.reshape(1, 2))
 
@@ -338,7 +338,7 @@ def associate(detections,
     else:
         matches = np.concatenate(matches, axis=0)
 
-    return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
+    return matches, np.array(unmatched_dets), np.array(unmatched_trks)
 
 
 def associate_kitti(detections,
