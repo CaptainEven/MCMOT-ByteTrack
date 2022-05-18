@@ -586,7 +586,7 @@ class MCOCSort(object):
             inds_2nd = np.logical_and(inds_low, inds_high)
 
             bboxes_1st = bboxes[remain_inds]
-            boxes_2nd = bboxes[inds_2nd]
+            bboxes_2nd = bboxes[inds_2nd]
 
             scores_1st = scores[remain_inds]
             scores_2nd = scores[inds_2nd]
