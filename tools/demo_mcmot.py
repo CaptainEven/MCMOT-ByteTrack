@@ -31,7 +31,7 @@ def make_parser():
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("--tracker",
                         type=str,
-                        default="oc",
+                        default="byte",
                         help="byte | oc")
     parser.add_argument("-expn",
                         "--experiment-name",
@@ -490,7 +490,7 @@ def video_tracking(predictor, cap, save_path, opt):
                     for cls_id in range(tracker.n_classes):  # process each object class
                         online_targets = online_dict[cls_id]
                         for track in online_targets:
-                            online_tlwhs_dict[cls_id].append(track.get_tlwh)
+                            online_tlwhs_dict[cls_id].append(track.tlwh)
                             online_ids_dict[cls_id].append(track.track_id)
 
                     timer.toc()

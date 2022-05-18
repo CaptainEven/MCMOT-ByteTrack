@@ -422,6 +422,7 @@ class MCKalmanTrack(MCTrackBase):
         Returns the current bounding box estimate.
         """
         self.x1y1x2y2 = np.squeeze(convert_x_to_bbox(self.kf.x))
+        self.get_tlwh()
         return self.x1y1x2y2
 
     @staticmethod
