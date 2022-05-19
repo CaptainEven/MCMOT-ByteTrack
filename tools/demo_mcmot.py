@@ -17,7 +17,6 @@ from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
 from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc, plot_tracking_ocsort
 
-
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
 
@@ -179,14 +178,58 @@ def get_image_list(path):
     return image_names
 
 
-def write_results(filename, results):
+def write_results_dict(f_path,
+                       results_dict,
+                       data_type,
+                       num_classes=5):
     """
-    :param filename:
+    :param f_path:
+    :param results_dict:
+    :param data_type:
+    :param num_classes:
+    :return:
+    """
+    if data_type == 'mot':
+        save_format = '{frame},{id},{x1},{y1},{w},{h},1,{cls_id},1\n'
+    elif data_type == 'kitti':
+        save_format = '{frame} {id} pedestrian 0 0 -10 {x1} {y1} {x2} {y2} -10 -10 -10 -1000 -1000 -1000 -10\n'
+    else:
+        raise ValueError(data_type)
+
+    with open(f_path, "w", encoding="utf-8") as f:
+        for cls_id in range(num_classes):  # process each object class
+            cls_results = results_dict[cls_id]
+            for fr_id, tlwhs, track_ids in cls_results:  # fr_id starts from 1
+                if data_type == 'kitti':
+                    fr_id -= 1
+
+                for tlwh, track_id in zip(tlwhs, track_ids):
+                    if track_id < 0:
+                        continue
+
+                    x1, y1, w, h = tlwh
+                    # x2, y2 = x1 + w, y1 + h
+                    line = save_format.format(frame=fr_id,
+                                              id=track_id,
+                                              x1=x1, y1=y1, w=w, h=h,
+                                              cls_id=cls_id)
+                    # if fr_id == 1:
+                    #     print(line)
+
+                    f.write(line)
+                    # f.flush()
+
+    logger.info('Save results to {}.\n'.format(f_path))
+
+
+def write_results(file_path, results):
+    """
+    :param file_path:
     :param results:
     :return:
     """
     save_format = '{frame},{id},{x1},{y1},{w},{h},{s},-1,-1,-1\n'
-    with open(filename, 'w') as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         for frame_id, tlwhs, track_ids, scores in results:
             for tlwh, track_id, score in zip(tlwhs, track_ids, scores):
 
@@ -203,7 +246,7 @@ def write_results(filename, results):
                                           s=round(score, 2))
                 f.write(line)
 
-    logger.info('save results to {}'.format(filename))
+    logger.info('save results to {}'.format(file_path))
 
 
 class Predictor(object):
@@ -489,17 +532,17 @@ def video_tracking(predictor, cap, save_path, opt):
                     if opt.tracker == "byte":
                         ## ---------- aggregate current frame's results for each object class
                         online_tlwhs_dict = defaultdict(list)
-                        online_ids_dict = defaultdict(list)
+                        online_tr_ids_dict = defaultdict(list)
                         for cls_id in range(tracker.n_classes):  # process each object class
                             online_targets = online_dict[cls_id]
                             for track in online_targets:
                                 online_tlwhs_dict[cls_id].append(track.tlwh)
-                                online_ids_dict[cls_id].append(track.track_id)
+                                online_tr_ids_dict[cls_id].append(track.track_id)
 
                         timer.toc()
                         online_img = plot_tracking_mc(img=img_info['raw_img'],
                                                       tlwhs_dict=online_tlwhs_dict,
-                                                      obj_ids_dict=online_ids_dict,
+                                                      obj_ids_dict=online_tr_ids_dict,
                                                       num_classes=tracker.n_classes,
                                                       frame_id=frame_id + 1,
                                                       fps=1.0 / timer.average_time,
