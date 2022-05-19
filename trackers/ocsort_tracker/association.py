@@ -254,28 +254,28 @@ def associate_detections_to_trackers(detections, trackers, iou_threshold=0.3):
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
 
-def associate(detections,
-              previous_obs,
+def associate(dets,
+              trk_pre_obs,
               tracks,
               velocities,
               iou_threshold,
               vel_dir_weight):
     """
     @parma detections: current detections: x1y1x2y2score
-    @param previous_obs: current tracks' previous observations
+    @param trk_pre_obs: current tracks' previous observations
     @param tracks:  current tracks: x1y1x2y2score
     @param velocities: velocity directions of current tracks
     @param vel_dir_weight: velocity direction weight(λ)
     """
-    if len(tracks) == 0 or len(detections) == 0:
+    if len(tracks) == 0 or len(dets) == 0:
         return np.empty((0, 2), dtype=int), \
-               np.arange(len(detections)), \
+               np.arange(len(dets)), \
                np.empty((0, 5), dtype=int)
 
     ## ----- Velocity direction cost matrix
     ## Get detections velocity of current frame, size: num_track x num_det
     try:
-        det_vel_y, det_vel_x = velocity_direction_batch(detections, previous_obs)
+        det_vel_y, det_vel_x = velocity_direction_batch(dets, trk_pre_obs)
     except Exception as e:
         print(e)
 
@@ -290,10 +290,10 @@ def associate(detections,
     diff_angle = np.arccos(diff_angle_cos)
     diff_angle = (np.pi / 2.0 - np.abs(diff_angle)) / np.pi  # normalize?
 
-    valid_mask = np.ones(previous_obs.shape[0])
-    valid_mask[np.where(previous_obs[:, 4] < 0)] = 0  # score < 0 means invalid
+    valid_mask = np.ones(trk_pre_obs.shape[0])
+    valid_mask[np.where(trk_pre_obs[:, 4] < 0)] = 0  # score < 0 means invalid
 
-    scores = np.repeat(detections[:, -1][:, np.newaxis], tracks.shape[0], axis=1)
+    scores = np.repeat(dets[:, -1][:, np.newaxis], tracks.shape[0], axis=1)
 
     # iou_matrix = iou_matrix * scores # a trick sometimes works, we don't encourage this
     valid_mask = np.repeat(valid_mask[:, np.newaxis], det_vel_x.shape[1], axis=1)
@@ -304,7 +304,7 @@ def associate(detections,
     angle_diff_cost = angle_diff_cost * scores
 
     ## ----- IOU cost matrix
-    iou_matrix = iou_batch(detections, tracks)
+    iou_matrix = iou_batch(dets, tracks)
 
     if min(iou_matrix.shape) > 0:
         iou_mask = (iou_matrix > iou_threshold).astype(np.int32)
@@ -318,7 +318,7 @@ def associate(detections,
         matched_indices = np.empty(shape=(0, 2))
 
     unmatched_dets = []
-    for i, det in enumerate(detections):
+    for i, det in enumerate(dets):
         if i not in matched_indices[:, 0]:
             unmatched_dets.append(i)
 

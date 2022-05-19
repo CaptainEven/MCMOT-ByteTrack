@@ -77,9 +77,10 @@ def get_velocity_direction(bbox1, bbox2):
     """
     cx1, cy1 = (bbox1[0] + bbox1[2]) * 0.5, (bbox1[1] + bbox1[3]) * 0.5
     cx2, cy2 = (bbox2[0] + bbox2[2]) * 0.5, (bbox2[1] + bbox2[3]) * 0.5
-    speed = np.array([cy2 - cy1, cx2 - cx1])
-    norm = np.sqrt((cy2 - cy1) ** 2 + (cx2 - cx1) ** 2) + 1e-6
-    return speed / norm
+    speed = np.array([cy2 - cy1, cx2 - cx1])  # dy, dx
+    # norm = np.sqrt((cy2 - cy1) ** 2 + (cx2 - cx1) ** 2) + 1e-6
+    norm = np.linalg.norm(speed, ord=2)
+    return speed / (norm + 1e-8)
 
 
 class KalmanBoxTracker(object):
