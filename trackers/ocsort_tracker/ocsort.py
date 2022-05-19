@@ -384,8 +384,8 @@ class MCKalmanTrack(MCTrackBase):
             and self.history_observations. Bear it for the moment.
             """
             self.last_observation = bbox
-            self.observations_dict[self.age] = bbox
-            self.history_observations.append(bbox)
+            self.observations_dict[self.age] = bbox  # record history
+            self.history_observations.append(bbox)  # record history
 
             self.time_since_last_update = 0
             self.history = []
@@ -671,7 +671,7 @@ class MCOCSort(object):
                         to_remove_from_unmatch_trk_inds.append(trk_idx)
                     unmatched_trks = np.setdiff1d(unmatched_trks, np.array(to_remove_from_unmatch_trk_inds))
 
-            ## ----- 处理第一轮匹配中未匹配的dets和trks
+            ## ----- process the unmatched dets and trks in the first round
             if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
                 left_dets = dets[unmatched_dets]
                 left_trks = last_boxes[unmatched_trks]
