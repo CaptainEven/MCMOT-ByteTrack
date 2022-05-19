@@ -72,7 +72,7 @@ class Exp(MyExp):
         self.warmup_epochs = 1
         self.cfg_file_path = "../cfg/yolox_darknet_tiny.cfg"
         self.reid = reid
-        print("ReID: ", self.reid)
+        # print("ReID: ", self.reid)
 
         self.use_momentum = True
         # logger.info("Use momentum: ", self.use_momentum)

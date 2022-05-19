@@ -728,7 +728,7 @@ class YOLOXDarknetReID(nn.Module):
                  strides=[8, 16, 32],
                  num_classes=5,
                  init_weights=False,
-                 reid=True,
+                 reid=False,
                  max_id_dict=None,
                  use_momentum=True,
                  use_mtl=False):
