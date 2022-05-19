@@ -12,10 +12,15 @@ from .track import Track
 
 
 def _cosine_distance(a, b, data_is_normalized=False):
+    """
+    :param a:
+    :param b:
+    :param data_is_normalized:
+    """
     if not data_is_normalized:
         a = np.asarray(a) / np.linalg.norm(a, axis=1, keepdims=True)
         b = np.asarray(b) / np.linalg.norm(b, axis=1, keepdims=True)
-    return 1. - np.dot(a, b.T)
+    return 1.0 - np.dot(a, b.T)
 
 
 def _nn_cosine_distance(x, y):
@@ -80,7 +85,9 @@ class Tracker:
             np.asarray(features), np.asarray(targets), active_targets)
 
     def _match(self, detections):
-
+        """
+        :param detections:
+        """
         def gated_metric(tracks, dets, track_indices, detection_indices):
             features = np.array([dets[i].feature for i in detection_indices])
             targets = np.array([tracks[i].track_id for i in track_indices])
