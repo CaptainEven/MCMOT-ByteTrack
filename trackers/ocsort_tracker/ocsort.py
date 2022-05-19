@@ -302,7 +302,7 @@ class MCKalmanTrack(MCTrackBase):
             self.kf = oc_kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
         else:
             from filterpy.kalman import KalmanFilter
-            # 此模型没有控制向量输入dim_u=0
+            # dim_u=0 in this model
             self.kf = KalmanFilter(dim_x=7, dim_z=4, dim_u=0)
 
         self.kf.F = np.array([[1, 0, 0, 0, 1, 0, 0],
