@@ -332,11 +332,10 @@ class MCKalmanTrack(MCTrackBase):
 
         self.history = []
 
-        ## what's the difference?
         self.hits = 0
         self.hit_streak = 0
 
-        self.age = 0  # what dose age mean?
+        self.age = 0
 
         """
         NOTE: [-1,-1,-1,-1,-1] is a compromising placeholder for [non-observation status], 
