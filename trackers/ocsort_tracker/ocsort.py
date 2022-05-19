@@ -75,8 +75,8 @@ def get_velocity_direction(bbox1, bbox2):
     @param bbox1
     @param bbox2
     """
-    cx1, cy1 = (bbox1[0] + bbox1[2]) / 2.0, (bbox1[1] + bbox1[3]) / 2.0
-    cx2, cy2 = (bbox2[0] + bbox2[2]) / 2.0, (bbox2[1] + bbox2[3]) / 2.0
+    cx1, cy1 = (bbox1[0] + bbox1[2]) * 0.5, (bbox1[1] + bbox1[3]) * 0.5
+    cx2, cy2 = (bbox2[0] + bbox2[2]) * 0.5, (bbox2[1] + bbox2[3]) * 0.5
     speed = np.array([cy2 - cy1, cx2 - cx1])
     norm = np.sqrt((cy2 - cy1) ** 2 + (cx2 - cx1) ** 2) + 1e-6
     return speed / norm
@@ -390,7 +390,7 @@ class MCKalmanTrack(MCTrackBase):
             self.history = []
 
             self.hits += 1
-            self.hit_streak += 1  # 连胜
+            self.hit_streak += 1
 
             self.kf.update(convert_bbox_to_z(bbox))
 
