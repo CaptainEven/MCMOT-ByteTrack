@@ -6,11 +6,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from trackers.ocsort_tracker.association import associate
+from trackers.ocsort_tracker.ocsort import k_previous_obs
 from yolox.tracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
-from trackers.ocsort_tracker.association import associate
-
 
 
 class MCTrackFeat(MCBaseTrack):
@@ -947,10 +947,11 @@ class Track(BaseTrack):
 
 
 class ByteTracker(object):
-    def __init__(self, opt, frame_rate=30):
+    def __init__(self, opt, frame_rate=30, delta_t=3):
         """
         :param opt:
         :param frame_rate:
+        :param delta_t:
         """
         self.frame_id = 0
         self.opt = opt
@@ -963,6 +964,8 @@ class ByteTracker(object):
         self.low_match_thresh = 0.5
         self.unconfirmed_match_thresh = 0.7
         self.new_track_thresh = self.high_det_thresh + 0.1  # 0.6
+        self.iou_threshold = 0.3
+        self.vel_dir_weight = 0.2
 
         print("Tracker's low det thresh: ", self.low_det_thresh)
         print("Tracker's high det thresh: ", self.high_det_thresh)
@@ -990,6 +993,9 @@ class ByteTracker(object):
         self.tracked_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.lost_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.removed_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
+
+        self.tracks = []
+        self.delta_t = delta_t
 
     def update_byte_enhance(self, dets, img_size, net_size):
         """
@@ -1071,6 +1077,13 @@ class ByteTracker(object):
                 '''Build Tracks from Detections'''
                 detections = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
                               (tlbr, s) in zip(bboxes_1st, scores_1st)]
+
+                scores_1st_ = np.expand_dims(scores_1st, axis=1)
+                if bboxes_1st.shape[0] == 0:
+                    bboxes_1st = np.empty((0, 4), dtype=float)
+                    scores_1st_ = np.empty((0, 1), dtype=float)
+                dets = np.concatenate((bboxes_1st, scores_1st_), axis=1)
+                # print(dets.shape)
             else:
                 detections = []
             # print(detections)
@@ -1091,14 +1104,48 @@ class ByteTracker(object):
             MCTrack.multi_predict(tracked_tracks_dict[cls_id])  # only predict tracked tracks
             # ----------
 
-            ## ----- using vel_dir enhanced matching
+            ## ---------- TODO: using vel_dir enhanced matching...
+            # ## ----- build dets(x1y1x2y2score) and trks(x1y1x2y2score) for matching
+            # self.tracks = tracked_tracks_dict[cls_id]
+            # trks = np.zeros((len(self.tracks), 5))
+            # to_del = []
+            # for i, track in enumerate(self.tracks):
+            #     x1, y1, x2, y2 = track.tlbr
+            #
+            #     trks[i] = [x1, y1, x2, y2, track.score]
+            #
+            #     if np.any(np.isnan([x1, y1, x2, y2])):
+            #         to_del.append(i)
+            #
+            # trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
+            # for i in reversed(to_del):
+            #     self.tracks.pop(i)
+            #
+            # velocities = np.array([trk.vel_dir  # velocity direction
+            #                        if trk.vel_dir is not None else np.array((0, 0))
+            #                        for trk in self.tracks])
+            # last_boxes = np.array([trk.last_observation for trk in self.tracks])
+            # k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
+            #                   for trk in self.tracks]
+            # k_observations = np.array(k_observations)
+            #
+            # """
+            # First round of association
+            # using high confidence dets and existed trks
+            # """
+            # matches, u_detection, u_track = associate(dets,
+            #                                           k_observations,
+            #                                           trks,
+            #                                           velocities,
+            #                                           self.iou_threshold,
+            #                                           self.vel_dir_weight)
 
-            # Matching with Hungarian Algorithm
+            # for m in matches:
+            #     self.tracks[m[1]].update(detections[m[0], :], self.frame_id)
+
+            ## ----- Matching with Hungarian Algorithm
             dists = matching.iou_distance(track_pool_dict[cls_id], detections)
-            # print(dists)
-
             dists = matching.fuse_score(dists, detections)
-
             matches, u_track, u_detection = matching.linear_assignment(dists,
                                                                        thresh=self.high_match_thresh)
 
@@ -1118,22 +1165,22 @@ class ByteTracker(object):
             # association the un-track to the low score detections
             if len(bboxes_2nd) > 0:
                 '''Detections'''
-                cls_detections_second = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
-                                         (tlbr, s) in zip(bboxes_2nd, scores_2nd)]
+                cls_detections_2nd = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
+                                      (tlbr, s) in zip(bboxes_2nd, scores_2nd)]
             else:
-                cls_detections_second = []
+                cls_detections_2nd = []
             # print(cls_detections_second)
 
             r_tracked_tracks = [track_pool_dict[cls_id][i]
                                 for i in u_track if track_pool_dict[cls_id][i].state == TrackState.Tracked]
 
-            dists = matching.iou_distance(r_tracked_tracks, cls_detections_second)
-            matches, u_track, u_detection_second = matching.linear_assignment(dists,
-                                                                              thresh=self.low_match_thresh)  # thresh=0.5
+            dists = matching.iou_distance(r_tracked_tracks, cls_detections_2nd)
+            matches, u_track, u_detection_2nd = matching.linear_assignment(dists,
+                                                                           thresh=self.low_match_thresh)  # thresh=0.5
 
             for i_track, i_det in matches:
                 track = r_tracked_tracks[i_track]
-                det = cls_detections_second[i_det]
+                det = cls_detections_2nd[i_det]
 
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)

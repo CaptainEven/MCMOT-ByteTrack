@@ -182,11 +182,11 @@ def velocity_direction_batch(dets, tracks):
     tracks = tracks[..., np.newaxis]
 
     # center x, center y
-    CX1, CY1 = (dets[:, 0] + dets[:, 2]) * 0.5, (dets[:, 1] + dets[:, 3]) * 0.5
-    CX2, CY2 = (tracks[:, 0] + tracks[:, 2]) * 0.5, (tracks[:, 1] + tracks[:, 3]) * 0.5
+    dx1, dy1 = (dets[:, 0] + dets[:, 2]) * 0.5, (dets[:, 1] + dets[:, 3]) * 0.5
+    dx2, dy2 = (tracks[:, 0] + tracks[:, 2]) * 0.5, (tracks[:, 1] + tracks[:, 3]) * 0.5
 
-    dx = CX1 - CX2
-    dy = CY1 - CY2
+    dx = dx1 - dx2
+    dy = dy1 - dy2
 
     norm = np.sqrt(dx ** 2 + dy ** 2) + 1e-6
     dx = dx / norm

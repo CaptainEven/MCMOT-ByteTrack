@@ -9,7 +9,7 @@ from loguru import logger
 from .association import *
 
 
-def k_previous_obs(observations_dict, cur_age, k, using_delta_t=True):
+def k_previous_obs(observations_dict, cur_age, k):
     """
     @param observations_dict:
     @param cur_age:
@@ -18,19 +18,17 @@ def k_previous_obs(observations_dict, cur_age, k, using_delta_t=True):
     if len(observations_dict) == 0:
         return [-1, -1, -1, -1, -1]
 
-    if using_delta_t:
-        ## ----- if found observation from k previous time steps
-        for i in range(k):
-            dt = k - i  # 3, 2, 1
-            pre_age = cur_age - dt  # -3, -2, -1
-            if pre_age in observations_dict:
-                return observations_dict[cur_age - dt]
+    ## ----- if found observation from k previous time steps
+    for i in range(k):
+        dt = k - i  # 3, 2, 1
+        pre_age = cur_age - dt  # -3, -2, -1
+        if pre_age in observations_dict:
+            return observations_dict[cur_age - dt]
 
-    else:
-        ## ----- if k previous observations do not exist
-        ## then, use max-aged previous observation: the latest observation
-        max_age = max(observations_dict.keys())
-        return observations_dict[max_age]
+    ## ----- if k previous observations do not exist
+    ## then, use max-aged previous observation: the latest observation
+    max_age = max(observations_dict.keys())
+    return observations_dict[max_age]
 
 
 def convert_bbox_to_z(bbox):
@@ -582,11 +580,13 @@ class MCOCSort(object):
             scores = np.array(scores)
 
             ## ----- build cls_dets
-            scores_2d = np.expand_dims(scores, axis=1)
+            scores_ = np.expand_dims(scores, axis=1)
             if bboxes.shape[0] == 0:
                 bboxes = np.empty((0, 4), dtype=float)
-                scores_2d = np.empty((0, 1), dtype=float)
-            dets = np.concatenate((bboxes, scores_2d), axis=1)
+                scores_ = np.empty((0, 1), dtype=float)
+            dets = np.concatenate((bboxes, scores_), axis=1)
+            # if len(dets.shape) != 2:
+            #     print("pause")
 
             inds_low = scores > self.low_det_thresh
             inds_high = scores < self.det_thresh
