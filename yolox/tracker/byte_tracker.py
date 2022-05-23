@@ -10,6 +10,7 @@ from yolox.tracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
 
+
 # from trackers.ocsort_tracker.ocsort import *
 # from trackers.ocsort_tracker.association import *
 # from trackers.ocsort_tracker.kalmanfilter import *
@@ -501,7 +502,7 @@ class MCTrackEmb(MCBaseTrack):
 class MCTrack(MCBaseTrack):
     shared_kalman = KalmanFilter()
 
-    def __init__(self, tlwh, score, cls_id):
+    def __init__(self, tlwh, score, cls_id, delta_t=3):
         """
         :param tlwh:
         :param score:
@@ -518,7 +519,19 @@ class MCTrack(MCBaseTrack):
         self.is_activated = False
 
         self.score = score
-        self.tracklet_len = 0
+        self.track_len = 0
+
+        self.age = 0
+        self.delta_t = delta_t
+
+        ## ----- record history observations: bbox
+        self.observations_dict = dict()  # key: age
+
+        ## ----- record the last observation: bbox
+        self.last_observation = np.array([-1, -1, -1, -1, -1])
+
+        ## ----- record velocity direction
+        self.vel_dir = None
 
     def reset_track_id(self):
         """
@@ -555,6 +568,9 @@ class MCTrack(MCBaseTrack):
                 tracks[i].mean = mean
                 tracks[i].covariance = cov
 
+                # 每predict一次, 生命周期数+1
+                tracks[i].age += 1
+
     def activate(self, kalman_filter, frame_id):
         """
         Start a new track-let: the initial activation
@@ -569,7 +585,7 @@ class MCTrack(MCBaseTrack):
 
         self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
 
-        self.tracklet_len = 0
+        self.track_len = 0
         self.state = TrackState.Tracked
 
         if frame_id == 1:
@@ -589,7 +605,7 @@ class MCTrack(MCBaseTrack):
                                                                self.covariance,
                                                                self.tlwh_to_xyah(new_track.tlwh))
 
-        self.tracklet_len = 0
+        self.track_len = 0
         self.frame_id = frame_id
         self.score = new_track.score
 
@@ -601,26 +617,77 @@ class MCTrack(MCBaseTrack):
         if new_id:  # update track id for the object class
             self.track_id = self.next_id(self.cls_id)
 
-    def update(self, new_track, frame_id):
+    def update(self, new_track, frame_id, using_delta_t=False):
         """
         Update a matched track
         :type new_track: STrack
         :type frame_id: int
-        :type update_feature: bool
+        :type using_delta_t: bool
         :return:
         """
         self.frame_id = frame_id
-        self.tracklet_len += 1
+        self.track_len += 1
 
+        self.score = new_track.score
         new_tlwh = new_track.tlwh
-        self.mean, self.covariance = self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
+        bbox = self.tlwh2tlbr(new_tlwh)
+
+        """
+        Estimate the track velocity direction with observations delta_t steps away
+        """
+        if using_delta_t:
+            if self.last_observation.sum() >= 0:  # if previous observation exist
+                previous_box = None
+
+                for i in range(self.delta_t):
+                    dt = self.delta_t - i  # eg: 3, 2, 1
+                    if self.age - dt in self.observations_dict:  # from little age to large age
+                        previous_box = self.observations_dict[self.age - dt]  # -1, 0, 1
+                        break
+
+                if previous_box is None:
+                    previous_box = self.last_observation
+
+                self.vel_dir = self.get_velocity_direction(previous_box, bbox)
+        else:
+
+            """
+            Using last observation to calculate vel_dir
+            vel_dir: a 2d vector
+            """
+            if self.last_observation.sum() >= 0:
+                self.vel_dir = self.get_velocity_direction(self.last_observation, bbox)
+            else:
+                self.vel_dir = np.array([0.0, 0.0], dtype=np.float64)
+        # print("vel_dir: {:.3f}, {:.3f}".format(self.vel_dir[0], self.vel_dir[1]))
+
+        ## update last observations
+        self.observations_dict[self.age] = bbox
+        self.last_observation = bbox
+
+        self.mean, self.covariance = \
+            self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
 
         ## ----- Update the states
         self.state = TrackState.Tracked
         self.is_activated = True
         ## -----
 
-        self.score = new_track.score
+    @staticmethod
+    def get_velocity_direction(bbox1, bbox2):
+        """
+        @param bbox1
+        @param bbox2
+        """
+        if (bbox2 == bbox1).all():
+            return np.array([0.0, 0.0], dtype=np.float64)
+
+        dx1, dy1 = (bbox1[0] + bbox1[2]) * 0.5, (bbox1[1] + bbox1[3]) * 0.5
+        dx2, dy2 = (bbox2[0] + bbox2[2]) * 0.5, (bbox2[1] + bbox2[3]) * 0.5
+        speed = np.array([dy2 - dy1, dx2 - dx1])  # dy, dx
+        # norm = np.sqrt((dy2 - dy1) ** 2 + (dx2 - dx1) ** 2) + 1e-6
+        norm = np.linalg.norm(speed, ord=2)
+        return speed / (norm + 1e-8)
 
     @property
     # @jit(nopython=True)
@@ -645,6 +712,15 @@ class MCTrack(MCBaseTrack):
         `(top left, bottom right)`.
         """
         ret = self.tlwh.copy()
+        ret[2:] += ret[:2]
+        return ret
+
+    @staticmethod
+    def tlwh2tlbr(tlwh):
+        """
+        :param tlwh:
+        """
+        ret = tlwh.copy()
         ret[2:] += ret[:2]
         return ret
 
@@ -692,7 +768,8 @@ class MCTrack(MCBaseTrack):
         返回一个对象的 string 格式。
         :return:
         """
-        return 'OT_({}-{})_({}-{})'.format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
+        return "OT_({}-{})_({}-{})" \
+            .format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
 
 
 class Track(BaseTrack):
@@ -880,7 +957,7 @@ class ByteTracker(object):
         """
         self.frame_id = 0
         self.opt = opt
-        print("args:\n", self.opt)
+        print("opt:\n", self.opt)
 
         # self.det_thresh = args.track_thresh
         self.low_det_thresh = 0.1
@@ -973,33 +1050,33 @@ class ByteTracker(object):
         ## ---------- Process each object class
         for cls_id in range(self.n_classes):
             ## ----- class boxes
-            cls_boxes = boxes_dict[cls_id]
-            cls_boxes = np.array(cls_boxes)
+            bboxes = boxes_dict[cls_id]
+            bboxes = np.array(bboxes)
 
             ## ----- class scores
-            cls_scores = scores_dict[cls_id]
-            cls_scores = np.array(cls_scores)
+            scores = scores_dict[cls_id]
+            scores = np.array(scores)
 
-            cls_remain_inds = cls_scores > self.high_det_thresh
-            cls_inds_low = cls_scores > self.low_det_thresh
-            cls_inds_high = cls_scores < self.high_det_thresh
+            remain_inds = scores > self.high_det_thresh
+            inds_low = scores > self.low_det_thresh
+            inds_high = scores < self.high_det_thresh
 
             ## class second indices
-            cls_inds_2nd = np.logical_and(cls_inds_low, cls_inds_high)
+            inds_2nd = np.logical_and(inds_low, inds_high)
 
-            cls_dets_boxes_1st = cls_boxes[cls_remain_inds]
-            cls_dets_boxes_2nd = cls_boxes[cls_inds_2nd]
+            bboxes_1st = bboxes[remain_inds]
+            bboxes_2nd = bboxes[inds_2nd]
 
-            cls_scores_1st = cls_scores[cls_remain_inds]
-            cls_scores_2nd = cls_scores[cls_inds_2nd]
+            scores_1st = scores[remain_inds]
+            scores_2nd = scores[inds_2nd]
 
-            if len(cls_dets_boxes_1st) > 0:
+            if len(bboxes_1st) > 0:
                 '''Detections'''
-                cls_detections = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
-                                  (tlbr, s) in zip(cls_dets_boxes_1st, cls_scores_1st)]
+                detections = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
+                              (tlbr, s) in zip(bboxes_1st, scores_1st)]
             else:
-                cls_detections = []
-            # print(cls_detections)
+                detections = []
+            # print(detections)
 
             '''Add newly detected tracks(current frame) to tracked_tracks'''
             for track in self.tracked_tracks_dict[cls_id]:
@@ -1018,11 +1095,11 @@ class ByteTracker(object):
             # ----------
 
             # Matching with Hungarian Algorithm
-            dists = matching.iou_distance(track_pool_dict[cls_id], cls_detections)
+            dists = matching.iou_distance(track_pool_dict[cls_id], detections)
             # print(dists)
 
             if not self.opt.mot20:
-                dists = matching.fuse_score(dists, cls_detections)
+                dists = matching.fuse_score(dists, detections)
 
             matches, u_track, u_detection = matching.linear_assignment(dists,
                                                                        thresh=self.high_match_thresh)
@@ -1030,7 +1107,7 @@ class ByteTracker(object):
             # --- process matched pairs between track pool and current frame detection
             for i_track, i_det in matches:
                 track = track_pool_dict[cls_id][i_track]
-                det = cls_detections[i_det]
+                det = detections[i_det]
 
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
@@ -1041,10 +1118,10 @@ class ByteTracker(object):
 
             ''' Step 3: Second association, with low score detection boxes'''
             # association the un-track to the low score detections
-            if len(cls_dets_boxes_2nd) > 0:
+            if len(bboxes_2nd) > 0:
                 '''Detections'''
                 cls_detections_second = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
-                                         (tlbr, s) in zip(cls_dets_boxes_2nd, cls_scores_2nd)]
+                                         (tlbr, s) in zip(bboxes_2nd, scores_2nd)]
             else:
                 cls_detections_second = []
             # print(cls_detections_second)
@@ -1077,20 +1154,20 @@ class ByteTracker(object):
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             # current frame's unmatched detection
-            cls_detections = [cls_detections[i] for i in u_detection]
+            detections = [detections[i] for i in u_detection]
 
             # iou matching
-            dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], cls_detections)
+            dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections)
 
             if not self.opt.mot20:
-                dists = matching.fuse_score(dists, cls_detections)
+                dists = matching.fuse_score(dists, detections)
 
             matches, u_unconfirmed, u_detection = matching.linear_assignment(dists,
                                                                              thresh=self.unconfirmed_match_thresh)  # 0.7
 
             for i_track, i_det in matches:
                 track = unconfirmed_tracks_dict[cls_id][i_track]
-                det = cls_detections[i_det]
+                det = detections[i_det]
                 track.update(det, self.frame_id)
                 activated_tracks_dict[cls_id].append(unconfirmed_tracks_dict[cls_id][i_track])
 
@@ -1101,12 +1178,13 @@ class ByteTracker(object):
 
             """Step 4: Init new tracks"""
             for i_new in u_detection:  # current frame's unmatched detection
-                track = cls_detections[i_new]
+                track = detections[i_new]
                 if track.score < self.new_track_thresh:
                     continue
 
                 # tracked but not activated: activate do not set 'is_activated' to be True
-                track.activate(self.kalman_filter, self.frame_id)  # if fr_id > 1, tracked but not activated
+                # if fr_id > 1, tracked but not activated
+                track.activate(self.kalman_filter, self.frame_id)
 
                 # activated_tracks_dict may contain track with 'is_activated' False
                 activated_tracks_dict[cls_id].append(track)

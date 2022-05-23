@@ -9,7 +9,7 @@ from loguru import logger
 from .association import *
 
 
-def k_previous_obs(observations_dict, cur_age, k):
+def k_previous_obs(observations_dict, cur_age, k, using_delta_t=True):
     """
     @param observations_dict:
     @param cur_age:
@@ -18,17 +18,19 @@ def k_previous_obs(observations_dict, cur_age, k):
     if len(observations_dict) == 0:
         return [-1, -1, -1, -1, -1]
 
-    ## ----- if found observation from k previous time steps
-    for i in range(k):
-        dt = k - i  # 3, 2, 1
-        pre_age = cur_age - dt  # -3, -2, -1
-        if pre_age in observations_dict:
-            return observations_dict[cur_age - dt]
+    if using_delta_t:
+        ## ----- if found observation from k previous time steps
+        for i in range(k):
+            dt = k - i  # 3, 2, 1
+            pre_age = cur_age - dt  # -3, -2, -1
+            if pre_age in observations_dict:
+                return observations_dict[cur_age - dt]
 
-    ## ----- if k previous observations do not exist
-    ## then, use max-aged previous observation: the latest observation
-    max_age = max(observations_dict.keys())
-    return observations_dict[max_age]
+    else:
+        ## ----- if k previous observations do not exist
+        ## then, use max-aged previous observation: the latest observation
+        max_age = max(observations_dict.keys())
+        return observations_dict[max_age]
 
 
 def convert_bbox_to_z(bbox):
@@ -128,6 +130,7 @@ class KalmanBoxTracker(object):
         self.kf.R[2:, 2:] *= 10.0
 
         # states: z: center_x, center_y, s(area), r(aspect ratio)
+        # and center_x, center_y, s, derivatives of time
         self.kf.x[:4] = convert_bbox_to_z(bbox)
 
         self.time_since_last_update = 0  # 距离上次更新的时间(帧数)

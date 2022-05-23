@@ -306,27 +306,27 @@ def associate(dets,
     if min(iou_matrix.shape) > 0:
         iou_mask = (iou_matrix > iou_threshold).astype(np.int32)
         if iou_mask.sum(1).max() == 1 and iou_mask.sum(0).max() == 1:
-            matched_indices = np.stack(np.where(iou_mask), axis=1)
+            matched_inds = np.stack(np.where(iou_mask), axis=1)
         else:
             ## ----- negative pairwise IoU (Intersection over Union) and Cv(·; ·)
             ## why using negative?
-            matched_indices = linear_assignment(-(iou_matrix + angle_diff_cost))
+            matched_inds = linear_assignment(-(iou_matrix + angle_diff_cost))
     else:
-        matched_indices = np.empty(shape=(0, 2))
+        matched_inds = np.empty(shape=(0, 2))
 
     unmatched_dets = []
     for i, det in enumerate(dets):
-        if i not in matched_indices[:, 0]:
+        if i not in matched_inds[:, 0]:
             unmatched_dets.append(i)
 
     unmatched_trks = []
     for t, trk in enumerate(tracks):
-        if t not in matched_indices[:, 1]:
+        if t not in matched_inds[:, 1]:
             unmatched_trks.append(t)
 
     # filter out matched with low IOU
     matches = []
-    for m in matched_indices:
+    for m in matched_inds:
         if iou_matrix[m[0], m[1]] < iou_threshold:
             unmatched_dets.append(m[0])
             unmatched_trks.append(m[1])
