@@ -585,8 +585,6 @@ class MCOCSort(object):
                 bboxes = np.empty((0, 4), dtype=float)
                 scores_ = np.empty((0, 1), dtype=float)
             dets = np.concatenate((bboxes, scores_), axis=1)
-            # if len(dets.shape) != 2:
-            #     print("pause")
 
             inds_low = scores > self.low_det_thresh
             inds_high = scores < self.det_thresh

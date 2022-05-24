@@ -520,6 +520,7 @@ class MCTrack(MCBaseTrack):
 
         self.age = 0
         self.delta_t = delta_t
+        self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
 
         ## ----- record history observations: bbox
         self.observations_dict = dict()  # key: age
@@ -567,6 +568,9 @@ class MCTrack(MCBaseTrack):
 
                 # 每predict一次, 生命周期数+1
                 tracks[i].age += 1
+
+                # 每predict一次, 未更新时间(帧数)+1
+                tracks[i].time_since_last_update += 1
 
     def activate(self, kalman_filter, frame_id):
         """
@@ -996,6 +1000,7 @@ class ByteTracker(object):
 
         self.tracks = []
         self.delta_t = delta_t
+        self.max_age = opt.track_buffer
 
     def update_oc_enhance(self, dets, img_size, net_size):
         """
@@ -1122,7 +1127,6 @@ class ByteTracker(object):
                                    if trk.vel_dir is not None else np.array((0, 0))
                                    for trk in self.tracks])
             last_boxes = np.array([trk.last_observation for trk in self.tracks])
-            # last_tracks = [trk.last_observation for trk in self.tracks]
             k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
                               for trk in self.tracks]
             k_observations = np.array(k_observations)
@@ -1255,6 +1259,11 @@ class ByteTracker(object):
             self.tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id] = remove_duplicate_tracks(
                 self.tracked_tracks_dict[cls_id],
                 self.lost_tracks_dict[cls_id])
+
+            for i, track in enumerate(self.tracked_tracks_dict[cls_id]):
+                # remove the dead track
+                if track.time_since_last_update > self.max_age:
+                    self.tracked_tracks_dict[cls_id].pop(i)
 
             # get scores of lost tracks
             output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id] if track.is_activated]
