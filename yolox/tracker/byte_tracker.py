@@ -1131,7 +1131,6 @@ class ByteTracker(object):
             First round of association
             using high confidence dets and existed trks
             """
-
             matches, u_detection, u_track = associate(dets_1st,
                                                       k_observations,
                                                       trks,
@@ -1357,10 +1356,7 @@ class ByteTracker(object):
 
             # Matching with Hungarian Algorithm
             dists = matching.iou_distance(track_pool_dict[cls_id], detections)
-            # print(dists)
-
             dists = matching.fuse_score(dists, detections)
-
             matches, u_track, u_detection = matching.linear_assignment(dists,
                                                                        thresh=self.high_match_thresh)
 
