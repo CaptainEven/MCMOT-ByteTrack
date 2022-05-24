@@ -86,7 +86,7 @@ def plot_tracking_ocsort(img,
 
     ## ----- draw fps
     cv2.putText(img,
-                "frame: %d fps: %.2f".format(frame_id, fps),
+                "frame: {:d} fps: {:.3f}".format(frame_id, fps),
                 (0, int(15 * text_scale)),
                 cv2.FONT_HERSHEY_PLAIN,
                 2,

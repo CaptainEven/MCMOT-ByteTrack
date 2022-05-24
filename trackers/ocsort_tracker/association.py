@@ -266,8 +266,9 @@ def associate(dets,
     @param tracks:  current tracks: x1y1x2y2score
     @param velocities: velocity directions of current tracks
     @param vel_dir_weight: velocity direction weight(λ)
+    @return: matches, u_detection, u_track
     """
-    if len(tracks) == 0 or len(dets) == 0:
+    if tracks.shape[0] == 0 or dets.shape[0] == 0:
         return np.empty((0, 2), dtype=int), \
                np.arange(len(dets)), \
                np.empty((0, 5), dtype=int)

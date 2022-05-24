@@ -31,7 +31,7 @@ def make_parser():
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("--tracker",
                         type=str,
-                        default="oc",
+                        default="byte",
                         help="byte | oc")
     parser.add_argument("-expn",
                         "--experiment-name",
@@ -45,10 +45,6 @@ def make_parser():
     parser.add_argument("--reid",
                         type=bool,
                         default=False,  # True | False
-                        help="")
-    parser.add_argument("-debug",
-                        type=bool,
-                        default=True,  # True
                         help="")
 
     ## ----- object classes
@@ -159,6 +155,10 @@ def make_parser():
                         default=False,
                         action="store_true",
                         help="test mot20.")
+    parser.add_argument("--debug",
+                        type=bool,
+                        default=False,  # True
+                        help="")
 
     return parser
 
@@ -563,7 +563,7 @@ def video_tracking(predictor, cap, save_path, opt):
                 timer.toc()
                 online_img = img_info['raw_img']
 
-            if opt.save_result:
+            if opt.save_result and not opt.debug:
                 vid_writer.write(online_img)
 
             ch = cv2.waitKey(1)
