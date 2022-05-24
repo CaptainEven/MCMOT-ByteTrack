@@ -1187,10 +1187,7 @@ class ByteTracker(object):
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             # current frame's unmatched detection
-            try:
-                detections_1st = [detections_1st[i] for i in u_detection]
-            except Exception as e:
-                print(e)
+            detections_1st = [detections_1st[i] for i in u_detection]
 
             # iou matching
             dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections_1st)
@@ -1962,7 +1959,8 @@ class ByteTracker(object):
                 self.lost_tracks_dict[cls_id])
 
             # get scores of lost tracks
-            output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id] if track.is_activated]
+            output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
+                                          if track.is_activated]
 
         ## ---------- Return final online targets of the frame
         return output_tracks_dict
