@@ -1100,54 +1100,54 @@ class ByteTracker(object):
             track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
 
             # ---------- Predict the current location with KF
-            # MCTrack.multi_predict(track_pool_dict[cls_id])
-            MCTrack.multi_predict(tracked_tracks_dict[cls_id])  # only predict tracked tracks
+            # self.tracks = tracked_tracks_dict[cls_id]
+            # MCTrack.multi_predict(tracked_tracks_dict[cls_id])  # only predict tracked tracks
+
+            self.tracks = track_pool_dict[cls_id]
+            MCTrack.multi_predict(track_pool_dict[cls_id])
             # ----------
 
             ## ---------- TODO: using vel_dir enhanced matching...
-            # ## ----- build dets(x1y1x2y2score) and trks(x1y1x2y2score) for matching
-            # self.tracks = tracked_tracks_dict[cls_id]
-            # trks = np.zeros((len(self.tracks), 5))
-            # to_del = []
-            # for i, track in enumerate(self.tracks):
-            #     x1, y1, x2, y2 = track.tlbr
-            #
-            #     trks[i] = [x1, y1, x2, y2, track.score]
-            #
-            #     if np.any(np.isnan([x1, y1, x2, y2])):
-            #         to_del.append(i)
-            #
-            # trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
-            # for i in reversed(to_del):
-            #     self.tracks.pop(i)
-            #
-            # velocities = np.array([trk.vel_dir  # velocity direction
-            #                        if trk.vel_dir is not None else np.array((0, 0))
-            #                        for trk in self.tracks])
-            # last_boxes = np.array([trk.last_observation for trk in self.tracks])
-            # k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
-            #                   for trk in self.tracks]
-            # k_observations = np.array(k_observations)
-            #
-            # """
-            # First round of association
-            # using high confidence dets and existed trks
-            # """
-            # matches, u_detection, u_track = associate(dets,
-            #                                           k_observations,
-            #                                           trks,
-            #                                           velocities,
-            #                                           self.iou_threshold,
-            #                                           self.vel_dir_weight)
+            ## ----- build dets(x1y1x2y2score) and trks(x1y1x2y2score) for matching
+            trks = np.zeros((len(self.tracks), 5))
+            to_del = []
+            for i, track in enumerate(self.tracks):
+                x1, y1, x2, y2 = track.tlbr
+                trks[i] = [x1, y1, x2, y2, track.score]
+                if np.any(np.isnan([x1, y1, x2, y2])):
+                    to_del.append(i)
+
+            trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
+            for i in reversed(to_del):
+                self.tracks.pop(i)
+
+            velocities = np.array([trk.vel_dir  # velocity direction
+                                   if trk.vel_dir is not None else np.array((0, 0))
+                                   for trk in self.tracks])
+            last_boxes = np.array([trk.last_observation for trk in self.tracks])
+            k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
+                              for trk in self.tracks]
+            k_observations = np.array(k_observations)
+
+            """
+            First round of association
+            using high confidence dets and existed trks
+            """
+            matches, u_detection, u_track = associate(dets,
+                                                      k_observations,
+                                                      trks,
+                                                      velocities,
+                                                      self.iou_threshold,
+                                                      self.vel_dir_weight)
 
             # for m in matches:
             #     self.tracks[m[1]].update(detections[m[0], :], self.frame_id)
 
-            ## ----- Matching with Hungarian Algorithm
-            dists = matching.iou_distance(track_pool_dict[cls_id], detections)
-            dists = matching.fuse_score(dists, detections)
-            matches, u_track, u_detection = matching.linear_assignment(dists,
-                                                                       thresh=self.high_match_thresh)
+            # ## ----- Matching with Hungarian Algorithm
+            # dists = matching.iou_distance(track_pool_dict[cls_id], detections)
+            # dists = matching.fuse_score(dists, detections)
+            # matches, u_track, u_detection = matching.linear_assignment(dists,
+            #                                                            thresh=self.high_match_thresh)
 
             # --- process matched pairs between track pool and current frame detection
             for i_track, i_det in matches:
