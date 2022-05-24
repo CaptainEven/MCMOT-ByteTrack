@@ -1203,8 +1203,8 @@ class ByteTracker(object):
             # iou matching
             dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections_1st)
             dists = matching.fuse_score(dists, detections_1st)
-            matches, u_unconfirmed, unmatched_dets = matching.linear_assignment(dists,
-                                                                                thresh=self.unconfirmed_match_thresh)  # 0.7
+            matches, unconfirmed_tracks, unmatched_dets = matching.linear_assignment(dists,
+                                                                                     thresh=self.unconfirmed_match_thresh)  # 0.7
 
             for i_track, i_det in matches:
                 track = unconfirmed_tracks_dict[cls_id][i_track]
@@ -1212,7 +1212,7 @@ class ByteTracker(object):
                 track.update(det, self.frame_id)
                 activated_tracks_dict[cls_id].append(unconfirmed_tracks_dict[cls_id][i_track])
 
-            for i_track in u_unconfirmed:  # process unconfirmed tracks
+            for i_track in unconfirmed_tracks:  # process unconfirmed tracks
                 track = unconfirmed_tracks_dict[cls_id][i_track]
                 track.mark_removed()
                 removed_tracks_dict[cls_id].append(track)
