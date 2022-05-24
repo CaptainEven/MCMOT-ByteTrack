@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from trackers.ocsort_tracker.association import associate
+from trackers.ocsort_tracker.association import associate, iou_batch, linear_assignment
 from trackers.ocsort_tracker.ocsort import k_previous_obs
 from yolox.tracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
@@ -1079,12 +1079,12 @@ class ByteTracker(object):
                                   (tlbr, s) in zip(bboxes_1st, scores_1st)]
 
                 # scores_1st_ = np.expand_dims(scores_1st, axis=1)
-                dets = np.concatenate((bboxes_1st, np.expand_dims(scores_1st, axis=1)), axis=1)
+                dets_1st = np.concatenate((bboxes_1st, np.expand_dims(scores_1st, axis=1)), axis=1)
             else:
                 detections_1st = []
                 bboxes_1st = np.empty((0, 4), dtype=float)
                 scores_1st = np.empty((0, 1), dtype=float)
-                dets = np.concatenate((bboxes_1st, scores_1st), axis=1)
+                dets_1st = np.concatenate((bboxes_1st, scores_1st), axis=1)
 
             '''Add newly detected tracks(current frame) to tracked_tracks'''
             for track in self.tracked_tracks_dict[cls_id]:
@@ -1105,7 +1105,7 @@ class ByteTracker(object):
             MCTrack.multi_predict(self.tracks)
             # ----------
 
-            ## ---------- TODO: using vel_dir enhanced matching...
+            ## ---------- using vel_dir enhanced matching...
             ## ----- build dets(x1y1x2y2score) and trks(x1y1x2y2score) for matching
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
@@ -1123,6 +1123,7 @@ class ByteTracker(object):
                                    if trk.vel_dir is not None else np.array((0, 0))
                                    for trk in self.tracks])
             last_boxes = np.array([trk.last_observation for trk in self.tracks])
+            # last_tracks = [trk.last_observation for trk in self.tracks]
             k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
                               for trk in self.tracks]
             k_observations = np.array(k_observations)
@@ -1131,7 +1132,7 @@ class ByteTracker(object):
             First round of association
             using high confidence dets and existed trks
             """
-            matches, unmatched_dets, unmatched_trks = associate(dets,
+            matches, unmatched_dets, unmatched_trks = associate(dets_1st,
                                                                 k_observations,
                                                                 trks,
                                                                 velocities,
@@ -1151,41 +1152,106 @@ class ByteTracker(object):
                     retrieve_tracks_dict[cls_id].append(track)
 
             ## ----- process the unmatched dets and trks in the first round
+            if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
+                left_dets = dets_1st[unmatched_dets]
+                left_detections = np.array(detections_1st)[unmatched_dets]
+                left_trks = last_boxes[unmatched_trks]
+                left_tracks = np.array(self.tracks)[unmatched_trks]
+                iou_left = iou_batch(left_dets, left_trks)  # calculate iou
+                iou_left = np.array(iou_left)
 
-            ''' Step 3: Second association, with low score detection boxes'''
-            # association the un-track to the low score detections
-            if len(bboxes_2nd) > 0:
-                '''Detections'''
-                detections_2nd = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
-                                  (tlbr, s) in zip(bboxes_2nd, scores_2nd)]
-            else:
-                detections_2nd = []
+                if iou_left.max() > self.iou_threshold:
+                    """
+                    NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
+                    get a higher performance especially on MOT17/MOT20 datasets. But we keep it
+                    uniform here for simplicity
+                    """
+                    rematched_inds = linear_assignment(-iou_left)
+                    unmatched_dets = []
+                    for i, det in enumerate(left_dets):
+                        if i not in rematched_inds[:, 0]:
+                            unmatched_dets.append(i)
 
-            r_tracked_tracks = [track_pool_dict[cls_id][i]
-                                for i in unmatched_trks if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+                    unmatched_trks = []
+                    for t, trk in enumerate(left_trks):
+                        if t not in rematched_inds[:, 1]:
+                            unmatched_trks.append(t)
 
-            dists = matching.iou_distance(r_tracked_tracks, detections_2nd)
-            matches, unmatched_trks, u_detection_2nd = matching.linear_assignment(dists,
-                                                                                  thresh=self.low_match_thresh)  # thresh=0.5
+                    # to_remove_from_unmatch_det_inds = []
+                    # to_remove_from_unmatch_trk_inds = []
+                    # for m in rematched_inds:
+                    #     det_idx, trk_idx = unmatched_dets[m[0]], unmatched_trks[m[1]]
+                    #
+                    #     if iou_left[m[0], m[1]] < self.iou_threshold:
+                    #         continue
+                    #
+                    #     self.tracks[trk_idx].update(dets[det_idx, :])
+                    #
+                    #     # record matched det inds and trk inds
+                    #     to_remove_from_unmatch_det_inds.append(det_idx)
+                    #     to_remove_from_unmatch_trk_inds.append(trk_idx)
+                    #
+                    # unmatched_dets = np.setdiff1d(unmatched_dets,
+                    #                               np.array(to_remove_from_unmatch_det_inds))
+                    # unmatched_trks = np.setdiff1d(unmatched_trks,
+                    #                               np.array(to_remove_from_unmatch_trk_inds))
 
-            for i_track, i_det in matches:
-                track = r_tracked_tracks[i_track]
-                det = detections_2nd[i_det]
+                    for i_det, i_track in rematched_inds:
+                        track = left_tracks[i_track]
+                        det = left_detections[i_det]
 
-                if track.state == TrackState.Tracked:
-                    track.update(det, self.frame_id)
-                    activated_tracks_dict[cls_id].append(track)
-                else:
-                    track.re_activate(det, self.frame_id, new_id=False)
-                    retrieve_tracks_dict[cls_id].append(track)
+                        if track.state == TrackState.Tracked:
+                            track.update(det, self.frame_id)
+                            activated_tracks_dict[cls_id].append(track)
+                        else:
+                            track.re_activate(det, self.frame_id, new_id=False)
+                            retrieve_tracks_dict[cls_id].append(track)
 
-            # process unmatched tracks for two rounds
-            for i_track in unmatched_trks:
-                track = r_tracked_tracks[i_track]
-                if not track.state == TrackState.Lost:
-                    # mark unmatched track as lost track
-                    track.mark_lost()
-                    lost_tracks_dict[cls_id].append(track)
+                    # process unmatched tracks for two rounds
+                    for i_track in unmatched_trks:
+                        track = left_tracks[i_track]
+                        if not track.state == TrackState.Lost:
+                            # mark unmatched track as lost track
+                            track.mark_lost()
+                            lost_tracks_dict[cls_id].append(track)
+
+            # for m in unmatched_trks:
+            #     self.tracks[m].update(None)
+
+            # ''' Step 3: Second association, with low score detection boxes'''
+            # # association the un-track to the low score detections
+            # if len(bboxes_2nd) > 0:
+            #     '''Detections'''
+            #     detections_2nd = [MCTrack(MCTrack.tlbr_to_tlwh(tlbr), s, cls_id) for
+            #                       (tlbr, s) in zip(bboxes_2nd, scores_2nd)]
+            # else:
+            #     detections_2nd = []
+            #
+            # r_tracked_tracks = [track_pool_dict[cls_id][i]
+            #                     for i in unmatched_trks if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+            #
+            # dists = matching.iou_distance(r_tracked_tracks, detections_2nd)
+            # matches, unmatched_trks, u_detection_2nd = matching.linear_assignment(dists,
+            #                                                                       thresh=self.low_match_thresh)  # thresh=0.5
+            #
+            # for i_track, i_det in matches:
+            #     track = r_tracked_tracks[i_track]
+            #     det = detections_2nd[i_det]
+            #
+            #     if track.state == TrackState.Tracked:
+            #         track.update(det, self.frame_id)
+            #         activated_tracks_dict[cls_id].append(track)
+            #     else:
+            #         track.re_activate(det, self.frame_id, new_id=False)
+            #         retrieve_tracks_dict[cls_id].append(track)
+            #
+            # # process unmatched tracks for two rounds
+            # for i_track in unmatched_trks:
+            #     track = r_tracked_tracks[i_track]
+            #     if not track.state == TrackState.Lost:
+            #         # mark unmatched track as lost track
+            #         track.mark_lost()
+            #         lost_tracks_dict[cls_id].append(track)
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             # current frame's unmatched detection

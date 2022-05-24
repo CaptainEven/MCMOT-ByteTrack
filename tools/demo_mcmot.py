@@ -31,7 +31,7 @@ def make_parser():
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("--tracker",
                         type=str,
-                        default="oc",
+                        default="byte",
                         help="byte | oc")
     parser.add_argument("-expn",
                         "--experiment-name",
@@ -498,9 +498,11 @@ def video_tracking(predictor, cap, save_path, opt):
                         # online_dict = tracker.update_mcmot_byte(dets,
                         #                                         img_size,
                         #                                         exp.test_size)
-                        online_dict = tracker.update_byte_enhance(dets,
-                                                                  img_size,
-                                                                  exp.test_size)
+                        # online_dict = tracker.update_byte_enhance(dets,
+                        #                                           img_size,
+                        #                                           exp.test_size)
+
+                        online_dict = tracker.update_oc_enhance(dets, img_size, exp.test_size)
 
                 elif opt.tracker == "oc":
                     online_dict = tracker.update_frame(dets, img_size, exp.test_size)

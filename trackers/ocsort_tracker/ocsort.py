@@ -676,7 +676,7 @@ class MCOCSort(object):
 
             ## ----- process the unmatched dets and trks in the first round
             if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
-                left_dets = dets[unmatched_dets]
+                left_dets = dets_1st[unmatched_dets]
                 left_trks = last_boxes[unmatched_trks]
                 iou_left = self.associate_func(left_dets, left_trks)  # calculate iou
                 iou_left = np.array(iou_left)
@@ -697,7 +697,7 @@ class MCOCSort(object):
                         if iou_left[m[0], m[1]] < self.iou_threshold:
                             continue
 
-                        self.tracks[trk_idx].update(dets[det_idx, :])
+                        self.tracks[trk_idx].update(dets_1st[det_idx, :])
 
                         # record matched det inds and trk inds
                         to_remove_from_unmatch_det_inds.append(det_idx)
