@@ -31,7 +31,7 @@ def make_parser():
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("--tracker",
                         type=str,
-                        default="byte",
+                        default="oc",
                         help="byte | oc")
     parser.add_argument("-expn",
                         "--experiment-name",

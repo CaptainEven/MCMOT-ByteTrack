@@ -519,9 +519,9 @@ class MCOCSort(object):
         # KalmanBoxTracker.count = 0
         MCKalmanTrack.init_id_dict(self.n_classes)
 
-    def update_frame(self, dets_1st, img_size, net_size):
+    def update_frame(self, dets, img_size, net_size):
         """
-        @param dets_1st: - a numpy array of detections in the format [[x1,y1,x2,y2,score],
+        @param dets: - a numpy array of detections in the format [[x1,y1,x2,y2,score],
         [x1,y1,x2,y2,score],...]
         Requires: this method must be called once for each frame even with empty detections(use np.empty((0, 5)) for frames without detections).
         Returns the a similar array, where the last column is the object ID.
@@ -529,12 +529,12 @@ class MCOCSort(object):
         @param img_size: img_h, img_w
         @param net_size: net_h, net_w
         """
-        if dets_1st is None:
+        if dets is None:
             return np.empty((0, 5))
 
         ## ----- gpu ——> cpu
         with torch.no_grad():
-            dets_1st = dets_1st.cpu().numpy()
+            dets = dets.cpu().numpy()
 
         self.frame_id += 1
         if self.frame_id == 1:
@@ -553,7 +553,7 @@ class MCOCSort(object):
         boxes_dict = defaultdict(list)
         scores_dict = defaultdict(list)
 
-        for det in dets_1st:
+        for det in dets:
             if det.size == 7:
                 x1, y1, x2, y2, score1, score2, cls_id = det  # 7
                 score = score1 * score2
@@ -584,7 +584,7 @@ class MCOCSort(object):
             if bboxes.shape[0] == 0:
                 bboxes = np.empty((0, 4), dtype=float)
                 scores_ = np.empty((0, 1), dtype=float)
-            dets_1st = np.concatenate((bboxes, scores_), axis=1)
+            dets = np.concatenate((bboxes, scores_), axis=1)
             # if len(dets.shape) != 2:
             #     print("pause")
 
@@ -601,7 +601,7 @@ class MCOCSort(object):
 
             ## ----- Build dets for the object class
             if remain_inds.size > 0:
-                dets_1st = dets_1st[remain_inds]
+                dets_1st = dets[remain_inds]
             else:
                 dets_1st = np.empty((0, 5), dtype=float)
 
@@ -642,7 +642,7 @@ class MCOCSort(object):
                                                                 self.iou_threshold,
                                                                 self.vel_dir_weight)
             for m in matched:
-                self.tracks[m[1]].update(dets_1st[m[0], :])
+                self.tracks[m[1]].update(dets[m[0], :])
 
             """
             Second round of association by OCR
@@ -676,7 +676,7 @@ class MCOCSort(object):
 
             ## ----- process the unmatched dets and trks in the first round
             if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
-                left_dets = dets_1st[unmatched_dets]
+                left_dets = dets[unmatched_dets]
                 left_trks = last_boxes[unmatched_trks]
                 iou_left = self.associate_func(left_dets, left_trks)  # calculate iou
                 iou_left = np.array(iou_left)
@@ -697,7 +697,7 @@ class MCOCSort(object):
                         if iou_left[m[0], m[1]] < self.iou_threshold:
                             continue
 
-                        self.tracks[trk_idx].update(dets_1st[det_idx, :])
+                        self.tracks[trk_idx].update(dets[det_idx, :])
 
                         # record matched det inds and trk inds
                         to_remove_from_unmatch_det_inds.append(det_idx)
@@ -716,7 +716,7 @@ class MCOCSort(object):
             for i in unmatched_dets:
                 # trk = KalmanBoxTracker(bbox=dets[i, :],
                 #                        delta_t=self.delta_t)
-                trk = MCKalmanTrack(bbox=dets_1st[i, :],
+                trk = MCKalmanTrack(bbox=dets[i, :],
                                     cls_id=cls_id,
                                     delta_t=self.delta_t)
                 self.tracks.append(trk)
