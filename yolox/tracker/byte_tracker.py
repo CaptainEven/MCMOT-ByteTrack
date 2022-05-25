@@ -632,24 +632,25 @@ class MCTrack(MCBaseTrack):
         self.score = new_track.score
         new_tlwh = new_track.tlwh
         bbox = self.tlwh2tlbr(new_tlwh)
+        bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], self.score])
 
         """
         Estimate the track velocity direction with observations delta_t steps away
         """
         if using_delta_t:
             if self.last_observation.sum() >= 0:  # if previous observation exist
-                previous_box = None
+                previous_box_score = None
 
                 for i in range(self.delta_t):
                     dt = self.delta_t - i  # eg: 3, 2, 1
                     if self.age - dt in self.observations_dict:  # from little age to large age
-                        previous_box = self.observations_dict[self.age - dt]  # -1, 0, 1
+                        previous_box_score = self.observations_dict[self.age - dt]  # -1, 0, 1
                         break
 
-                if previous_box is None:
-                    previous_box = self.last_observation
+                if previous_box_score is None:
+                    previous_box_score = self.last_observation
 
-                self.vel_dir = self.get_velocity_direction(previous_box, bbox)
+                self.vel_dir = self.get_velocity_direction(previous_box_score, bbox_score)
         else:
 
             """
@@ -657,14 +658,16 @@ class MCTrack(MCBaseTrack):
             vel_dir: a 2d vector
             """
             if self.last_observation.sum() >= 0:
-                self.vel_dir = self.get_velocity_direction(self.last_observation, bbox)
+                self.vel_dir = self.get_velocity_direction(self.last_observation, bbox_score)
             else:
                 self.vel_dir = np.array([0.0, 0.0], dtype=np.float64)
         # print("vel_dir: {:.3f}, {:.3f}".format(self.vel_dir[0], self.vel_dir[1]))
 
         ## update last observations
-        self.observations_dict[self.age] = [bbox[0], bbox[1], bbox[2], bbox[3], self.score]
-        self.last_observation = bbox
+        self.last_observation = bbox_score
+        self.observations_dict[self.age] = self.last_observation
+
+        self.time_since_last_update = 0
 
         self.mean, self.covariance = \
             self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
@@ -1000,7 +1003,7 @@ class ByteTracker(object):
 
         self.tracks = []
         self.delta_t = delta_t
-        self.max_age = opt.track_buffer
+        self.max_age = 30
 
     def update_oc_enhance(self, dets, img_size, net_size):
         """
@@ -1099,7 +1102,8 @@ class ByteTracker(object):
 
             ''' Step 2: First association, with high score detection boxes'''
             ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
-            track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
+            track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id],
+                                                  self.lost_tracks_dict[cls_id])
 
             # ---------- Predict the current location with KF
             # self.tracks = tracked_tracks_dict[cls_id]
@@ -1172,13 +1176,14 @@ class ByteTracker(object):
                     uniform here for simplicity
                     """
                     rematched_inds = linear_assignment(-iou_left)
-                    unmatched_dets, unmatched_trks = [], []
-                    for i, det in enumerate(left_dets):
+
+                    unmatched_dets_left, unmatched_trks_left = [], []
+                    for i, det in enumerate(left_dets):  # dets
                         if i not in rematched_inds[:, 0]:
-                            unmatched_dets.append(i)
-                    for t, trk in enumerate(left_trks):
-                        if t not in rematched_inds[:, 1]:
-                            unmatched_trks.append(t)
+                            unmatched_dets_left.append(i)
+                    for i, trk in enumerate(left_trks):  # trks
+                        if i not in rematched_inds[:, 1]:
+                            unmatched_trks_left.append(i)
 
                     ## ----- process the unmatched
                     for i_det, i_track in rematched_inds:
@@ -1193,7 +1198,7 @@ class ByteTracker(object):
                             retrieve_tracks_dict[cls_id].append(track)
 
                     # process unmatched tracks for two rounds
-                    for i_track in unmatched_trks:
+                    for i_track in unmatched_trks_left:
                         track = left_tracks[i_track]
                         if not track.state == TrackState.Lost:
                             # mark unmatched track as lost track
@@ -1202,17 +1207,17 @@ class ByteTracker(object):
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             # current frame's unmatched detection
-            detections_1st = [detections_1st[i] for i in unmatched_dets]
+            detections_left = [detections_1st[i] for i in unmatched_dets]
 
             # iou matching
-            dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections_1st)
-            dists = matching.fuse_score(dists, detections_1st)
-            matches, unconfirmed_tracks, unmatched_dets = matching.linear_assignment(dists,
-                                                                                     thresh=self.unconfirmed_match_thresh)  # 0.7
+            dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections_left)
+            dists = matching.fuse_score(dists, detections_left)
+            matches, unconfirmed_tracks, unconfirmed_dets = matching.linear_assignment(dists,
+                                                                                       self.unconfirmed_match_thresh)
 
             for i_track, i_det in matches:
                 track = unconfirmed_tracks_dict[cls_id][i_track]
-                det = detections_1st[i_det]
+                det = detections_left[i_det]
                 track.update(det, self.frame_id)
                 activated_tracks_dict[cls_id].append(unconfirmed_tracks_dict[cls_id][i_track])
 
@@ -1222,8 +1227,8 @@ class ByteTracker(object):
                 removed_tracks_dict[cls_id].append(track)
 
             """Step 4: Init new tracks"""
-            for i_new in unmatched_dets:  # current frame's unmatched detection
-                track = detections_1st[i_new]
+            for i_new in unconfirmed_dets:  # current frame's unmatched detection
+                track = detections_left[i_new]
                 if track.score < self.new_track_thresh:
                     continue
 
@@ -1266,7 +1271,8 @@ class ByteTracker(object):
                     self.tracked_tracks_dict[cls_id].pop(i)
 
             # get scores of lost tracks
-            output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id] if track.is_activated]
+            output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
+                                          if track.is_activated]
 
         ## ---------- Return final online targets of the frame
         return output_tracks_dict
@@ -1380,7 +1386,7 @@ class ByteTracker(object):
             MCTrack.multi_predict(self.tracks)
             # ----------
 
-            ## ---------- TODO: using vel_dir enhanced matching...
+            ## ---------- using vel_dir enhanced matching...
             ## ----- build dets(x1y1x2y2score) and trks(x1y1x2y2score) for matching
             trks = np.zeros((len(self.tracks), 5))
             to_del = []

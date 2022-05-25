@@ -385,7 +385,7 @@ class MCKalmanTrack(MCTrackBase):
             and self.history_observations. Bear it for the moment.
             """
             self.last_observation = bbox_score
-            self.observations_dict[self.age] = bbox_score  # record history
+            self.observations_dict[self.age] = self.last_observation  # record history
             self.history_observations.append(bbox_score)  # record history
 
             self.time_since_last_update = 0
@@ -413,7 +413,8 @@ class MCKalmanTrack(MCTrackBase):
         if self.time_since_last_update > 0:  # 如果丢失了一次更新, 连胜(连续跟踪)被终止
             self.hit_streak = 0
 
-        self.time_since_last_update += 1  # 每predict一次, 未更新时间(帧数)+1
+        # 每predict一次, 未更新时间(帧数)+1
+        self.time_since_last_update += 1
         self.history.append(convert_x_to_bbox(self.kf.x))
 
         return self.history[-1]
