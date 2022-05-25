@@ -531,6 +531,8 @@ class MCTrack(MCBaseTrack):
         ## ----- record velocity direction
         self.vel_dir = None
 
+        self.hit_streak = 0
+
     def reset_track_id(self):
         """
         :return:
@@ -568,6 +570,10 @@ class MCTrack(MCBaseTrack):
 
                 # 每predict一次, 生命周期数+1
                 tracks[i].age += 1
+
+                # 如果丢失了一次更新, 连胜(连续跟踪)被终止
+                if tracks[i].time_since_last_update > 0:
+                    tracks[i].hit_streak = 0
 
                 # 每predict一次, 未更新时间(帧数)+1
                 tracks[i].time_since_last_update += 1
@@ -668,6 +674,7 @@ class MCTrack(MCBaseTrack):
         self.observations_dict[self.age] = self.last_observation
 
         self.time_since_last_update = 0
+        self.hit_streak += 1  # 连胜
 
         self.mean, self.covariance = \
             self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
@@ -1004,6 +1011,7 @@ class ByteTracker(object):
         self.tracks = []
         self.delta_t = delta_t
         self.max_age = 240
+        self.min_hits = 3
 
     def update_oc_enhance(self, dets, img_size, net_size):
         """
@@ -1276,7 +1284,12 @@ class ByteTracker(object):
             # output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
             #                               if track.is_activated]
             for track in self.tracked_tracks_dict[cls_id]:
-                if track.is_activated and track.time_since_last_update < self.max_age:
+                # if track.is_activated and track.time_since_last_update < self.max_age:
+                #     output_tracks_dict[cls_id].append(track)
+                if track.is_activated and track.time_since_last_update < self.max_age \
+                            and (track.time_since_last_update < 1) \
+                        and (track.hit_streak >= self.min_hits
+                             or self.frame_id <= self.min_hits):
                     output_tracks_dict[cls_id].append(track)
 
         ## ---------- Return final online targets of the frame
