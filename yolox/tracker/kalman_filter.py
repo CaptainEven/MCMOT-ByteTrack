@@ -56,8 +56,8 @@ class KalmanFilter(object):
         # Motion and observation uncertainty are chosen relative to the current
         # state estimate. These weights control the amount of uncertainty in
         # the model. This is a bit hacky.
-        self._std_weight_position = 1. / 20.0
-        self._std_weight_velocity = 1. / 160.0
+        self._std_weight_position = 1.0 / 20.0
+        self._std_weight_velocity = 1.0 / 160.0
 
     def initiate(self, measurement):
         """
@@ -66,9 +66,8 @@ class KalmanFilter(object):
         Parameters
         ----------
         measurement : ndarray
-            Bounding box coordinates (x, y, a, h) with center position (x, y),
-            aspect ratio a, and height h.
-
+            Bounding box coordinates (x, y, a, h)
+            with center position (x, y), aspect ratio a, and height h.
         Returns
         -------
         (ndarray, ndarray)
@@ -81,16 +80,14 @@ class KalmanFilter(object):
         mean_vel = np.zeros_like(mean_pos)
         mean = np.r_[mean_pos, mean_vel]
 
-        std = [
-            2 * self._std_weight_position * measurement[3],
-            2 * self._std_weight_position * measurement[3],
-            1e-2,
-            2 * self._std_weight_position * measurement[3],
-            10 * self._std_weight_velocity * measurement[3],
-            10 * self._std_weight_velocity * measurement[3],
-            1e-5,
-            10 * self._std_weight_velocity * measurement[3]
-        ]
+        std = [2 * self._std_weight_position * measurement[3],
+               2 * self._std_weight_position * measurement[3],
+               1e-2,
+               2 * self._std_weight_position * measurement[3],
+               10 * self._std_weight_velocity * measurement[3],
+               10 * self._std_weight_velocity * measurement[3],
+               1e-5,
+               10 * self._std_weight_velocity * measurement[3]]
         covariance = np.diag(np.square(std))
         return mean, covariance
 

@@ -1010,7 +1010,7 @@ class ByteTracker(object):
 
         self.tracks = []
         self.delta_t = delta_t
-        self.max_age = 240
+        self.max_age = self.buffer_size
         self.min_hits = 3
 
     def update_oc_enhance(self, dets, img_size, net_size):
@@ -1253,13 +1253,6 @@ class ByteTracker(object):
                 if self.frame_id - track.end_frame > self.max_time_lost:
                     track.mark_removed()
                     removed_tracks_dict[cls_id].append(track)
-
-            # for i, track in enumerate(self.tracked_tracks_dict[cls_id]):
-            #     # remove the dead track
-            #     if track.time_since_last_update > self.max_age:
-            #         # self.tracked_tracks_dict[cls_id].pop(i)
-            #         track.mark_removed()
-            #         removed_tracks_dict[cls_id].append(track)
 
             """Post processing"""
             self.tracked_tracks_dict[cls_id] = [t for t in self.tracked_tracks_dict[cls_id] if
