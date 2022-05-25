@@ -1284,8 +1284,6 @@ class ByteTracker(object):
             # output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
             #                               if track.is_activated]
             for track in self.tracked_tracks_dict[cls_id]:
-                # if track.is_activated and track.time_since_last_update < self.max_age:
-                #     output_tracks_dict[cls_id].append(track)
                 if track.is_activated and track.time_since_last_update < self.max_age \
                             and (track.time_since_last_update < 1) \
                         and (track.hit_streak >= self.min_hits
