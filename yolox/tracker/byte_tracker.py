@@ -1003,7 +1003,7 @@ class ByteTracker(object):
 
         self.tracks = []
         self.delta_t = delta_t
-        self.max_age = 30
+        self.max_age = 240
 
     def update_oc_enhance(self, dets, img_size, net_size):
         """
@@ -1246,6 +1246,13 @@ class ByteTracker(object):
                     track.mark_removed()
                     removed_tracks_dict[cls_id].append(track)
 
+            # for i, track in enumerate(self.tracked_tracks_dict[cls_id]):
+            #     # remove the dead track
+            #     if track.time_since_last_update > self.max_age:
+            #         # self.tracked_tracks_dict[cls_id].pop(i)
+            #         track.mark_removed()
+            #         removed_tracks_dict[cls_id].append(track)
+
             """Post processing"""
             self.tracked_tracks_dict[cls_id] = [t for t in self.tracked_tracks_dict[cls_id] if
                                                 t.state == TrackState.Tracked]
@@ -1265,14 +1272,12 @@ class ByteTracker(object):
                 self.tracked_tracks_dict[cls_id],
                 self.lost_tracks_dict[cls_id])
 
-            for i, track in enumerate(self.tracked_tracks_dict[cls_id]):
-                # remove the dead track
-                if track.time_since_last_update > self.max_age:
-                    self.tracked_tracks_dict[cls_id].pop(i)
-
-            # get scores of lost tracks
-            output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
-                                          if track.is_activated]
+            ## ----- build output tracks
+            # output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
+            #                               if track.is_activated]
+            for track in self.tracked_tracks_dict[cls_id]:
+                if track.is_activated and track.time_since_last_update < self.max_age:
+                    output_tracks_dict[cls_id].append(track)
 
         ## ---------- Return final online targets of the frame
         return output_tracks_dict
