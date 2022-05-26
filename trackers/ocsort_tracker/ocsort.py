@@ -209,10 +209,14 @@ class KalmanBoxTracker(object):
         if (self.kf.x[6] + self.kf.x[2]) <= 0:
             self.kf.x[6] *= 0.0
 
+        ## ----- Kalman prediction
         self.kf.predict()
-        self.age += 1  # 每predict一次, 生命周期+1
 
-        if self.time_since_last_update > 0:  # 如果丢失了一次更新, 连胜(连续跟踪)被终止
+        # 每predict一次, 生命周期+1
+        self.age += 1
+
+        # 如果丢失了一次更新, 连胜(连续跟踪)被终止
+        if self.time_since_last_update > 0:
             self.hit_streak = 0
 
         self.time_since_last_update += 1  # 每predict一次, 未更新时间(帧数)+1

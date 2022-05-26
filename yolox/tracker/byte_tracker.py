@@ -574,7 +574,10 @@ class MCTrackKM(MCBaseTrack):
         if (self.kf.x[6] + self.kf.x[2]) <= 0:
             self.kf.x[6] *= 0.0
 
+        ## ----- Kalman predict
+        # print("before predict:\n", self.kf.x)
         self.kf.predict()
+        # print("after predict:\n", self.kf.x)
 
         # 每predict一次, 生命周期+1
         self.age += 1
@@ -585,7 +588,7 @@ class MCTrackKM(MCBaseTrack):
 
         # 每predict一次, 未更新时间(帧数)+1
         self.time_since_last_update += 1
-        self.history.append(convert_x_to_bbox(self.kf.x, score=self.score))
+        self.history.append(convert_x_to_bbox(self.kf.x))
 
         return self.history[-1]  # return x1y1x2y2score | x1y1x2y2
 
@@ -681,8 +684,8 @@ class MCTrackKM(MCBaseTrack):
         :return:
         """
         ## ----- Kalman filter update
-        bbox = new_track.tlbr
-        bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], new_track.score])
+        new_bbox = new_track.tlbr
+        bbox_score = np.array([new_bbox[0], new_bbox[1], new_bbox[2], new_bbox[3], new_track.score])
         self.kf.update(convert_bbox_to_z(bbox_score))
 
         ## ----- update track-let states
@@ -926,6 +929,7 @@ class MCTrack(MCBaseTrack):
         ## init Kalman filter when activated
         self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
 
+        ## ----- init states
         self.track_len = 0
         self.state = TrackState.Tracked
 
@@ -1302,6 +1306,9 @@ class ByteTracker(object):
         ## ----- update frame id
         self.frame_id += 1
 
+        # if self.frame_id == 5:
+        #     print("continue")
+
         ## ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
             MCTrack.init_id_dict(self.n_classes)
@@ -1384,7 +1391,7 @@ class ByteTracker(object):
                 if not track.is_activated:
                     unconfirmed_tracks_dict[cls_id].append(track)  # record unconfirmed tracks in this frame
                 else:
-                    tracked_tracks_dict[cls_id].append(track)  # record tracked tracks of this frame
+                    tracked_tracks_dict[cls_id].append(track)  # record tracked of this frame
 
             ''' Step 2: First association, with high score detection boxes'''
             ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
@@ -1393,7 +1400,7 @@ class ByteTracker(object):
 
             # ---------- Predict the current location with KF
             # self.tracks = tracked_tracks_dict[cls_id]
-            # MCTrack.multi_predict(self.tracks)  # only predict tracked tracks
+            # MCTrack.multi_predict(self.tracks)  # only predict tracked
 
             self.tracks = track_pool_dict[cls_id]
             # ----------
@@ -1403,10 +1410,9 @@ class ByteTracker(object):
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, track in enumerate(self.tracks):
-                bbox_score = track.predict()[0]
-                trks[i] = bbox_score
-                x1, y1, x2, y2, score = bbox_score
-                if np.any(np.isnan([x1, y1, x2, y2])):
+                bbox = track.predict()[0]  # do prediction
+                trks[i] = [bbox[0], bbox[1], bbox[2], bbox[3], track.score]
+                if np.any(np.isnan(bbox)):
                     to_del.append(i)
 
             trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
