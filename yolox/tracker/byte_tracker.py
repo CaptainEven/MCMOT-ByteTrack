@@ -585,7 +585,7 @@ class MCTrackKM(MCBaseTrack):
 
         # 每predict一次, 未更新时间(帧数)+1
         self.time_since_last_update += 1
-        self.history.append(convert_x_to_bbox(self.kf.x))
+        self.history.append(convert_x_to_bbox(self.kf.x, score=self.score))
 
         return self.history[-1]  # return x1y1x2y2score | x1y1x2y2
 
@@ -1277,6 +1277,7 @@ class ByteTracker(object):
         self.delta_t = delta_t
         self.max_age = self.buffer_size
         self.min_hits = 3
+        self.using_delta_t = True
 
     def update_oc_enhance(self, dets, img_size, net_size):
         """
@@ -1383,8 +1384,6 @@ class ByteTracker(object):
             # MCTrack.multi_predict(self.tracks)  # only predict tracked tracks
 
             self.tracks = track_pool_dict[cls_id]
-            for track in self.tracks:
-                track.predict()
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
@@ -1392,9 +1391,9 @@ class ByteTracker(object):
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, track in enumerate(self.tracks):
-                x1, y1, x2, y2 = track.tlbr
-                trks[i] = [x1, y1, x2, y2, track.score]
-                if np.any(np.isnan([x1, y1, x2, y2])):
+                bbox_score = track.predict()[0]
+                trks[i] = bbox_score
+                if np.any(np.isnan(bbox_score[:4])):
                     to_del.append(i)
 
             trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
@@ -1426,10 +1425,15 @@ class ByteTracker(object):
                 det = detections_1st[i_det]
 
                 if track.state == TrackState.Tracked:
-                    track.update(det, self.frame_id, using_delta_t=False)
+                    track.update(det,
+                                 self.frame_id,
+                                 using_delta_t=self.using_delta_t)
                     activated_tracks_dict[cls_id].append(track)  # for multi-class
                 else:  # re-activate the lost track
-                    track.re_activate(det, self.frame_id, new_id=False, using_delta_t=False)
+                    track.re_activate(det,
+                                      self.frame_id,
+                                      new_id=False,
+                                      using_delta_t=self.using_delta_t)
                     retrieve_tracks_dict[cls_id].append(track)
 
             ## ----- process the unmatched dets and trks in the first round
@@ -1464,10 +1468,15 @@ class ByteTracker(object):
                         det = left_detections[i_det]
 
                         if track.state == TrackState.Tracked:
-                            track.update(det, self.frame_id, using_delta_t=False)
+                            track.update(det,
+                                         self.frame_id,
+                                         using_delta_t=self.using_delta_t)
                             activated_tracks_dict[cls_id].append(track)
                         else:
-                            track.re_activate(det, self.frame_id, new_id=False, using_delta_t=False)
+                            track.re_activate(det,
+                                              self.frame_id,
+                                              new_id=False,
+                                              using_delta_t=self.using_delta_t)
                             retrieve_tracks_dict[cls_id].append(track)
 
                     # process unmatched tracks for two rounds
@@ -1491,7 +1500,9 @@ class ByteTracker(object):
             for i_track, i_det in matches:
                 track = unconfirmed_tracks_dict[cls_id][i_track]
                 det = detections_left[i_det]
-                track.update(det, self.frame_id, using_delta_t=False)
+                track.update(det,
+                             self.frame_id,
+                             using_delta_t=self.using_delta_t)
                 activated_tracks_dict[cls_id].append(unconfirmed_tracks_dict[cls_id][i_track])
 
             for i_track in unconfirmed_tracks:  # process unconfirmed tracks
