@@ -6,13 +6,13 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from trackers.ocsort_tracker.association import associate, iou_batch, linear_assignment
-from trackers.ocsort_tracker.ocsort import k_previous_obs
 from trackers.ocsort_tracker import oc_kalmanfilter
+from trackers.ocsort_tracker.association import associate, iou_batch, linear_assignment
+from trackers.ocsort_tracker.ocsort import convert_bbox_to_z, convert_x_to_bbox
+from trackers.ocsort_tracker.ocsort import k_previous_obs
 from yolox.tracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
-from trackers.ocsort_tracker.ocsort import convert_bbox_to_z, convert_x_to_bbox
 
 
 class MCTrackFeat(MCBaseTrack):
@@ -536,7 +536,7 @@ class MCTrackKM(MCBaseTrack):
 
         # states: z: center_x, center_y, s(area), r(aspect ratio)
         # and center_x, center_y, s, derivatives of time
-        self.kf.x[:4] = convert_bbox_to_z(MCTrackKM.tlwh2tlbr(tlwh))
+        self.kf.x[:4] = convert_bbox_to_z(self.tlbr)
 
         ## ----- init is_activated to be False
         self.is_activated = False
@@ -589,46 +589,6 @@ class MCTrackKM(MCBaseTrack):
 
         return self.history[-1]  # return x1y1x2y2score | x1y1x2y2
 
-    def activate(self, frame_id):
-        """
-        Start a new track-let: the initial activation
-        :param kalman_filter:
-        :param frame_id:
-        :return:
-        """
-        # update track id for the object class
-        self.track_id = self.next_id(self.cls_id)
-        self.track_len = 0  # init track len
-        self.state = TrackState.Tracked
-
-        if frame_id == 1:
-            self.is_activated = True
-
-        self.frame_id = frame_id
-        self.start_frame = frame_id
-
-    def re_activate(self, new_track, frame_id,
-                    new_id=False, using_delta_t=False):
-        """
-        :param new_track:
-        :param frame_id:
-        :param new_id:
-        :param using_delta_t:
-        :return:
-        """
-        self.update(new_track, frame_id, using_delta_t)
-
-        ## ----- reset track length
-        self.track_len = 0
-
-        ## ----- Update states
-        self.state = TrackState.Tracked
-        self.is_activated = True
-        ## -----
-
-        if new_id:  # update track id for the object class
-            self.track_id = self.next_id(self.cls_id)
-
     def update(self, new_track, frame_id, using_delta_t=False):
         """
         Update a matched track
@@ -677,8 +637,11 @@ class MCTrackKM(MCBaseTrack):
         self.last_observation = bbox_score
         self.observations_dict[self.age] = self.last_observation
 
+        ## ----- reset time since last update
         self.time_since_last_update = 0
-        self.hit_streak += 1  # 连胜
+
+        ## ----- update winning streak number
+        self.hit_streak += 1
 
         self.kf.update(convert_bbox_to_z(bbox_score))
 
@@ -686,6 +649,51 @@ class MCTrackKM(MCBaseTrack):
         self.state = TrackState.Tracked
         self.is_activated = True
         ## -----
+
+    def activate(self, frame_id):
+        """
+        Start a new track-let: the initial activation
+        :param kalman_filter:
+        :param frame_id:
+        :return:
+        """
+        # update track id for the object class
+        self.track_id = self.next_id(self.cls_id)
+        self.track_len = 0  # init track len
+        self.state = TrackState.Tracked
+
+        if frame_id == 1:
+            self.is_activated = True
+
+        self.frame_id = frame_id
+        self.start_frame = frame_id
+
+    def re_activate(self, new_track, frame_id,
+                    new_id=False, using_delta_t=False):
+        """
+        :param new_track:
+        :param frame_id:
+        :param new_id:
+        :param using_delta_t:
+        :return:
+        """
+        # self.update(new_track, frame_id, using_delta_t)
+
+        self.score = new_track.score
+        bbox = new_track.tlbr
+        bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], self.score])
+        self.kf.update(convert_bbox_to_z(bbox_score))
+
+        ## ----- reset track length
+        self.track_len = 0
+
+        ## ----- Update states
+        self.state = TrackState.Tracked
+        self.is_activated = True
+        ## -----
+
+        if new_id:  # update track id for the object class
+            self.track_id = self.next_id(self.cls_id)
 
     @staticmethod
     def get_velocity_direction(bbox1, bbox2):
@@ -841,53 +849,6 @@ class MCTrack(MCBaseTrack):
                 # 每predict一次, 未更新时间(帧数)+1
                 tracks[i].time_since_last_update += 1
 
-    def activate(self, kalman_filter, frame_id):
-        """
-        Start a new track-let: the initial activation
-        :param kalman_filter:
-        :param frame_id:
-        :return:
-        """
-        self.kalman_filter = kalman_filter
-
-        # update track id for the object class
-        self.track_id = self.next_id(self.cls_id)
-
-        ## init Kalman filter when activated
-        self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
-
-        self.track_len = 0
-        self.state = TrackState.Tracked
-
-        if frame_id == 1:
-            self.is_activated = True
-
-        self.frame_id = frame_id
-        self.start_frame = frame_id
-
-    def re_activate(self, new_track, frame_id, new_id=False):
-        """
-        :param new_track:
-        :param frame_id:
-        :param new_id:
-        :return:
-        """
-        self.mean, self.covariance = self.kalman_filter.update(self.mean,
-                                                               self.covariance,
-                                                               self.tlwh_to_xyah(new_track.tlwh))
-
-        self.track_len = 0
-        self.frame_id = frame_id
-        self.score = new_track.score
-
-        ## ----- Update states
-        self.state = TrackState.Tracked
-        self.is_activated = True
-        ## -----
-
-        if new_id:  # update track id for the object class
-            self.track_id = self.next_id(self.cls_id)
-
     def update(self, new_track, frame_id, using_delta_t=False):
         """
         Update a matched track
@@ -947,6 +908,54 @@ class MCTrack(MCBaseTrack):
         self.state = TrackState.Tracked
         self.is_activated = True
         ## -----
+
+    def activate(self, kalman_filter, frame_id):
+        """
+        Start a new track-let: the initial activation
+        :param kalman_filter:
+        :param frame_id:
+        :return:
+        """
+        self.kalman_filter = kalman_filter
+
+        # update track id for the object class
+        self.track_id = self.next_id(self.cls_id)
+
+        ## init Kalman filter when activated
+        self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
+
+        self.track_len = 0
+        self.state = TrackState.Tracked
+
+        if frame_id == 1:
+            self.is_activated = True
+
+        self.frame_id = frame_id
+        self.start_frame = frame_id
+
+    def re_activate(self, new_track, frame_id, new_id=False):
+        """
+        :param new_track:
+        :param frame_id:
+        :param new_id:
+        :return:
+        """
+        ## ----- Kalman update
+        self.mean, self.covariance = self.kalman_filter.update(self.mean,
+                                                               self.covariance,
+                                                               self.tlwh_to_xyah(new_track.tlwh))
+
+        self.track_len = 0
+        self.frame_id = frame_id
+        self.score = new_track.score
+
+        ## ----- Update states
+        self.state = TrackState.Tracked
+        self.is_activated = True
+        ## -----
+
+        if new_id:  # update track id for the object class
+            self.track_id = self.next_id(self.cls_id)
 
     @staticmethod
     def get_velocity_direction(bbox1, bbox2):
@@ -1506,14 +1515,15 @@ class ByteTracker(object):
                              using_delta_t=self.using_delta_t)
                 activated_tracks_dict[cls_id].append(track)
 
-            for i_track in unconfirmed_tracks:  # process unconfirmed tracks
-                track = unconfirmed_tracks_dict[cls_id][i_track]
+            # process unmatched tracks in unconfirmed tracks
+            for i in unconfirmed_tracks:
+                track = unconfirmed_tracks_dict[cls_id][i]
                 track.mark_removed()
                 removed_tracks_dict[cls_id].append(track)
 
             """Step 4: Init new tracks"""
-            for i_new in unconfirmed_dets:  # current frame's unmatched detection
-                track = detections_left[i_new]
+            for i in unconfirmed_dets:  # current frame's unmatched detection
+                track = detections_left[i]
                 if track.score < self.new_track_thresh:
                     continue
 

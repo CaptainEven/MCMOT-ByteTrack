@@ -281,7 +281,7 @@ class MCKalmanTrack(MCTrackBase):
     def __init__(self, bbox, cls_id, delta_t=3, orig=False):
         """
         Initialises a tracker using initial bounding box.
-        @param bbox:
+        @param bbox: x1y1x2y2
         @param cls_id: class id
         @param delta_t:
         @param orig:
@@ -290,7 +290,6 @@ class MCKalmanTrack(MCTrackBase):
 
         ## ----- record
         self.cls_id = cls_id
-
         self.x1y1x2y2, self.tlwh = None, None
 
         ## ----- update track id
