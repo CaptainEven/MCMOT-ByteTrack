@@ -121,22 +121,21 @@ class KalmanBoxTracker(object):
         # give high uncertainty to the unobservable initial velocities
         self.kf.P[4:, 4:] *= 1000.0
         self.kf.P *= 10.0
-
         self.kf.Q[-1, -1] *= 0.01
         self.kf.Q[4:, 4:] *= 0.01
-
         self.kf.R[2:, 2:] *= 10.0
 
         # states: z: center_x, center_y, s(area), r(aspect ratio)
         # and center_x, center_y, s, derivatives of time
         self.kf.x[:4] = convert_bbox_to_z(bbox)
 
-        self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
+        ## Set new id for a new track
         self.id = KalmanBoxTracker.count
         KalmanBoxTracker.count += 1
+
+        self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
         self.history = []
 
-        ## what's the difference?
         self.hits = 0
         self.hit_streak = 0
 
@@ -321,22 +320,15 @@ class MCKalmanTrack(MCTrackBase):
         # give high uncertainty to the unobservable initial velocities
         self.kf.P[4:, 4:] *= 1000.0
         self.kf.P *= 10.0
-
         self.kf.Q[-1, -1] *= 0.01
         self.kf.Q[4:, 4:] *= 0.01
-
         self.kf.R[2:, 2:] *= 10.0
-
-        # states: z: center_x, center_y, s(area), r(aspect ratio)
-        self.kf.x[:4] = convert_bbox_to_z(bbox)
+        self.kf.x[:4] = convert_bbox_to_z(bbox)  # states: z: center_x, center_y, s(area), r(aspect ratio)
 
         self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
-
         self.history = []
-
         self.hits = 0
         self.hit_streak = 0
-
         self.age = 0
 
         """

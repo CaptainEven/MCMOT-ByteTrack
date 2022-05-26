@@ -23,7 +23,9 @@ class MCBaseTrack(object):
     is_activated = False
     state = TrackState.New
 
-    history = OrderedDict()
+    # history = OrderedDict()
+    history = []
+
     features = []
     curr_feature = None
     score = 0

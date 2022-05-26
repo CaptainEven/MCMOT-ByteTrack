@@ -62,7 +62,6 @@ class KalmanFilter(object):
     def initiate(self, measurement):
         """
         Create track from unassociated measurement.
-
         Parameters
         ----------
         measurement : ndarray
@@ -143,7 +142,6 @@ class KalmanFilter(object):
             The state's mean vector (8 dimensional array).
         covariance : ndarray
             The state's covariance matrix (8x8 dimensional).
-
         Returns
         -------
         (ndarray, ndarray)
