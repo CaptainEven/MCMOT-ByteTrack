@@ -17,6 +17,7 @@ from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
 from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc, plot_tracking_ocsort
 
+
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
 
@@ -503,7 +504,7 @@ def video_tracking(predictor, cap, save_path, opt):
                         # online_dict = tracker.update_byte_enhance(dets,
                         #                                           img_size,
                         #                                           exp.test_size)
-                        online_dict = tracker.update_oc_enhance2(dets, img_size, exp.test_size)
+                        online_dict = tracker.update_oc_enhance1(dets, img_size, exp.test_size)
 
                 elif opt.tracker == "oc":
                     online_dict = tracker.update_frame(dets, img_size, exp.test_size)

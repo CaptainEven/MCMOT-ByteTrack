@@ -610,10 +610,10 @@ class MCOCSort(object):
             to_del = []
             for i, trk in enumerate(trks):
                 ## ----- prediction
-                pos = self.tracks[i].predict()[0]
+                bbox = self.tracks[i].predict()[0]  # x1y1x2y2
 
-                trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
-                if np.any(np.isnan(pos)):
+                trk[:] = [bbox[0], bbox[1], bbox[2], bbox[3], 0]
+                if np.any(np.isnan(bbox)):
                     to_del.append(i)
 
             trks = np.ma.compress_rows(np.ma.masked_invalid(trks))

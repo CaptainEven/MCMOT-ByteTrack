@@ -604,8 +604,8 @@ class MCTrackKM(MCBaseTrack):
         self.track_len += 1
 
         self.score = new_track.score
-        bbox = self.tlwh2tlbr(new_track.tlwh)
-        bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], self.score])
+        new_bbox = new_track.tlbr
+        bbox_score = np.array([new_bbox[0], new_bbox[1], new_bbox[2], new_bbox[3], self.score])
 
         """
         Estimate the track velocity direction with observations delta_t steps away
@@ -1737,6 +1737,13 @@ class ByteTracker(object):
                     retrieve_tracks_dict[cls_id].append(track)
 
             ## ----- process the unmatched dets and trks in the first round
+            left_dets = []
+            left_detections = []
+
+            left_trks = []
+            left_tracks = []
+
+            rematched_inds = np.empty((0, 2), dtype=int)
             if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
                 left_dets = dets_1st[unmatched_dets]
                 left_detections = np.array(detections_1st)[unmatched_dets]
@@ -1753,15 +1760,8 @@ class ByteTracker(object):
                     get a higher performance especially on MOT17/MOT20 datasets. But we keep it
                     uniform here for simplicity
                     """
+                    ## ----- matching
                     rematched_inds = linear_assignment(-iou_left)
-
-                    unmatched_dets_left, unmatched_trks_left = [], []
-                    for i, det in enumerate(left_dets):  # dets
-                        if i not in rematched_inds[:, 0]:
-                            unmatched_dets_left.append(i)
-                    for i, trk in enumerate(left_trks):  # trks
-                        if i not in rematched_inds[:, 1]:
-                            unmatched_trks_left.append(i)
 
                     ## ----- process the unmatched
                     for i_det, i_track in rematched_inds:
@@ -1775,13 +1775,21 @@ class ByteTracker(object):
                             track.re_activate(det, self.frame_id, new_id=False)
                             retrieve_tracks_dict[cls_id].append(track)
 
-                    # process unmatched tracks for two rounds
-                    for i_track in unmatched_trks_left:
-                        track = left_tracks[i_track]
-                        if not track.state == TrackState.Lost:
-                            # mark unmatched track as lost track
-                            track.mark_lost()
-                            lost_tracks_dict[cls_id].append(track)
+            unmatched_dets_left, unmatched_trks_left = [], []
+            for i, det in enumerate(left_dets):  # dets
+                if i not in rematched_inds[:, 0]:
+                    unmatched_dets_left.append(i)
+            for i, trk in enumerate(left_trks):  # trks
+                if i not in rematched_inds[:, 1]:
+                    unmatched_trks_left.append(i)
+
+            # process unmatched tracks for two rounds
+            for i_track in unmatched_trks_left:
+                track = left_tracks[i_track]
+                if not track.state == TrackState.Lost:
+                    # mark unmatched track as lost track
+                    track.mark_lost()
+                    lost_tracks_dict[cls_id].append(track)
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             # current frame's unmatched detection
