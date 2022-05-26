@@ -1279,7 +1279,7 @@ class ByteTracker(object):
         self.min_hits = 3
         self.using_delta_t = True
 
-    def update_oc_enhance(self, dets, img_size, net_size):
+    def update_oc_enhance2(self, dets, img_size, net_size):
         """
         enhanced byte track
         :param dets:
@@ -1393,7 +1393,8 @@ class ByteTracker(object):
             for i, track in enumerate(self.tracks):
                 bbox_score = track.predict()[0]
                 trks[i] = bbox_score
-                if np.any(np.isnan(bbox_score[:4])):
+                x1, y1, x2, y2, score = bbox_score
+                if np.any(np.isnan([x1, y1, x2, y2])):
                     to_del.append(i)
 
             trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
