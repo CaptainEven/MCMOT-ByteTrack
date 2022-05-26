@@ -684,9 +684,9 @@ class MCTrackKM(MCBaseTrack):
         :return:
         """
         ## ----- Kalman filter update
-        new_bbox = new_track.tlbr
-        bbox_score = np.array([new_bbox[0], new_bbox[1], new_bbox[2], new_bbox[3], new_track.score])
-        self.kf.update(convert_bbox_to_z(bbox_score))
+        bbox = new_track.tlbr
+        new_bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], new_track.score])
+        self.kf.update(convert_bbox_to_z(new_bbox_score))
 
         ## ----- update track-let states
         self.track_len = 0
@@ -1488,10 +1488,15 @@ class ByteTracker(object):
                                 det = left_detections[i_det]
 
                                 if track.state == TrackState.Tracked:
-                                    track.update(det, self.frame_id)
+                                    track.update(det,
+                                                 self.frame_id,
+                                                 using_delta_t=self.using_delta_t)
                                     activated_tracks_dict[cls_id].append(track)
                                 else:
-                                    track.re_activate(det, self.frame_id, new_id=False)
+                                    track.re_activate(det,
+                                                      self.frame_id,
+                                                      new_id=False,
+                                                      using_delta_t=self.using_delta_t)
                                     retrieve_tracks_dict[cls_id].append(track)
 
                     unmatched_dets_left, unmatched_trks_left = [], []
