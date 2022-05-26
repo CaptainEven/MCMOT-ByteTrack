@@ -440,11 +440,13 @@ def video_tracking(predictor, cap, save_path, opt):
     ## ---------- define the tracker
     if opt.tracker == "byte":
         tracker = ByteTracker(opt, frame_rate=30)
+        logger.info("Tracker backend: byte.")
     elif opt.tracker == "oc":
         tracker = MCOCSort(class_names=opt.class_names,
                            det_thresh=opt.track_thresh,
                            iou_thresh=opt.iou_thresh,
                            max_age=opt.track_buffer)
+        logger.info("Tracker backend: oc.")
     ## ----------
 
     ## ----- class name to class id and class id to class name
@@ -501,7 +503,7 @@ def video_tracking(predictor, cap, save_path, opt):
                         # online_dict = tracker.update_byte_enhance(dets,
                         #                                           img_size,
                         #                                           exp.test_size)
-                        online_dict = tracker.update_oc_enhance2(dets, img_size, exp.test_size)
+                        online_dict = tracker.update_oc_enhance1(dets, img_size, exp.test_size)
 
                 elif opt.tracker == "oc":
                     online_dict = tracker.update_frame(dets, img_size, exp.test_size)

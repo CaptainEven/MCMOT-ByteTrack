@@ -1277,7 +1277,7 @@ class ByteTracker(object):
         self.delta_t = delta_t
         self.max_age = self.buffer_size
         self.min_hits = 3
-        self.using_delta_t = True
+        self.using_delta_t = False
 
     def update_oc_enhance2(self, dets, img_size, net_size):
         """
@@ -1309,7 +1309,7 @@ class ByteTracker(object):
         tracked_tracks_dict = defaultdict(list)
         track_pool_dict = defaultdict(list)
         activated_tracks_dict = defaultdict(list)
-        retrieve_tracks_dict = defaultdict(list)  # re-found the lost track list
+        retrieve_tracks_dict = defaultdict(list)  # re-found the lost track dict
         lost_tracks_dict = defaultdict(list)
         removed_tracks_dict = defaultdict(list)
         output_tracks_dict = defaultdict(list)
@@ -1422,7 +1422,7 @@ class ByteTracker(object):
 
             # --- process matched pairs between track pool and current frame detection
             for i_det, i_track in matches:
-                track = track_pool_dict[cls_id][i_track]
+                track = self.tracks[i_track]
                 det = detections_1st[i_det]
 
                 if track.state == TrackState.Tracked:
@@ -1504,7 +1504,7 @@ class ByteTracker(object):
                 track.update(det,
                              self.frame_id,
                              using_delta_t=self.using_delta_t)
-                activated_tracks_dict[cls_id].append(unconfirmed_tracks_dict[cls_id][i_track])
+                activated_tracks_dict[cls_id].append(track)
 
             for i_track in unconfirmed_tracks:  # process unconfirmed tracks
                 track = unconfirmed_tracks_dict[cls_id][i_track]
@@ -1778,7 +1778,7 @@ class ByteTracker(object):
                 track = unconfirmed_tracks_dict[cls_id][i_track]
                 det = detections_left[i_det]
                 track.update(det, self.frame_id)
-                activated_tracks_dict[cls_id].append(unconfirmed_tracks_dict[cls_id][i_track])
+                activated_tracks_dict[cls_id].append(track)
 
             for i_track in unconfirmed_tracks:  # process unconfirmed tracks
                 track = unconfirmed_tracks_dict[cls_id][i_track]
@@ -2266,7 +2266,7 @@ class ByteTracker(object):
                 track = unconfirmed_tracks_dict[cls_id][i_track]
                 det = detections[i_det]
                 track.update(det, self.frame_id)
-                activated_tracks_dict[cls_id].append(unconfirmed_tracks_dict[cls_id][i_track])
+                activated_tracks_dict[cls_id].append(track)
 
             for i_track in u_unconfirmed:  # process unconfirmed tracks
                 track = unconfirmed_tracks_dict[cls_id][i_track]
