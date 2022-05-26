@@ -643,6 +643,7 @@ class MCTrackKM(MCBaseTrack):
         ## ----- update winning streak number
         self.hit_streak += 1
 
+        ## ----- Update motion model: update Kalman filter
         self.kf.update(convert_bbox_to_z(bbox_score))
 
         ## ----- Update the states
@@ -662,14 +663,16 @@ class MCTrackKM(MCBaseTrack):
         self.track_len = 0  # init track len
         self.state = TrackState.Tracked
 
-        if frame_id == 1:
-            self.is_activated = True
-
         self.frame_id = frame_id
         self.start_frame = frame_id
+        if self.frame_id == 1:
+            self.is_activated = True
 
-    def re_activate(self, new_track, frame_id,
-                    new_id=False, using_delta_t=False):
+    def re_activate(self,
+                    new_track,
+                    frame_id,
+                    new_id=False,
+                    using_delta_t=False):
         """
         :param new_track:
         :param frame_id:
@@ -677,17 +680,17 @@ class MCTrackKM(MCBaseTrack):
         :param using_delta_t:
         :return:
         """
-        # self.update(new_track, frame_id, using_delta_t)
-
-        self.score = new_track.score
+        ## ----- Kalman filter update
         bbox = new_track.tlbr
-        bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], self.score])
+        bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], new_track.score])
         self.kf.update(convert_bbox_to_z(bbox_score))
 
-        ## ----- reset track length
+        ## ----- update track-let states
         self.track_len = 0
+        self.frame_id = frame_id
+        self.score = new_track.score
 
-        ## ----- Update states
+        ## ----- Update tracking states
         self.state = TrackState.Tracked
         self.is_activated = True
         ## -----
@@ -760,7 +763,6 @@ class MCTrackKM(MCBaseTrack):
 
     def __repr__(self):
         """
-        返回一个对象的 string 格式。
         :return:
         """
         return "OT_({}-{})_({}-{})" \
@@ -945,11 +947,12 @@ class MCTrack(MCBaseTrack):
                                                                self.covariance,
                                                                self.tlwh_to_xyah(new_track.tlwh))
 
+        ## ----- update track-let states
         self.track_len = 0
         self.frame_id = frame_id
         self.score = new_track.score
 
-        ## ----- Update states
+        ## ----- Update tracking states
         self.state = TrackState.Tracked
         self.is_activated = True
         ## -----
