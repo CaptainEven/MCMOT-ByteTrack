@@ -378,12 +378,14 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
 
         outputs, img_info = predictor.inference(image_name, timer)
         if outputs[0] is not None:
-            online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], exp.test_size)
+            online_targets = tracker.update(outputs[0],
+                                            [img_info['height'], img_info['width']],
+                                            exp.test_size)
             online_tlwhs = []
             online_ids = []
             online_scores = []
             for t in online_targets:
-                tlwh = t.tlwh
+                tlwh = t._tlwh
                 tid = t.track_id
                 vertical = tlwh[2] / tlwh[3] > 1.6
                 if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:
@@ -544,7 +546,7 @@ def video_tracking(predictor, cap, save_path, opt):
                         for cls_id in range(tracker.n_classes):  # process each object class
                             online_targets = online_dict[cls_id]
                             for track in online_targets:
-                                online_tlwhs_dict[cls_id].append(track.tlwh)
+                                online_tlwhs_dict[cls_id].append(track._tlwh)
                                 online_tr_ids_dict[cls_id].append(track.track_id)
 
                         timer.toc()

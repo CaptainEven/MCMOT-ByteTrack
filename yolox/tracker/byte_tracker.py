@@ -137,7 +137,7 @@ class MCTrackFeat(MCBaseTrack):
         # kalman update
         self.mean, self.covariance = self.kalman_filter.update(self.mean,
                                                                self.covariance,
-                                                               self.tlwh_to_xyah(new_track.tlwh))
+                                                               self.tlwh_to_xyah(new_track._tlwh))
 
         # feature vector update
         self.update_features(new_track.curr_feat)
@@ -381,7 +381,7 @@ class MCTrackEmb(MCBaseTrack):
         # kalman update
         self.mean, self.covariance = self.KF.update(self.mean,
                                                     self.covariance,
-                                                    self.tlwh_to_xyah(new_track.tlwh))
+                                                    self.tlwh_to_xyah(new_track._tlwh))
 
         # feature vector update
         self.update_features(new_track.curr_feat)
@@ -497,7 +497,7 @@ class MCTrackEmb(MCBaseTrack):
         return 'OT_({}-{})_({}-{})'.format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
 
 
-# Multi-class Track class without embedding(feature vector)
+# Multi-class Track class using new independant Kalman
 class MCTrackKM(MCBaseTrack):
     def __init__(self, tlwh, score, cls_id, delta_t=3):
         """
@@ -508,10 +508,10 @@ class MCTrackKM(MCBaseTrack):
         self.cls_id = cls_id
 
         # init tlwh
-        self.tlwh = np.asarray(tlwh, dtype=np.float)
+        self._tlwh = np.asarray(tlwh, dtype=np.float)
 
         # init tlbr
-        self.tlbr = MCTrackKM.tlwh2tlbr(self.tlwh)
+        self.x1y1x2y2 = MCTrackKM.tlwh2tlbr(self._tlwh)
 
         ## ----- build and initiate the Kalman filter
         self.kf = oc_kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
@@ -536,7 +536,7 @@ class MCTrackKM(MCBaseTrack):
 
         # states: z: center_x, center_y, s(area), r(aspect ratio)
         # and center_x, center_y, s, derivatives of time
-        self.kf.x[:4] = convert_bbox_to_z(self.tlbr)
+        self.kf.x[:4] = convert_bbox_to_z(self.x1y1x2y2)
 
         ## ----- init is_activated to be False
         self.is_activated = False
@@ -604,7 +604,7 @@ class MCTrackKM(MCBaseTrack):
         self.track_len += 1
 
         self.score = new_track.score
-        new_bbox = new_track.tlbr
+        new_bbox = new_track.x1y1x2y2
         bbox_score = np.array([new_bbox[0], new_bbox[1], new_bbox[2], new_bbox[3], self.score])
 
         """
@@ -684,7 +684,7 @@ class MCTrackKM(MCBaseTrack):
         :return:
         """
         ## ----- Kalman filter update
-        bbox = new_track.tlbr
+        bbox = new_track.x1y1x2y2
         new_bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], new_track.score])
         self.kf.update(convert_bbox_to_z(new_bbox_score))
 
@@ -723,8 +723,19 @@ class MCTrackKM(MCBaseTrack):
         x1y1x2y2 | x1y1x2y2score
         """
         state = convert_x_to_bbox(self.kf.x)
-        self.tlbr = state[:4]  # x1y1x2y2
+        self.x1y1x2y2 = state[:4]  # x1y1x2y2
         return state
+
+    @property
+    def tlbr(self):
+        tlbr = self.get_state()
+        return tlbr
+
+    @property
+    def tlwh(self):
+        tlbr = self.get_state()
+        self._tlwh = MCTrackKM.tlbr2tlwh(tlbr)
+        return self._tlwh
 
     @staticmethod
     def tlwh2tlbr(tlwh):
@@ -762,7 +773,7 @@ class MCTrackKM(MCBaseTrack):
         """
         :return:
         """
-        return self.tlwh2xyah(self.tlwh)
+        return self.tlwh2xyah(self._tlwh)
 
     def __repr__(self):
         """
@@ -866,7 +877,7 @@ class MCTrack(MCBaseTrack):
         self.track_len += 1
 
         self.score = new_track.score
-        new_tlwh = new_track.tlwh
+        new_tlwh = new_track._tlwh
         bbox = self.tlwh2tlbr(new_tlwh)
         bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], self.score])
 
@@ -949,7 +960,7 @@ class MCTrack(MCBaseTrack):
         ## ----- Kalman update
         self.mean, self.covariance = self.kalman_filter.update(self.mean,
                                                                self.covariance,
-                                                               self.tlwh_to_xyah(new_track.tlwh))
+                                                               self.tlwh_to_xyah(new_track._tlwh))
 
         ## ----- update track-let states
         self.track_len = 0
@@ -1140,7 +1151,7 @@ class Track(BaseTrack):
         """
         self.mean, self.covariance = self.kalman_filter.update(self.mean,
                                                                self.covariance,
-                                                               self.tlwh_to_xyah(new_track.tlwh))
+                                                               self.tlwh_to_xyah(new_track._tlwh))
 
         self.tracklet_len = 0
         self.frame_id = frame_id
@@ -1705,7 +1716,7 @@ class ByteTracker(object):
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, track in enumerate(self.tracks):
-                x1, y1, x2, y2 = track.tlbr
+                x1, y1, x2, y2 = track.x1y1x2y2
                 trks[i] = [x1, y1, x2, y2, track.score]
                 if np.any(np.isnan([x1, y1, x2, y2])):
                     to_del.append(i)
@@ -1987,7 +1998,7 @@ class ByteTracker(object):
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, track in enumerate(self.tracks):
-                x1, y1, x2, y2 = track.tlbr
+                x1, y1, x2, y2 = track.x1y1x2y2
                 trks[i] = [x1, y1, x2, y2, track.score]
                 if np.any(np.isnan([x1, y1, x2, y2])):
                     to_del.append(i)

@@ -75,7 +75,7 @@ class STrack(BaseTrack):
 
     def re_activate(self, new_track, frame_id, new_id=False):
         self.mean, self.covariance = self.kalman_filter.update(
-            self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
+            self.mean, self.covariance, self.tlwh_to_xyah(new_track._tlwh)
         )
 
         self.update_features(new_track.curr_feat)
@@ -338,7 +338,7 @@ class BYTETracker(object):
         ids = []
         for track in output_stracks:
             if track.is_activated:
-                track_bbox = track.tlbr
+                track_bbox = track.x1y1x2y2
                 bboxes.append([track_bbox[0], track_bbox[1], track_bbox[2], track_bbox[3], track.score])
                 labels.append(0)
                 ids.append(track.track_id)

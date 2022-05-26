@@ -96,7 +96,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
         online_tlwhs = []
         online_ids = []
         for t in online_targets:
-            tlwh = t.tlwh
+            tlwh = t._tlwh
             tid = t.track_id
             vertical = tlwh[2] / tlwh[3] > 1.6
             if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:

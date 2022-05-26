@@ -90,7 +90,7 @@ class STrack(BaseTrack):
     def re_activate(self, new_track, frame_id, image, new_id=False):
         # self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(new_track.tlwh))
         self.mean, self.covariance = self.kalman_filter.update(
-            self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
+            self.mean, self.covariance, self.tlwh_to_xyah(new_track._tlwh)
         )
         self.time_since_update = 0
         self.time_by_tracking = 0
