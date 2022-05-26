@@ -1455,24 +1455,45 @@ class ByteTracker(object):
                                       using_delta_t=self.using_delta_t)
                     retrieve_tracks_dict[cls_id].append(track)
 
-            ## ----- process the unmatched dets and trks in the first round
-            if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
-                left_dets = dets_1st[unmatched_dets]
-                left_detections = np.array(detections_1st)[unmatched_dets]
+                    ## ----- process the unmatched dets and trks in the first round
+                    left_dets = []
+                    left_detections = []
 
-                left_trks = last_boxes[unmatched_trks]
-                left_tracks = np.array(self.tracks)[unmatched_trks]
+                    left_trks = []
+                    left_tracks = []
 
-                iou_left = iou_batch(left_dets, left_trks)  # calculate iou
-                iou_left = np.array(iou_left)
+                    rematched_inds = np.empty((0, 2), dtype=int)
+                    if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
+                        left_dets = dets_1st[unmatched_dets]
+                        left_detections = np.array(detections_1st)[unmatched_dets]
 
-                if iou_left.max() > self.iou_threshold:
-                    """
-                    NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
-                    get a higher performance especially on MOT17/MOT20 datasets. But we keep it
-                    uniform here for simplicity
-                    """
-                    rematched_inds = linear_assignment(-iou_left)
+                        left_trks = last_boxes[unmatched_trks]
+                        left_tracks = np.array(self.tracks)[unmatched_trks]
+
+                        iou_left = iou_batch(left_dets, left_trks)  # calculate iou
+                        iou_left = np.array(iou_left)
+
+                        if iou_left.max() > self.iou_threshold:
+                            """
+                            NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
+                            get a higher performance especially on MOT17/MOT20 datasets. But we keep it
+                            uniform here for simplicity
+                            """
+                            ## ----- matching
+                            rematched_inds = linear_assignment(-iou_left)
+
+                            ## ----- process the unmatched
+                            for i_det, i_track in rematched_inds:
+                                track = left_tracks[i_track]
+                                det = left_detections[i_det]
+
+                                if track.state == TrackState.Tracked:
+                                    track.update(det, self.frame_id)
+                                    activated_tracks_dict[cls_id].append(track)
+                                else:
+                                    track.re_activate(det, self.frame_id, new_id=False)
+                                    retrieve_tracks_dict[cls_id].append(track)
+
                     unmatched_dets_left, unmatched_trks_left = [], []
                     for i, det in enumerate(left_dets):  # dets
                         if i not in rematched_inds[:, 0]:
@@ -1480,23 +1501,6 @@ class ByteTracker(object):
                     for i, trk in enumerate(left_trks):  # trks
                         if i not in rematched_inds[:, 1]:
                             unmatched_trks_left.append(i)
-
-                    ## ----- process the unmatched
-                    for i_det, i_track in rematched_inds:
-                        track = left_tracks[i_track]
-                        det = left_detections[i_det]
-
-                        if track.state == TrackState.Tracked:
-                            track.update(det,
-                                         self.frame_id,
-                                         using_delta_t=self.using_delta_t)
-                            activated_tracks_dict[cls_id].append(track)
-                        else:
-                            track.re_activate(det,
-                                              self.frame_id,
-                                              new_id=False,
-                                              using_delta_t=self.using_delta_t)
-                            retrieve_tracks_dict[cls_id].append(track)
 
                     # process unmatched tracks for two rounds
                     for i_track in unmatched_trks_left:
