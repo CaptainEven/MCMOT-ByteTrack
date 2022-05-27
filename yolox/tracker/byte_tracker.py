@@ -499,7 +499,7 @@ class MCTrackEmb(MCBaseTrack):
 
 
 # Multi-class Track class using new independant Kalman
-class MCTrackKM(MCBaseTrack):
+class MCTrackOCByte(MCBaseTrack):
     def __init__(self, tlwh, score, cls_id, delta_t=3):
         """
         :param tlwh:
@@ -512,7 +512,7 @@ class MCTrackKM(MCBaseTrack):
         self._tlwh = np.asarray(tlwh, dtype=np.float)
 
         # init tlbr
-        self._tlbr = MCTrackKM.tlwh2tlbr(self._tlwh)
+        self._tlbr = MCTrackOCByte.tlwh2tlbr(self._tlwh)
 
         ## ----- build and initiate the Kalman filter
         self.kf = oc_kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
@@ -735,7 +735,7 @@ class MCTrackKM(MCBaseTrack):
     @property
     def tlwh(self):
         tlbr = self.get_x1y1x2y2()
-        self._tlwh = MCTrackKM.tlbr2tlwh(tlbr)
+        self._tlwh = MCTrackOCByte.tlbr2tlwh(tlbr)
         return self._tlwh
 
     @staticmethod
@@ -1387,7 +1387,7 @@ class ByteTracker(object):
 
             if len(bboxes_1st) > 0:
                 '''Build Tracks from Detections'''
-                detections_1st = [MCTrackKM(MCTrackKM.tlbr2tlwh(tlbr), s, cls_id) for
+                detections_1st = [MCTrackOCByte(MCTrackOCByte.tlbr2tlwh(tlbr), s, cls_id) for
                                   (tlbr, s) in zip(bboxes_1st, scores_1st)]
 
                 dets_1st = np.concatenate((bboxes_1st, np.expand_dims(scores_1st, axis=1)), axis=1)
