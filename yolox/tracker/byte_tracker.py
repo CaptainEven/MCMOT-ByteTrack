@@ -1304,7 +1304,7 @@ class ByteTracker(object):
         self.delta_t = delta_t
         self.max_age = self.buffer_size
         self.min_hits = 3
-        self.using_delta_t = False
+        self.using_delta_t = True
 
     def update_oc_enhance2(self, dets, img_size, net_size):
         """
@@ -1373,10 +1373,10 @@ class ByteTracker(object):
             scores = np.array(scores)
 
             inds_1st = scores > self.high_det_thresh
-            inds_low = scores > self.low_det_thresh
-            inds_high = scores < self.high_det_thresh
 
             ## class second indices
+            inds_low = scores > self.low_det_thresh
+            inds_high = scores < self.high_det_thresh
             inds_2nd = np.logical_and(inds_low, inds_high)
 
             bboxes_1st = bboxes[inds_1st]
