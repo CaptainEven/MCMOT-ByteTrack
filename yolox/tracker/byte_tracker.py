@@ -512,7 +512,7 @@ class MCByteTrackNK(MCBaseTrack):
         self._tlwh = np.asarray(tlwh, dtype=np.float)
 
         # init tlbr
-        self._tlbr = MCTrackOCByte.tlwh2tlbr(self._tlwh)
+        self._tlbr = MCByteTrackNK.tlwh2tlbr(self._tlwh)
 
         ## ----- build and initiate the Kalman filter
         self.kf = oc_kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
@@ -544,23 +544,6 @@ class MCByteTrackNK(MCBaseTrack):
         self.score = score
         self.track_len = 0
 
-        ## ----- record velocity direction
-        self.vel_dir = None
-
-        ## ----- record Winning streak
-        self.hit_streak = 0
-
-        # init
-        self.age = 0
-        self.delta_t = delta_t
-        self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
-
-        ## ----- to record history observations: bbox
-        self.observations_dict = dict()  # key: age
-
-        ## ----- init the last observation: bbox
-        self.last_observation = np.array([-1, -1, -1, -1, -1])
-
     def reset_track_id(self):
         """
         :return:
@@ -578,71 +561,22 @@ class MCByteTrackNK(MCBaseTrack):
         ## ----- Kalman predict
         self.kf.predict()
 
-        # 每predict一次, 生命周期+1
-        self.age += 1
+        bbox = convert_x_to_bbox(self.kf.x, score=None)
+        return bbox
 
-        # 如果丢失了一次更新, 连胜(连续跟踪)被终止
-        if self.time_since_last_update > 0:
-            self.hit_streak = 0
-
-        # 每predict一次, 未更新时间(帧数)+1
-        self.time_since_last_update += 1
-        self.history.append(convert_x_to_bbox(self.kf.x))
-
-        return self.history[-1]  # return x1y1x2y2score | x1y1x2y2
-
-    def update(self, new_track, frame_id, using_delta_t=False):
+    def update(self, new_track, frame_id):
         """
         Update a matched track
         :type new_track: STrack
         :type frame_id: int
-        :type using_delta_t: bool
         :return:
         """
         self.frame_id = frame_id
         self.track_len += 1
-
         self.score = new_track.score
+
         new_bbox = new_track._tlbr
         bbox_score = np.array([new_bbox[0], new_bbox[1], new_bbox[2], new_bbox[3], self.score])
-
-        """
-        Estimate the track velocity direction with observations delta_t steps away
-        """
-        if using_delta_t:
-            if self.last_observation.sum() >= 0:  # if previous observation exist
-                previous_box_score = None
-
-                for i in range(self.delta_t):
-                    dt = self.delta_t - i  # eg: 3, 2, 1
-                    if self.age - dt in self.observations_dict:  # from little age to large age
-                        previous_box_score = self.observations_dict[self.age - dt]  # -1, 0, 1
-                        break
-
-                if previous_box_score is None:
-                    previous_box_score = self.last_observation
-
-                self.vel_dir = self.get_velocity_direction(previous_box_score, bbox_score)
-        else:
-
-            """
-            Using last observation to calculate vel_dir
-            vel_dir: a 2d vector
-            """
-            if self.last_observation.sum() >= 0:
-                self.vel_dir = self.get_velocity_direction(self.last_observation, bbox_score)
-            else:
-                self.vel_dir = np.array([0.0, 0.0], dtype=np.float64)
-
-        ## update last observations
-        self.last_observation = bbox_score
-        self.observations_dict[self.age] = self.last_observation
-
-        ## ----- reset time since last update
-        self.time_since_last_update = 0
-
-        ## ----- update winning streak number
-        self.hit_streak += 1
 
         ## ----- Update motion model: update Kalman filter
         self.kf.update(convert_bbox_to_z(bbox_score))
