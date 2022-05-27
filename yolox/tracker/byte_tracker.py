@@ -776,7 +776,7 @@ class MCTrackOCByte(MCBaseTrack):
         """
         :return:
         """
-        return "OT_({}-{})_({}-{})" \
+        return "TR_({}-{})_({}-{})" \
             .format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
 
 
