@@ -2,6 +2,7 @@
 
 from collections import defaultdict, deque
 
+import copy
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -511,7 +512,7 @@ class MCTrackKM(MCBaseTrack):
         self._tlwh = np.asarray(tlwh, dtype=np.float)
 
         # init tlbr
-        self.x1y1x2y2 = MCTrackKM.tlwh2tlbr(self._tlwh)
+        self._tlbr = MCTrackKM.tlwh2tlbr(self._tlwh)
 
         ## ----- build and initiate the Kalman filter
         self.kf = oc_kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
@@ -536,7 +537,7 @@ class MCTrackKM(MCBaseTrack):
 
         # states: z: center_x, center_y, s(area), r(aspect ratio)
         # and center_x, center_y, s, derivatives of time
-        self.kf.x[:4] = convert_bbox_to_z(self.x1y1x2y2)
+        self.kf.x[:4] = convert_bbox_to_z(self._tlbr)
 
         ## ----- init is_activated to be False
         self.is_activated = False
@@ -604,7 +605,7 @@ class MCTrackKM(MCBaseTrack):
         self.track_len += 1
 
         self.score = new_track.score
-        new_bbox = new_track.x1y1x2y2
+        new_bbox = new_track._tlbr
         bbox_score = np.array([new_bbox[0], new_bbox[1], new_bbox[2], new_bbox[3], self.score])
 
         """
@@ -684,7 +685,7 @@ class MCTrackKM(MCBaseTrack):
         :return:
         """
         ## ----- Kalman filter update
-        bbox = new_track.x1y1x2y2
+        bbox = new_track._tlbr
         new_bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], new_track.score])
         self.kf.update(convert_bbox_to_z(new_bbox_score))
 
@@ -717,23 +718,23 @@ class MCTrackKM(MCBaseTrack):
         norm = np.linalg.norm(speed, ord=2)
         return speed / (norm + 1e-8)
 
-    def get_state(self):
+    def get_x1y1x2y2(self):
         """
         Returns the current bounding box estimate.
         x1y1x2y2 | x1y1x2y2score
         """
         state = convert_x_to_bbox(self.kf.x)
-        self.x1y1x2y2 = state[:4]  # x1y1x2y2
+        self._tlbr = state[:4]  # x1y1x2y2
         return state
 
     @property
     def tlbr(self):
-        tlbr = self.get_state()
-        return tlbr
+        x1y1x2y2 = self.get_x1y1x2y2()
+        return x1y1x2y2
 
     @property
     def tlwh(self):
-        tlbr = self.get_state()
+        tlbr = self.get_x1y1x2y2()
         self._tlwh = MCTrackKM.tlbr2tlwh(tlbr)
         return self._tlwh
 
@@ -742,18 +743,17 @@ class MCTrackKM(MCBaseTrack):
         """
         :param tlwh:
         """
-        ret = tlwh.copy()
+        ret = np.squeeze(tlwh.copy())
         ret[2:] += ret[:2]
         return ret
 
     @staticmethod
-    # @jit(nopython=True)
     def tlbr2tlwh(tlbr):
         """
         :param tlbr:
         :return:
         """
-        ret = np.asarray(tlbr).copy()
+        ret = np.squeeze(tlbr.copy())
         ret[2:] -= ret[:2]
         return ret
 
@@ -1372,17 +1372,17 @@ class ByteTracker(object):
             scores = scores_dict[cls_id]
             scores = np.array(scores)
 
-            remain_inds = scores > self.high_det_thresh
+            inds_1st = scores > self.high_det_thresh
             inds_low = scores > self.low_det_thresh
             inds_high = scores < self.high_det_thresh
 
             ## class second indices
             inds_2nd = np.logical_and(inds_low, inds_high)
 
-            bboxes_1st = bboxes[remain_inds]
+            bboxes_1st = bboxes[inds_1st]
             bboxes_2nd = bboxes[inds_2nd]
 
-            scores_1st = scores[remain_inds]
+            scores_1st = scores[inds_1st]
             scores_2nd = scores[inds_2nd]
 
             if len(bboxes_1st) > 0:
@@ -1716,7 +1716,7 @@ class ByteTracker(object):
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, track in enumerate(self.tracks):
-                x1, y1, x2, y2 = track.x1y1x2y2
+                x1, y1, x2, y2 = track._tlbr
                 trks[i] = [x1, y1, x2, y2, track.score]
                 if np.any(np.isnan([x1, y1, x2, y2])):
                     to_del.append(i)
@@ -1998,7 +1998,7 @@ class ByteTracker(object):
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, track in enumerate(self.tracks):
-                x1, y1, x2, y2 = track.x1y1x2y2
+                x1, y1, x2, y2 = track._tlbr
                 trks[i] = [x1, y1, x2, y2, track.score]
                 if np.any(np.isnan([x1, y1, x2, y2])):
                     to_del.append(i)

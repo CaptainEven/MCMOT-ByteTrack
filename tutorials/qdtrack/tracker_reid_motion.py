@@ -338,7 +338,7 @@ class BYTETracker(object):
         ids = []
         for track in output_stracks:
             if track.is_activated:
-                track_bbox = track.x1y1x2y2
+                track_bbox = track._tlbr
                 bboxes.append([track_bbox[0], track_bbox[1], track_bbox[2], track_bbox[3], track.score])
                 labels.append(0)
                 ids.append(track.track_id)

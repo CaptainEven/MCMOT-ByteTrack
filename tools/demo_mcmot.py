@@ -546,7 +546,7 @@ def video_tracking(predictor, cap, save_path, opt):
                         for cls_id in range(tracker.n_classes):  # process each object class
                             online_targets = online_dict[cls_id]
                             for track in online_targets:
-                                online_tlwhs_dict[cls_id].append(track._tlwh)
+                                online_tlwhs_dict[cls_id].append(track.tlwh)
                                 online_tr_ids_dict[cls_id].append(track.track_id)
 
                         timer.toc()

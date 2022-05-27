@@ -294,7 +294,7 @@ class BYTETracker(object):
                 track_dict = {}
                 track_dict['tracking_id'] = track.track_id
                 track_dict['active'] = 1
-                track_dict['bbox'] = track.x1y1x2y2
+                track_dict['bbox'] = track._tlbr
                 track_dict['score'] = track.score
                 ret.append(track_dict)
 
