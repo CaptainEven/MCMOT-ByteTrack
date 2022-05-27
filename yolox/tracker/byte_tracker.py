@@ -2549,7 +2549,8 @@ class ByteTracker(object):
                 detections_2nd = []
 
             r_tracked_tracks = [track_pool_dict[cls_id][i]
-                                for i in u_track if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+                                for i in u_track
+                                if track_pool_dict[cls_id][i].state == TrackState.Tracked]
 
             dists = matching.iou_distance(r_tracked_tracks, detections_2nd)
             matches, u_track, u_detection_second = matching.linear_assignment(dists,
