@@ -576,9 +576,7 @@ class MCTrackOCByte(MCBaseTrack):
             self.kf.x[6] *= 0.0
 
         ## ----- Kalman predict
-        # print("before predict:\n", self.kf.x)
         self.kf.predict()
-        # print("after predict:\n", self.kf.x)
 
         # 每predict一次, 生命周期+1
         self.age += 1
@@ -635,7 +633,6 @@ class MCTrackOCByte(MCBaseTrack):
                 self.vel_dir = self.get_velocity_direction(self.last_observation, bbox_score)
             else:
                 self.vel_dir = np.array([0.0, 0.0], dtype=np.float64)
-        # print("vel_dir: {:.3f}, {:.3f}".format(self.vel_dir[0], self.vel_dir[1]))
 
         ## update last observations
         self.last_observation = bbox_score
