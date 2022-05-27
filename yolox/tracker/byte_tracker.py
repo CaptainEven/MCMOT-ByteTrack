@@ -2202,17 +2202,18 @@ class ByteTracker(object):
             scores = scores_dict[cls_id]
             scores = np.array(scores)
 
-            remain_inds = scores > self.high_det_thresh
+            ## first group inds
+            inds_1st = scores > self.high_det_thresh
+
+            ## second group inds
             inds_low = scores > self.low_det_thresh
             inds_high = scores < self.high_det_thresh
-
-            ## class second indices
             inds_2nd = np.logical_and(inds_low, inds_high)
 
-            bboxes_1st = bboxes[remain_inds]
+            bboxes_1st = bboxes[inds_1st]
             bboxes_2nd = bboxes[inds_2nd]
 
-            scores_1st = scores[remain_inds]
+            scores_1st = scores[inds_1st]
             scores_2nd = scores[inds_2nd]
 
             if len(bboxes_1st) > 0:
