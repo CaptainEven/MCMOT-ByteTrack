@@ -633,22 +633,6 @@ class MCByteTrackNK(MCBaseTrack):
         if new_id:  # update track id for the object class
             self.track_id = self.next_id(self.cls_id)
 
-    @staticmethod
-    def get_velocity_direction(bbox1, bbox2):
-        """
-        @param bbox1
-        @param bbox2
-        """
-        if (bbox2 == bbox1).all():
-            return np.array([0.0, 0.0], dtype=np.float64)
-
-        dx1, dy1 = (bbox1[0] + bbox1[2]) * 0.5, (bbox1[1] + bbox1[3]) * 0.5
-        dx2, dy2 = (bbox2[0] + bbox2[2]) * 0.5, (bbox2[1] + bbox2[3]) * 0.5
-        speed = np.array([dy2 - dy1, dx2 - dx1])  # dy, dx
-        # norm = np.sqrt((dy2 - dy1) ** 2 + (dx2 - dx1) ** 2) + 1e-6
-        norm = np.linalg.norm(speed, ord=2)
-        return speed / (norm + 1e-8)
-
     def get_x1y1x2y2(self):
         """
         Returns the current bounding box estimate.
