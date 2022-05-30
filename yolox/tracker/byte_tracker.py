@@ -1977,7 +1977,7 @@ class ByteTracker(object):
                     ## ----- matching
                     rematched_inds = linear_assignment(-iou_left)
 
-                    ## ----- process the unmatched
+                    ## ----- process the re-matched
                     for i_det, i_track in rematched_inds:
                         track = left_tracks[i_track]
                         det = left_detections[i_det]
