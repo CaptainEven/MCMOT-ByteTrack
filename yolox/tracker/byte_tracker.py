@@ -637,7 +637,7 @@ class MCByteTrackNK(MCBaseTrack):
         Returns the current bounding box estimate.
         x1y1x2y2
         """
-        state = convert_x_to_bbox(self.kf.x)
+        state = np.squeeze(convert_x_to_bbox(self.kf.x))
         self._tlbr = state[:4]  # x1y1x2y2
         return self._tlbr
 
@@ -914,23 +914,23 @@ class MCTrackOCByte(MCBaseTrack):
         norm = np.linalg.norm(speed, ord=2)
         return speed / (norm + 1e-8)
 
-    def get_x1y1x2y2(self):
+    def get_bbox(self):
         """
         Returns the current bounding box estimate.
-        x1y1x2y2 | x1y1x2y2score
+        x1y1x2y2
         """
-        state = convert_x_to_bbox(self.kf.x)
-        self._tlbr = state[:4]  # x1y1x2y2
-        return state
+        bbox = np.squeeze(convert_x_to_bbox(self.kf.x))
+        self._tlbr = bbox[:4]  # x1y1x2y2
+        return self._tlbr
 
     @property
     def tlbr(self):
-        x1y1x2y2 = self.get_x1y1x2y2()
+        x1y1x2y2 = self.get_bbox()
         return x1y1x2y2
 
     @property
     def tlwh(self):
-        tlbr = self.get_x1y1x2y2()
+        tlbr = self.get_bbox()
         self._tlwh = MCTrackOCByte.tlbr2tlwh(tlbr)
         return self._tlwh
 
@@ -2502,9 +2502,7 @@ class ByteTracker(object):
 
             # iou matching
             dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections_1st)
-
-            if not self.opt.mot20:
-                dists = matching.fuse_score(dists, detections_1st)
+            dists = matching.fuse_score(dists, detections_1st)
 
             matches, u_unconfirmed, u_detection_1st = matching.linear_assignment(dists,
                                                                                  thresh=self.unconfirmed_match_thresh)  # 0.7
@@ -2528,7 +2526,7 @@ class ByteTracker(object):
 
                 # tracked but not activated: activate do not set 'is_activated' to be True
                 # if fr_id > 1, tracked but not activated
-                track.activate(self.kalman_filter, self.frame_id)
+                track.activate(self.frame_id)
 
                 # activated_tracks_dict may contain track with 'is_activated' False
                 activated_tracks_dict[cls_id].append(track)
