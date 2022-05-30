@@ -504,8 +504,8 @@ def video_tracking(predictor, cap, save_path, opt):
                     else:
                         # online_dict = tracker.update_mcmot_byte(dets, img_size, net_size)
                         # online_dict = tracker.update_byte_nk(dets, img_size, net_size)
-                        online_dict = tracker.update_byte_enhance(dets, img_size, net_size)
-                        # online_dict = tracker.update_oc_enhance2(dets, img_size, net_size)
+                        # online_dict = tracker.update_byte_enhance(dets, img_size, net_size)
+                        online_dict = tracker.update_oc_enhance2(dets, img_size, net_size)
 
                 elif opt.tracker == "oc":
                     online_dict = tracker.update_frame(dets, img_size, exp.test_size)

@@ -560,7 +560,8 @@ class MCByteTrackNK(MCBaseTrack):
         ## ----- Kalman predict
         self.kf.predict()
 
-        bbox = convert_x_to_bbox(self.kf.x, score=None)
+        bbox = np.squeeze(convert_x_to_bbox(self.kf.x, score=None))
+        self._tlbr = bbox
         return bbox
 
     def update(self, new_track, frame_id):
@@ -785,8 +786,11 @@ class MCTrackOCByte(MCBaseTrack):
 
         # 每predict一次, 未更新时间(帧数)+1
         self.time_since_last_update += 1
-        self.history.append(convert_x_to_bbox(self.kf.x))
 
+        bbox = convert_x_to_bbox(self.kf.x)
+        self.history.append(bbox)
+
+        self._tlbr = bbox[:4]
         return self.history[-1]  # return x1y1x2y2score | x1y1x2y2
 
     def update(self, new_track, frame_id, using_delta_t=False):
@@ -1606,10 +1610,12 @@ class ByteTracker(object):
                                                   self.lost_tracks_dict[cls_id])
 
             # ---------- Predict the current location with KF
-            # self.tracks = tracked_tracks_dict[cls_id]
+            self.tracks = track_pool_dict[cls_id]
+            # self.tracked_tracks = tracked_tracks_dict[cls_id]
             # MCTrack.multi_predict(self.tracks)  # only predict tracked
 
-            self.tracks = track_pool_dict[cls_id]
+            # for track in self.tracked_tracks:
+            #     track.predict()
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
@@ -1617,7 +1623,8 @@ class ByteTracker(object):
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, track in enumerate(self.tracks):
-                bbox = track.predict()[0]  # do prediction
+                # bbox = track._tlbr
+                bbox = track.predict()[0]
                 trks[i] = [bbox[0], bbox[1], bbox[2], bbox[3], track.score]
                 if np.any(np.isnan(bbox)):
                     to_del.append(i)
@@ -2247,7 +2254,8 @@ class ByteTracker(object):
                 detections_2nd = []
 
             r_tracked_tracks = [track_pool_dict[cls_id][i]
-                                for i in unmatched_trks if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+                                for i in unmatched_trks
+                                if track_pool_dict[cls_id][i].state == TrackState.Tracked]
 
             dists = matching.iou_distance(r_tracked_tracks, detections_2nd)
             matches, unmatched_trks, u_detection_2nd = matching.linear_assignment(dists,
