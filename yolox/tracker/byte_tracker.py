@@ -2,7 +2,6 @@
 
 from collections import defaultdict, deque
 
-import copy
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -2564,7 +2563,6 @@ class ByteTracker(object):
         return output_tracks_dict
         #################### MCMOT end
 
-
     def update_mcmot_byte(self, dets, img_size, net_size):
         """
         Original byte tracking
@@ -2658,7 +2656,9 @@ class ByteTracker(object):
 
             ''' Step 2: First association, with high score detection boxes'''
             ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
-            track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
+            track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id],
+                                                  self.lost_tracks_dict[cls_id])
+            # self.tracks = track_pool_dict[cls_id]
 
             # ---------- Predict the current location with KF
             # MCTrack.multi_predict(track_pool_dict[cls_id])

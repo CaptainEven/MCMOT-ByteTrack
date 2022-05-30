@@ -459,6 +459,8 @@ def video_tracking(predictor, cap, save_path, opt):
         id2cls[cls_id] = cls_name
         cls2id[cls_name] = cls_id
 
+    net_size = exp.test_size
+
     timer = Timer()
 
     frame_id = 0
@@ -498,16 +500,14 @@ def video_tracking(predictor, cap, save_path, opt):
                         online_dict = tracker.update_mcmot_emb(dets,
                                                                feature_map,
                                                                img_size,
-                                                               exp.test_size)
+                                                               net_size)
                     else:
-                        # online_dict = tracker.update_mcmot_byte(dets,
-                        #                                         img_size,
-                        #                                         exp.test_size)
+                        online_dict = tracker.update_mcmot_byte(dets, img_size, net_size)
                         # online_dict = tracker.update_byte_enhance(dets,
                         #                                           img_size,
-                        #                                           exp.test_size)
-                        online_dict = tracker.update_byte_nk(dets, img_size, exp.test_size)
-                        # online_dict = tracker.update_oc_enhance2(dets, img_size, exp.test_size)
+                        #                                           net_size)
+                        online_dict = tracker.update_byte_nk(dets, img_size, net_size)
+                        # online_dict = tracker.update_oc_enhance2(dets, img_size, net_size)
 
                 elif opt.tracker == "oc":
                     online_dict = tracker.update_frame(dets, img_size, exp.test_size)
