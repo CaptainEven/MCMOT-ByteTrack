@@ -633,10 +633,10 @@ class MCByteTrackNK(MCBaseTrack):
         if new_id:  # update track id for the object class
             self.track_id = self.next_id(self.cls_id)
 
-    def get_x1y1x2y2(self):
+    def get_bbox(self):
         """
         Returns the current bounding box estimate.
-        x1y1x2y2 | x1y1x2y2score
+        x1y1x2y2
         """
         state = convert_x_to_bbox(self.kf.x)
         self._tlbr = state[:4]  # x1y1x2y2
@@ -644,12 +644,12 @@ class MCByteTrackNK(MCBaseTrack):
 
     @property
     def tlbr(self):
-        x1y1x2y2 = self.get_x1y1x2y2()
+        x1y1x2y2 = self.get_bbox()
         return x1y1x2y2
 
     @property
     def tlwh(self):
-        tlbr = self.get_x1y1x2y2()
+        tlbr = self.get_bbox()
         self._tlwh = MCTrackOCByte.tlbr2tlwh(tlbr)
         return self._tlwh
 
