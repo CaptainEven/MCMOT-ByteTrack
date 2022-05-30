@@ -1675,10 +1675,13 @@ class ByteTracker(object):
             if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
                 left_dets = dets_1st[unmatched_dets]
                 left_detections = np.array(detections_1st)[unmatched_dets]
+
                 left_trks = last_boxes[unmatched_trks]
                 left_tracks = np.array(self.tracks)[unmatched_trks]
+
                 iou_left = iou_batch(left_dets, left_trks)  # calculate iou
                 iou_left = np.array(iou_left)
+
                 if iou_left.max() > self.iou_threshold:
                     """
                     NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
@@ -1687,7 +1690,8 @@ class ByteTracker(object):
                     """
                     ## ----- matching
                     rematched_inds = linear_assignment(-iou_left)
-                    ## ----- process the unmatched
+
+                    ## ----- process the re-matched
                     for i_det, i_track in rematched_inds:
                         track = left_tracks[i_track]
                         det = left_detections[i_det]
