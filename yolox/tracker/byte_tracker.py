@@ -1953,10 +1953,8 @@ class ByteTracker(object):
             ## ----- process the unmatched dets and trks in the first round
             left_dets = []
             left_detections = []
-
             left_trks = []
             left_tracks = []
-
             rematched_inds = np.empty((0, 2), dtype=int)
             if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
                 left_dets = dets_1st[unmatched_dets]
