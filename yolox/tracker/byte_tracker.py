@@ -640,7 +640,7 @@ class MCByteTrackNK(MCBaseTrack):
         """
         state = convert_x_to_bbox(self.kf.x)
         self._tlbr = state[:4]  # x1y1x2y2
-        return state
+        return self._tlbr
 
     @property
     def tlbr(self):
