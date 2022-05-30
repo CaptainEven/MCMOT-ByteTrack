@@ -1620,8 +1620,13 @@ class ByteTracker(object):
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, track in enumerate(self.tracks):
-                # bbox = track._tlbr
+                # if track in self.tracked_tracks:
+                #     bbox = track.predict()[0]
+                # else:
+                #     bbox = track._tlbr
+
                 bbox = track.predict()[0]
+
                 trks[i] = [bbox[0], bbox[1], bbox[2], bbox[3], track.score]
                 if np.any(np.isnan(bbox)):
                     to_del.append(i)
