@@ -1569,30 +1569,30 @@ class ByteTracker(object):
             scores = scores_dict[cls_id]
             scores = np.array(scores)
 
-            inds_1st = scores > self.high_det_thresh
+            inds_high = scores > self.high_det_thresh
 
             ## class second indices
-            inds_low = scores > self.low_det_thresh
-            inds_high = scores < self.high_det_thresh
-            inds_2nd = np.logical_and(inds_low, inds_high)
+            inds_lb = scores > self.low_det_thresh
+            inds_hb = scores < self.high_det_thresh
+            inds_low = np.logical_and(inds_lb, inds_hb)
 
-            bboxes_1st = bboxes[inds_1st]
-            bboxes_2nd = bboxes[inds_2nd]
+            bboxes_high = bboxes[inds_high]
+            bboxes_low = bboxes[inds_low]
 
-            scores_1st = scores[inds_1st]
-            scores_2nd = scores[inds_2nd]
+            scores_high = scores[inds_high]
+            scores_low = scores[inds_low]
 
-            if len(bboxes_1st) > 0:
+            if len(bboxes_high) > 0:
                 '''Build Tracks from Detections'''
-                detections_1st = [MCTrackOCByte(MCTrackOCByte.tlbr2tlwh(tlbr), s, cls_id) for
-                                  (tlbr, s) in zip(bboxes_1st, scores_1st)]
+                detections_high = [MCTrackOCByte(MCTrackOCByte.tlbr2tlwh(tlbr), s, cls_id) for
+                                   (tlbr, s) in zip(bboxes_high, scores_high)]
 
-                dets_1st = np.concatenate((bboxes_1st, np.expand_dims(scores_1st, axis=1)), axis=1)
+                dets_1st = np.concatenate((bboxes_high, np.expand_dims(scores_high, axis=1)), axis=1)
             else:
-                detections_1st = []
-                bboxes_1st = np.empty((0, 4), dtype=float)
-                scores_1st = np.empty((0, 1), dtype=float)
-                dets_1st = np.concatenate((bboxes_1st, scores_1st), axis=1)
+                detections_high = []
+                bboxes_high = np.empty((0, 4), dtype=float)
+                scores_high = np.empty((0, 1), dtype=float)
+                dets_1st = np.concatenate((bboxes_high, scores_high), axis=1)
 
             '''Add newly detected tracks(current frame) to tracked_tracks'''
             for track in self.tracked_tracks_dict[cls_id]:
@@ -1642,17 +1642,17 @@ class ByteTracker(object):
             First round of association
             using high confidence dets and existed trks
             """
-            matches, unmatched_dets, unmatched_trks = associate(dets_1st,
-                                                                k_observations,
-                                                                trks,
-                                                                velocities,
-                                                                self.iou_threshold,
-                                                                self.vel_dir_weight)
+            matches, unmatched_dets_1st, unmatched_trks_1st = associate(dets_1st,
+                                                                        k_observations,
+                                                                        trks,
+                                                                        velocities,
+                                                                        self.iou_threshold,
+                                                                        self.vel_dir_weight)
 
             # --- process matched pairs between track pool and current frame detection
             for i_det, i_track in matches:
                 track = self.tracks[i_track]
-                det = detections_1st[i_det]
+                det = detections_high[i_det]
 
                 if track.state == TrackState.Tracked:
                     track.update(det,
@@ -1667,34 +1667,34 @@ class ByteTracker(object):
                     retrieve_tracks_dict[cls_id].append(track)
 
             ## ----- process the unmatched dets and trks in the first round
-            left_dets = []
-            left_detections = []
-            left_trks = []
-            left_tracks = []
+            dets_2nd = []
+            detections_2nd = []
+            trks_2nd = []
+            tracks_2nd = []
             rematched_inds = np.empty((0, 2), dtype=int)
-            if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
-                left_dets = dets_1st[unmatched_dets]
-                left_detections = np.array(detections_1st)[unmatched_dets]
+            if unmatched_dets_1st.shape[0] > 0 and unmatched_trks_1st.shape[0] > 0:
+                dets_2nd = dets_1st[unmatched_dets_1st]
+                detections_2nd = np.array(detections_high)[unmatched_dets_1st]
 
-                left_trks = last_boxes[unmatched_trks]
-                left_tracks = np.array(self.tracks)[unmatched_trks]
+                trks_2nd = last_boxes[unmatched_trks_1st]
+                tracks_2nd = np.array(self.tracks)[unmatched_trks_1st]
 
-                iou_left = iou_batch(left_dets, left_trks)  # calculate iou
-                iou_left = np.array(iou_left)
+                iou_2nd = iou_batch(dets_2nd, trks_2nd)  # calculate iou
+                iou_2nd = np.array(iou_2nd)
 
-                if iou_left.max() > self.iou_threshold:
+                if iou_2nd.max() > self.iou_threshold:
                     """
                     NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
                     get a higher performance especially on MOT17/MOT20 datasets. But we keep it
                     uniform here for simplicity
                     """
                     ## ----- matching
-                    rematched_inds = linear_assignment(-iou_left)
+                    rematched_inds = linear_assignment(-iou_2nd)
 
                     ## ----- process the re-matched
                     for i_det, i_track in rematched_inds:
-                        track = left_tracks[i_track]
-                        det = left_detections[i_det]
+                        track = tracks_2nd[i_track]
+                        det = detections_2nd[i_det]
                         if track.state == TrackState.Tracked:
                             track.update(det,
                                          self.frame_id,
@@ -1707,18 +1707,18 @@ class ByteTracker(object):
                                               using_delta_t=self.using_delta_t)
                             retrieve_tracks_dict[cls_id].append(track)
 
-            unmatched_dets_left = []
-            unmatched_trks_left = []
-            for i, det in enumerate(left_dets):  # dets
+            unmatched_dets_2nd = []
+            unmatched_trks_2nd = []
+            for i, det in enumerate(dets_2nd):  # dets
                 if i not in rematched_inds[:, 0]:
-                    unmatched_dets_left.append(i)
-            for i, trk in enumerate(left_trks):  # trks
+                    unmatched_dets_2nd.append(i)
+            for i, trk in enumerate(trks_2nd):  # trks
                 if i not in rematched_inds[:, 1]:
-                    unmatched_trks_left.append(i)
+                    unmatched_trks_2nd.append(i)
 
             # process unmatched tracks for two rounds
-            for i_track in unmatched_trks_left:
-                track = left_tracks[i_track]
+            for i_track in unmatched_trks_2nd:
+                track = tracks_2nd[i_track]
                 if not track.state == TrackState.Lost:
                     # mark unmatched track as lost track
                     track.mark_lost()
@@ -1726,7 +1726,10 @@ class ByteTracker(object):
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             # current frame's unmatched detection
-            detections_left = [detections_1st[i] for i in unmatched_dets]
+            detections_left = [detections_high[i] for i in unmatched_dets_1st]
+            if len(unmatched_dets_2nd) > 0:
+                detections_2nd_left = [detections_2nd[i] for i in unmatched_dets_2nd]
+                detections_left = join_tracks(detections_left, detections_2nd_left)
 
             # iou matching
             dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections_left)
@@ -3676,22 +3679,22 @@ class ByteTracker(object):
         return output_stracks
 
 
-def join_tracks(tlista, tlistb):
+def join_tracks(list_1, list_2):
     """
-    :param tlista:
-    :param tlistb:
+    :param list_1:
+    :param list_2:
     :return:
     """
     exists = {}
     res = []
 
-    for t in tlista:
+    for t in list_1:
         exists[t.track_id] = 1
         res.append(t)
-    for t in tlistb:
-        tid = t.track_id
-        if not exists.get(tid, 0):
-            exists[tid] = 1
+    for t in list_2:
+        tr_id = t.track_id
+        if not exists.get(tr_id, 0):
+            exists[tr_id] = 1
             res.append(t)
 
     return res
