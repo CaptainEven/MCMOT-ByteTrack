@@ -982,6 +982,220 @@ class MCTrackOCByte(MCBaseTrack):
             .format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
 
 
+## ----- New Kalman filter for byte track: uisng OC's Kalman
+class EnhanceTrack(MCBaseTrack):
+    def __init__(self, tlwh, score, cls_id, delta_t=3):
+        """
+        :param tlwh:
+        :param score:
+        """
+        # object class id
+        self.cls_id = cls_id
+
+        # init tlwh
+        self._tlwh = np.asarray(tlwh, dtype=np.float)
+
+        # init tlbr
+        self._tlbr = MCByteTrackNK.tlwh2tlbr(self._tlwh)
+
+        ## ----- build and initiate the Kalman filter
+        self.kf = oc_kalmanfilter.KalmanFilterNew(dim_x=7, dim_z=4)
+        self.kf.F = np.array([[1, 0, 0, 0, 1, 0, 0],
+                              [0, 1, 0, 0, 0, 1, 0],
+                              [0, 0, 1, 0, 0, 0, 1],
+                              [0, 0, 0, 1, 0, 0, 0],
+                              [0, 0, 0, 0, 1, 0, 0],
+                              [0, 0, 0, 0, 0, 1, 0],
+                              [0, 0, 0, 0, 0, 0, 1]])  # constant velocity model
+        self.kf.H = np.array([[1, 0, 0, 0, 0, 0, 0],
+                              [0, 1, 0, 0, 0, 0, 0],
+                              [0, 0, 1, 0, 0, 0, 0],
+                              [0, 0, 0, 1, 0, 0, 0]])
+
+        # give high uncertainty to the unobservable initial velocities
+        self.kf.P[4:, 4:] *= 1000.0
+        self.kf.P *= 10.0
+        self.kf.Q[-1, -1] *= 0.01
+        self.kf.Q[4:, 4:] *= 0.01
+        self.kf.R[2:, 2:] *= 10.0
+
+        # states: z: center_x, center_y, s(area), r(aspect ratio)
+        # and center_x, center_y, s, derivatives of time
+        self.kf.x[:4] = convert_bbox_to_z(self._tlbr)
+
+        ## ----- init is_activated to be False
+        self.is_activated = False
+        self.score = score
+        self.track_len = 0
+
+        ## ---------- Added parameters for enhanced matching(add vel_dir)
+        self.age = 0
+        self.delta_t = delta_t
+        self.time_since_last_update = 0  # time(frames) since last update
+
+        ## ----- record history observations: bbox
+        self.observations_dict = dict()  # key: age
+
+        ## ----- record the last observation: bbox
+        self.last_observation = np.array([-1, -1, -1, -1, -1])
+
+        ## ----- record velocity direction
+        self.vel_dir = None
+
+    def reset_track_id(self):
+        """
+        :return:
+        """
+        self.reset_track_id(self.cls_id)
+
+    def predict(self):
+        """
+        Advances the state vector and
+        returns the predicted bounding box estimate.
+        """
+        if (self.kf.x[6] + self.kf.x[2]) <= 0:
+            self.kf.x[6] *= 0.0
+
+        ## ----- Kalman predict
+        self.kf.predict()
+
+        bbox = np.squeeze(convert_x_to_bbox(self.kf.x, score=None))
+        self._tlbr = bbox
+        return bbox
+
+    def update(self, new_track, frame_id):
+        """
+        Update a matched track
+        :type new_track: STrack
+        :type frame_id: int
+        :return:
+        """
+        self.frame_id = frame_id
+        self.track_len += 1
+        self.score = new_track.score
+
+        new_bbox = new_track._tlbr
+        bbox_score = np.array([new_bbox[0], new_bbox[1], new_bbox[2], new_bbox[3], self.score])
+
+        ## ----- Update motion model: update Kalman filter
+        self.kf.update(convert_bbox_to_z(bbox_score))
+
+        ## ----- Update the states
+        self.state = TrackState.Tracked
+        self.is_activated = True
+        ## -----
+
+    def activate(self, frame_id):
+        """
+        Start a new track-let: the initial activation
+        :param frame_id:
+        :return:
+        """
+        # update track id for the object class
+        self.track_id = self.next_id(self.cls_id)
+        self.track_len = 0  # init track len
+        self.state = TrackState.Tracked
+
+        self.frame_id = frame_id
+        self.start_frame = frame_id
+        if self.frame_id == 1:
+            self.is_activated = True
+
+    def re_activate(self,
+                    new_track,
+                    frame_id,
+                    new_id=False,
+                    using_delta_t=False):
+        """
+        :param new_track:
+        :param frame_id:
+        :param new_id:
+        :param using_delta_t:
+        :return:
+        """
+        ## ----- Kalman filter update
+        bbox = new_track._tlbr
+        new_bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], new_track.score])
+        self.kf.update(convert_bbox_to_z(new_bbox_score))
+
+        ## ----- update track-let states
+        self.track_len = 0
+        self.frame_id = frame_id
+        self.score = new_track.score
+
+        ## ----- Update tracking states
+        self.state = TrackState.Tracked
+        self.is_activated = True
+        ## -----
+
+        if new_id:  # update track id for the object class
+            self.track_id = self.next_id(self.cls_id)
+
+    def get_bbox(self):
+        """
+        Returns the current bounding box estimate.
+        x1y1x2y2
+        """
+        state = np.squeeze(convert_x_to_bbox(self.kf.x))
+        self._tlbr = state[:4]  # x1y1x2y2
+        return self._tlbr
+
+    @property
+    def tlbr(self):
+        x1y1x2y2 = self.get_bbox()
+        return x1y1x2y2
+
+    @property
+    def tlwh(self):
+        tlbr = self.get_bbox()
+        self._tlwh = MCTrackOCByte.tlbr2tlwh(tlbr)
+        return self._tlwh
+
+    @staticmethod
+    def tlwh2tlbr(tlwh):
+        """
+        :param tlwh:
+        """
+        ret = np.squeeze(tlwh.copy())
+        ret[2:] += ret[:2]
+        return ret
+
+    @staticmethod
+    def tlbr2tlwh(tlbr):
+        """
+        :param tlbr:
+        :return:
+        """
+        ret = np.squeeze(tlbr.copy())
+        ret[2:] -= ret[:2]
+        return ret
+
+    @staticmethod
+    # @jit(nopython=True)
+    def tlwh2xyah(tlwh):
+        """
+        Convert bounding box to format `(center x, center y, aspect ratio,
+        height)`, where the aspect ratio is `width / height`.
+        """
+        ret = np.squeeze(np.asarray(tlwh).copy())
+        ret[:2] += ret[2:] / 2
+        ret[2] /= ret[3]
+        return ret
+
+    def to_xyah(self):
+        """
+        :return:
+        """
+        return self.tlwh2xyah(self._tlwh)
+
+    def __repr__(self):
+        """
+        :return:
+        """
+        return "TR_({}-{})_({}-{})" \
+            .format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
+
+
 class MCTrack(MCBaseTrack):
     shared_kalman = KalmanFilter()
 
@@ -1049,7 +1263,6 @@ class MCTrack(MCBaseTrack):
                     multi_mean[i][7] = 0
 
             multi_mean, multi_covariance = MCTrack.shared_kalman.multi_predict(multi_mean, multi_covariance)
-
             for i, (mean, cov) in enumerate(zip(multi_mean, multi_covariance)):
                 tracks[i].mean = mean
                 tracks[i].covariance = cov
@@ -2338,7 +2551,8 @@ class ByteTracker(object):
             self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
                                                        self.tracked_tracks_dict[cls_id])
             self.lost_tracks_dict[cls_id].extend(lost_tracks_dict[cls_id])
-            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id], self.removed_tracks_dict[cls_id])
+            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
+                                                       self.removed_tracks_dict[cls_id])
 
             self.removed_tracks_dict[cls_id].extend(removed_tracks_dict[cls_id])
 
