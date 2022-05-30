@@ -1467,9 +1467,8 @@ class ByteTracker(object):
         self.high_match_thresh = self.opt.match_thresh  # 0.8
         self.low_match_thresh = 0.5
         self.unconfirmed_match_thresh = 0.7
-        self.new_track_thresh = self.high_det_thresh + 0.1  # 0.6
-        self.iou_threshold = 0.3
-        self.vel_dir_weight = 0.2
+        self.new_track_thresh = self.high_det_thresh
+        # self.new_track_thresh = 0.2
 
         print("Tracker's low det thresh: ", self.low_det_thresh)
         print("Tracker's high det thresh: ", self.high_det_thresh)
@@ -1501,6 +1500,10 @@ class ByteTracker(object):
 
         self.tracks = []
         self.tracked_tracks = []
+
+        self.iou_threshold = 0.3
+        self.vel_dir_weight = 0.2
+
         self.delta_t = delta_t
         self.max_age = self.buffer_size
         self.min_hits = 3
@@ -2480,6 +2483,7 @@ class ByteTracker(object):
             else:
                 detections_low = []
 
+            ## ----- record un-matched tracks after the 1st round matching
             unmatched_tracks = [self.tracks[i]
                                 for i in u_track_1st
                                 if self.tracks[i].state == TrackState.Tracked]
@@ -2509,17 +2513,20 @@ class ByteTracker(object):
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             # current frame's unmatched detection
-            detections_high = [detections_high[i] for i in u_detection_1st]
+            dets_left = [detections_high[i] for i in u_detection_1st]  # high left
+            dets_low_left = [detections_low[i] for i in u_detection_2nd]
+            if len(dets_low_left) > 0:
+                dets_left = join_tracks(dets_left, dets_low_left)
 
             # iou matching
-            dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections_high)
-            dists = matching.fuse_score(dists, detections_high)
+            dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], dets_left)
+            dists = matching.fuse_score(dists, dets_left)
             matches, u_unconfirmed, u_detection_1st = matching.linear_assignment(dists,
                                                                                  thresh=self.unconfirmed_match_thresh)  # 0.7
 
             for i_track, i_det in matches:
                 track = unconfirmed_tracks_dict[cls_id][i_track]
-                det = detections_high[i_det]
+                det = dets_left[i_det]
                 track.update(det, self.frame_id)
                 activated_tracks_dict[cls_id].append(track)
 
@@ -2530,7 +2537,7 @@ class ByteTracker(object):
 
             """Step 4: Init new tracks"""
             for i_new in u_detection_1st:  # current frame's unmatched detection
-                track = detections_high[i_new]
+                track = dets_left[i_new]
                 if track.score < self.new_track_thresh:
                     continue
 
