@@ -1703,7 +1703,8 @@ class ByteTracker(object):
                                               using_delta_t=self.using_delta_t)
                             retrieve_tracks_dict[cls_id].append(track)
 
-            unmatched_dets_left, unmatched_trks_left = [], []
+            unmatched_dets_left = []
+            unmatched_trks_left = []
             for i, det in enumerate(left_dets):  # dets
                 if i not in rematched_inds[:, 0]:
                     unmatched_dets_left.append(i)
