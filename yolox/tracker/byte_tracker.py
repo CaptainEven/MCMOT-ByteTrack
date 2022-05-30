@@ -2179,14 +2179,15 @@ class ByteTracker(object):
 
             ''' Step 2: First association, with high score detection boxes'''
             ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
-            track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
+            track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id],
+                                                  self.lost_tracks_dict[cls_id])
 
             # ---------- Predict the current location with KF
-            # self.tracks = tracked_tracks_dict[cls_id]
-            # MCTrack.multi_predict(self.tracks)  # only predict tracked tracks
-
             self.tracks = track_pool_dict[cls_id]
-            MCTrack.multi_predict(self.tracks)
+            self.tracked_tracks = tracked_tracks_dict[cls_id]
+
+            # MCTrack.multi_predict(self.tracks)  # only predict tracked tracks
+            MCTrack.multi_predict(self.tracked_tracks)
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
@@ -2194,7 +2195,7 @@ class ByteTracker(object):
             trks = np.zeros((len(self.tracks), 5))
             to_del = []
             for i, track in enumerate(self.tracks):
-                x1, y1, x2, y2 = track._tlbr
+                x1, y1, x2, y2 = track.tlbr
                 trks[i] = [x1, y1, x2, y2, track.score]
                 if np.any(np.isnan([x1, y1, x2, y2])):
                     to_del.append(i)
