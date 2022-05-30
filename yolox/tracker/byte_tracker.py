@@ -1517,9 +1517,6 @@ class ByteTracker(object):
         ## ----- update frame id
         self.frame_id += 1
 
-        # if self.frame_id == 5:
-        #     print("continue")
-
         ## ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
             MCTrack.init_id_dict(self.n_classes)
@@ -1806,6 +1803,7 @@ class ByteTracker(object):
         return output_tracks_dict
         #################### MCMOT end
 
+    # uisng byte's state machine and kalman
     def update_oc_enhance1(self, dets, img_size, net_size):
         """
         enhanced byte track
@@ -1869,17 +1867,17 @@ class ByteTracker(object):
             scores = scores_dict[cls_id]
             scores = np.array(scores)
 
-            remain_inds = scores > self.high_det_thresh
-            inds_low = scores > self.low_det_thresh
-            inds_high = scores < self.high_det_thresh
+            inds_1st = scores > self.high_det_thresh
 
             ## class second indices
+            inds_low = scores > self.low_det_thresh
+            inds_high = scores < self.high_det_thresh
             inds_2nd = np.logical_and(inds_low, inds_high)
 
-            bboxes_1st = bboxes[remain_inds]
+            bboxes_1st = bboxes[inds_1st]
             bboxes_2nd = bboxes[inds_2nd]
 
-            scores_1st = scores[remain_inds]
+            scores_1st = scores[inds_1st]
             scores_2nd = scores[inds_2nd]
 
             if len(bboxes_1st) > 0:
@@ -1949,7 +1947,7 @@ class ByteTracker(object):
 
             # --- process matched pairs between track pool and current frame detection
             for i_det, i_track in matches:
-                track = track_pool_dict[cls_id][i_track]
+                track = self.tracks[i_track]
                 det = detections_1st[i_det]
 
                 if track.state == TrackState.Tracked:
