@@ -1496,6 +1496,7 @@ class ByteTracker(object):
         self.removed_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
 
         self.tracks = []
+        self.tracked_tracks = []
         self.delta_t = delta_t
         self.max_age = self.buffer_size
         self.min_hits = 3
@@ -2433,11 +2434,11 @@ class ByteTracker(object):
             track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id],
                                                   self.lost_tracks_dict[cls_id])
             self.tracks = track_pool_dict[cls_id]
-            # self.tracks = tracked_tracks_dict[cls_id]
+            self.tracked_tracks = tracked_tracks_dict[cls_id]
 
             # ---------- Predict the current location with KF
             # MCTrack.multi_predict(self.tracks)
-            for track in self.tracks:
+            for track in self.tracked_tracks:
                 track.predict()
             # ----------
 
@@ -2658,22 +2659,23 @@ class ByteTracker(object):
             ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
             track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id],
                                                   self.lost_tracks_dict[cls_id])
-            # self.tracks = track_pool_dict[cls_id]
+            self.tracks = track_pool_dict[cls_id]
+            self.tracked_tracks = tracked_tracks_dict[cls_id]
 
             # ---------- Predict the current location with KF
-            # MCTrack.multi_predict(track_pool_dict[cls_id])
-            MCTrack.multi_predict(tracked_tracks_dict[cls_id])  # only predict tracked tracks
+            # MCTrack.multi_predict(self.tracks)
+            MCTrack.multi_predict(self.tracked_tracks)  # only predict tracked tracks
             # ----------
 
             # Matching with Hungarian Algorithm
-            dists = matching.iou_distance(track_pool_dict[cls_id], detections_1st)
+            dists = matching.iou_distance(self.tracks, detections_1st)
             dists = matching.fuse_score(dists, detections_1st)
             matches, u_track, u_detection = matching.linear_assignment(dists,
                                                                        thresh=self.high_match_thresh)
 
             # --- process matched pairs between track pool and current frame detection
             for i_track, i_det in matches:
-                track = track_pool_dict[cls_id][i_track]
+                track = self.tracks[i_track]
                 det = detections_1st[i_det]
 
                 if track.state == TrackState.Tracked:
@@ -2692,9 +2694,9 @@ class ByteTracker(object):
             else:
                 detections_2nd = []
 
-            r_tracked_tracks = [track_pool_dict[cls_id][i]
+            r_tracked_tracks = [self.tracks[i]
                                 for i in u_track
-                                if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+                                if self.tracks[i].state == TrackState.Tracked]
 
             dists = matching.iou_distance(r_tracked_tracks, detections_2nd)
             matches, u_track, u_detection_second = matching.linear_assignment(dists,
