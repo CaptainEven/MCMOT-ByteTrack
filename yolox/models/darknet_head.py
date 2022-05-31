@@ -95,6 +95,7 @@ class DarknetHead(nn.Module):
                                             stride=1,
                                             padding=0, ))
 
+        ## ----- loss function definition
         self.use_l1 = False
         self.l1_loss = nn.L1Loss(reduction="none")
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
@@ -132,9 +133,8 @@ class DarknetHead(nn.Module):
         expanded_strides = []
 
         ## ---------- processing 3 scales: 1/8, 1/16, 1/32
-        for k, (cls_conv, reg_conv, stride_this_level, x) in enumerate(
-                zip(self.cls_convs, self.reg_convs, self.strides, fpn_outs)
-        ):
+        for k, (cls_conv, reg_conv, stride_this_level, x)\
+                in enumerate(zip(self.cls_convs, self.reg_convs, self.strides, fpn_outs)):
             x = self.stems[k](x)
             cls_x = x
             reg_x = x
