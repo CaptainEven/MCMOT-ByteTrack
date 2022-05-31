@@ -718,7 +718,8 @@ class YOLOXDarknet(nn.Module):
 
 class YOLOXDarknetReID(nn.Module):
     """
-    YOLOX model module. The module list is defined by create_yolov3_modules function.
+    YOLOX model module.
+    The module list is defined by create_yolov3_modules function.
     The network returns loss values from three YOLO layers during training
     and detection results during test.
     """

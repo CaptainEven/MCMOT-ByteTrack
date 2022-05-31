@@ -27,8 +27,9 @@ class DarknetHead(nn.Module):
         :param width:
         :param strides:
         :param in_channels:
-        :param act(str): activation type of conv. Defalut value: "silu".
-        :param depth-wise (bool): whether apply depth-wise conv in conv branch. Defalut value: False.
+        :param act(str): activation type of conv. Default value: "silu".
+        :param depth-wise (bool): whether apply depth-wise conv in conv branch.
+        Defalut value: False.
         """
         super().__init__()
 
@@ -47,7 +48,6 @@ class DarknetHead(nn.Module):
         self.stems = nn.ModuleList()
 
         Conv = DWConv if depthwise else BaseConv
-
         for i in range(len(in_channels)):
             self.stems.append(BaseConv(in_channels=int(in_channels[i] * width),
                                        out_channels=int(256 * width),
