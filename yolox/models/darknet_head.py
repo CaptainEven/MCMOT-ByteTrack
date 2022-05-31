@@ -12,14 +12,15 @@ from .losses import IOUloss
 from .network_blocks import BaseConv, DWConv
 
 
+# only for detection: not include ReID branch
 class DarknetHead(nn.Module):
     def __init__(self,
                  num_classes,
                  width=1.0,
                  strides=[8, 16, 32],
                  in_channels=[256, 512, 1024],
-                 act="silu",
-                 depthwise=False):
+                 act="lrelu",
+                 depth_wise=False,):
         """
         compute loss in Head
         :param num_classes:
@@ -46,7 +47,7 @@ class DarknetHead(nn.Module):
 
         self.stems = nn.ModuleList()
 
-        Conv = DWConv if depthwise else BaseConv
+        Conv = DWConv if depth_wise else BaseConv
         for i in range(len(in_channels)):
             self.stems.append(BaseConv(in_channels=int(in_channels[i] * width),
                                        out_channels=int(256 * width),
@@ -132,7 +133,7 @@ class DarknetHead(nn.Module):
         expanded_strides = []
 
         ## ---------- processing 3 scales: 1/8, 1/16, 1/32
-        for k, (cls_conv, reg_conv, stride_this_level, x)\
+        for k, (cls_conv, reg_conv, stride_this_level, x) \
                 in enumerate(zip(self.cls_convs, self.reg_convs, self.strides, fpn_outs)):
             x = self.stems[k](x)
             cls_x = x

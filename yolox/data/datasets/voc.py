@@ -10,8 +10,8 @@ import xml.etree.ElementTree as ET
 import cv2
 import numpy as np
 from loguru import logger
-from yolox.evaluators.voc_eval import voc_eval
 
+from yolox.evaluators.voc_eval import voc_eval
 from .datasets_wrapper import Dataset
 from .voc_classes import C5_CLASSES
 
@@ -121,7 +121,7 @@ class VOCDetection(Dataset):
         self.ids = list()
 
         if not os.path.isfile(self.f_list_path):
-            print("[Err]: invalid file list path!")
+            logger.error("invalid file list path!")
             exit(-1)
 
         with open(self.f_list_path, 'r') as f:

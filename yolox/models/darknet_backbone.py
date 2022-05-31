@@ -33,7 +33,7 @@ class DarknetBackbone(nn.Module):
         super().__init__()
 
         if not os.path.isfile(cfg):
-            logger.error("Invalid cfg file path: {:s}.".format(cfg))
+            logger.error("Invalid cfg file path: {:s}, exit now!".format(cfg))
             exit(-1)
 
         ## ----- build the network
@@ -43,7 +43,7 @@ class DarknetBackbone(nn.Module):
         self.module_list, self.routs = build_modules(self.module_defs,
                                                      net_size,
                                                      cfg,
-                                                     in_chans=3,
+                                                     in_chans=in_chans,
                                                      use_momentum=use_momentum)
         logger.info("Network modules built.")
 
@@ -133,7 +133,7 @@ class DarknetBackbone(nn.Module):
         ## ----- out: final output, outs: outputs of each layer
         out, layer_outs = self.forward_once(x)
 
-        ## ----- build feature maps: 1/8, 1/16, 1/32
+        ## ----- build feature maps of 3 scales: 1/8, 1/16, 1/32
         self.fpn_outs = (layer_outs[58], layer_outs[52], layer_outs[46])
 
         return self.fpn_outs

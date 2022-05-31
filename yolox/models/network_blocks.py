@@ -25,7 +25,6 @@ def get_activation(name="silu", inplace=True):
     if name == "silu":
         # module = nn.SiLU(inplace=inplace)
         module = SiLU()
-
     elif name == "relu":
         module = nn.ReLU(inplace=inplace)
     elif name == "lrelu":
@@ -38,9 +37,14 @@ def get_activation(name="silu", inplace=True):
 class BaseConv(nn.Module):
     """A Conv2d -> Batchnorm -> silu/leaky relu block"""
 
-    def __init__(self, in_channels, out_channels,
-                 ksize, stride, groups=1,
-                 bias=False, act="silu"):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 ksize,
+                 stride,
+                 groups=1,
+                 bias=False,
+                 act="silu"):
         """
         :param in_channels:
         :param out_channels:
