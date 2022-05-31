@@ -4,9 +4,6 @@
 
 import torch.nn as nn
 
-# from yolox.models.yolo_head import YOLOXHead
-# from yolox.models.yolo_pafpn import YOLOPAFPN
-
 from yolox.models.darknet_backbone import DarknetBackbone
 from yolox.models.darknet_head import DarknetHead
 
@@ -19,8 +16,13 @@ class YOLOXDark(nn.Module):
     and detection results during test.
     """
 
-    def __init__(self, backbone=None, head=None, n_classes=5):
+    def __init__(self,
+                 cfg_path,
+                 backbone=None,
+                 head=None,
+                 n_classes=5):
         """
+        :param cfg_path: configure file path for DarknetBackbone
         :param backbone:
         :param head:
         :param n_classes: number of object classes for detection
@@ -28,7 +30,7 @@ class YOLOXDark(nn.Module):
         super().__init__()
 
         if backbone is None:
-            backbone = DarknetBackbone()
+            backbone = DarknetBackbone(cfg_path=cfg_path)
         if head is None:
             head = DarknetHead(num_classes=n_classes)
 

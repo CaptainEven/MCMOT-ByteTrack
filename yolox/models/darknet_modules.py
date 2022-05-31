@@ -19,7 +19,8 @@ def load_darknet_weights(model, weights, cutoff=0):
     :param cutoff:
     :return:
     """
-    print("Loading weights from {:s}...".format(os.path.abspath(weights)))
+    print("Loading weights from {:s}..."
+          .format(os.path.abspath(weights)))
     print('Cutoff: ', cutoff)
 
     # Parses and loads the weights stored in 'weights'

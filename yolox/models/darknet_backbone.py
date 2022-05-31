@@ -17,32 +17,32 @@ class DarknetBackbone(nn.Module):
     """
 
     def __init__(self,
-                 cfg,
+                 cfg_path,
                  net_size=(768, 448),
                  in_chans=3,
                  init_weights=False,
                  use_momentum=True):
         """
         Darknet(cfg file defined) based backbone
-        :param cfg:
-        :param net_size:
+        :param cfg_path:
+        :param net_size: w, h
         :param in_chans:
         :param init_weights:
         :param use_momentum:
         """
         super().__init__()
 
-        if not os.path.isfile(cfg):
-            logger.error("Invalid cfg file path: {:s}, exit now!".format(cfg))
+        if not os.path.isfile(cfg_path):
+            logger.error("Invalid cfg file path: {:s}, exit now!".format(cfg_path))
             exit(-1)
 
         ## ----- build the network
-        self.module_defs = parse_darknet_cfg(cfg)
+        self.module_defs = parse_darknet_cfg(cfg_path)
         logger.info("Network config file parsed.")
 
         self.module_list, self.routs = build_modules(self.module_defs,
                                                      net_size,
-                                                     cfg,
+                                                     cfg_path,
                                                      in_chans=in_chans,
                                                      use_momentum=use_momentum)
         logger.info("Network modules built.")

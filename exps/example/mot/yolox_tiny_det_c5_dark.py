@@ -2,17 +2,14 @@
 import os
 
 import torch
-import torch.nn as nn
 import torch.distributed as dist
-import numpy as np
-
 from loguru import logger
 
 from yolox.data import get_yolox_datadir
 from yolox.exp import Exp as MyExp
 
 
-## ----- Decoupled backbone and head for C5 detection
+## ----- Decoupled backbone and head for C5(5 classes) detection
 class Exp(MyExp):
     def __init__(self, n_workers=4, debug=False):
         """
@@ -22,11 +19,12 @@ class Exp(MyExp):
         """
         super(Exp, self).__init__()
 
-        ## ----- number of classes
-        self.num_classes = 5  # 1, 5, 80
+        ## ----- number of object classes
+        self.model = None
+        self.num_classes = 5
         ## -----
 
-        ## ----- net size?
+        ## ----- net scale
         self.depth = 0.33
         self.width = 0.5
 
@@ -46,8 +44,10 @@ class Exp(MyExp):
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
         self.train_ann = "train.json"
         self.val_ann = "train.json"
+
         self.input_size = (448, 768)  # (608, 1088)
         self.test_size = (448, 768)  # (608, 1088)
+
         self.random_size = (12, 26)
         self.max_epoch = 100
         self.print_interval = 10
@@ -58,23 +58,53 @@ class Exp(MyExp):
         self.no_aug_epochs = 10
         self.basic_lr_per_img = 0.001 / 64.0
         self.warmup_epochs = 1
+
+        self.n_classes = 5
         self.cfg_file_path = "../cfg/yolox_darknet_tiny.cfg"
+        self.backbone_weights = "./pretrained/v5.45.weights"
+        self.cutoff = 45  # the layer to cutoff
 
     def get_model(self):
         """
         :return:
         """
-        from yolox.models.yolox_darknet import YOLOXDarknet
         from yolox.models.darknet_backbone import DarknetBackbone
         from yolox.models.darknet_head import DarknetHead
+        from yolox.models.yolox_dark import YOLOXDark
 
         if getattr(self, "model", None) is None:
+            self.cfg_file_path = os.path.abspath(self.cfg_file_path)
+            if not os.path.isfile(self.cfg_file_path):
+                logger.error("invalid cfg file path: {:s}, exit now!"
+                             .format(self.cfg_file_path))
+                exit(-1)
             logger.info("Cfg file path: {:s}.".format(self.cfg_file_path))
-            self.model = YOLOXDarknet(cfg=self.cfg_file_path,
-                                      net_size=(768, 448),
-                                      strides=[8, 16, 32],
-                                      num_classes=5,
-                                      init_weights=True)
+
+            backbone = DarknetBackbone(cfg_path=self.cfg_file_path,
+                                       net_size=(768, 448),
+                                       in_chans=3,
+                                       init_weights=False,
+                                       use_momentum=True)
+
+            ## ----- load darknet backbone weights
+            if len(self.backbone_weights) > 0:
+                from yolox.models.darknet_modules import load_darknet_weights
+                self.backbone_weights = os.path.abspath(self.backbone_weights)
+                if not os.path.isfile(self.backbone_weights):
+                    logger.error("invalid backbone weights path: {:s}, exit now!"
+                                .format(self.backbone_weights))
+                load_darknet_weights(backbone, self.backbone_weights, self.cutoff)
+
+            head = DarknetHead(num_classes=self.n_classes,
+                               width=self.width,
+                               strides=[8, 16, 32],
+                               in_channels=[256, 512, 1024],
+                               act="lrelu",
+                               depth_wise=False)
+            self.model = YOLOXDark(cfg_path=self.cfg_file_path,
+                                   backbone=backbone,
+                                   head=head,
+                                   n_classes=self.n_classes)
 
         return self.model
 
@@ -93,7 +123,6 @@ class Exp(MyExp):
         :return:
         """
         from yolox.data import (
-            MOTDataset,
             VOCDetection,
             TrainTransform,
             YoloBatchSampler,
@@ -159,7 +188,10 @@ class Exp(MyExp):
             mosaic=not no_aug,
         )
 
-        dataloader_kwargs = {"num_workers": self.data_num_workers, "pin_memory": True}
+        dataloader_kwargs = {
+            "num_workers": self.data_num_workers,
+            "pin_memory": True
+        }
         dataloader_kwargs["batch_sampler"] = batch_sampler
         train_loader = DataLoader(self.dataset, **dataloader_kwargs)
 
@@ -235,7 +267,11 @@ class Exp(MyExp):
         """
         from yolox.evaluators import COCOEvaluator
 
-        val_loader = self.get_eval_loader(batch_size, is_distributed, data_dir, name, testdev=testdev)
+        val_loader = self.get_eval_loader(batch_size,
+                                          is_distributed,
+                                          data_dir,
+                                          name,
+                                          testdev=testdev)
         evaluator = COCOEvaluator(dataloader=val_loader,
                                   img_size=self.test_size,
                                   confthre=self.test_conf,

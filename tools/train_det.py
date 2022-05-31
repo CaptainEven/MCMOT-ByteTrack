@@ -65,6 +65,12 @@ def make_parser():
                         default="../cfg/yolox_darknet_tiny.cfg",
                         help="")
 
+    ## ----- Darknet weights
+    parser.add_argument("--weights",
+                        type=str,
+                        default="",
+                        help="Darknet weights file path")
+
     ## ---------- checkpoint file path
     ## latest_ckpt.pth.tar, yolox_tiny_32.8.pth
     parser.add_argument("-c",
@@ -153,10 +159,10 @@ def make_parser():
 
 
 @logger.catch
-def main(exp, args):
+def main(exp, opt):
     """
     :param exp:
-    :param args:
+    :param opt:
     :return:
     """
     if exp.seed is not None:
@@ -172,7 +178,7 @@ def main(exp, args):
     # set environment variables for distributed training
     cudnn.benchmark = True
 
-    trainer = Trainer(exp, args)
+    trainer = Trainer(exp, opt)
     trainer.train()
 
 

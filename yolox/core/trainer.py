@@ -12,6 +12,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
 
 from yolox.data import DataPrefetcher
+from yolox.models.darknet_modules import load_darknet_weights
 from yolox.utils import (
     MeterBuffer,
     ModelEMA,
@@ -26,34 +27,35 @@ from yolox.utils import (
     setup_logger,
     synchronize
 )
-from yolox.models.darknet_modules import load_darknet_weights
 
 
 class Trainer:
-    def __init__(self, exp, args):
-        # init function only defines some basic attr, other attrs like model, optimizer are built in
+    def __init__(self, exp, opt):
+        # init function only defines some basic attr,
+        # other attrs like model, optimizer are built in
         # before_train methods.
         self.exp = exp
-        self.args = args
+        self.opt = opt
 
         # training related attr
         self.max_epoch = exp.max_epoch
-        self.amp_training = args.fp16
-        self.scaler = torch.cuda.amp.GradScaler(enabled=args.fp16)
+        self.amp_training = opt.fp16
+        self.scaler = torch.cuda.amp.GradScaler(enabled=opt.fp16)
         self.is_distributed = get_world_size() > 1
         self.rank = get_rank()
-        self.local_rank = args.local_rank
+        self.local_rank = opt.local_rank
         self.device = "cuda:{}".format(self.local_rank)
         self.use_model_ema = exp.ema
 
         # ---------- data/dataloader related attr
-        self.data_type = torch.float16 if args.fp16 else torch.float32
+        self.data_type = torch.float16 if opt.fp16 else torch.float32
         self.input_size = exp.input_size
         self.best_ap = 0
 
         # metric record
         self.meter = MeterBuffer(window_size=exp.print_interval)
-        self.dir_path = os.path.abspath(os.path.join(exp.output_dir, args.experiment_name))
+        self.dir_path = os.path.abspath(os.path.join(exp.output_dir,
+                                                     opt.experiment_name))
         logger.info("Dir path: {:s}".format(self.dir_path))
 
         if self.rank == 0:
@@ -136,28 +138,29 @@ class Trainer:
         The preparations before training
         :return:
         """
-        logger.info("args: {}".format(self.args))
+        logger.info("args: {}".format(self.opt))
         logger.info("exp value:\n{}".format(self.exp))
 
         ## ----- model related init
         torch.cuda.set_device(self.local_rank)
-        model = self.exp.get_model()
-        if not self.args.debug:
+        net = self.exp.get_model()
+        if not self.opt.debug:
             logger.info("Model Summary: {}"
-                        .format(get_model_info(model, self.exp.test_size)))
-        model.to(self.device)
+                        .format(get_model_info(net, self.exp.test_size)))
+        net.to(self.device)
 
         # solver related init
-        self.optimizer = self.exp.get_optimizer(self.args.batch_size)
+        self.optimizer = self.exp.get_optimizer(self.opt.batch_size)
 
         # value of epoch will be set in `resume_train`
-        model = self.resume_train(model)
+        ## ----- load from checkpoint
+        net = self.resume_train(net)
 
         ## ---------- data related init
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.no_aug_epochs
-        self.train_loader = self.exp.get_data_loader(batch_size=self.args.batch_size,
+        self.train_loader = self.exp.get_data_loader(batch_size=self.opt.batch_size,
                                                      is_distributed=self.is_distributed,
-                                                     data_dir=self.args.train_root,
+                                                     data_dir=self.opt.train_root,
                                                      no_aug=self.no_aug)
 
         logger.info("Init pre-fetcher, this might take one minute or less...")
@@ -166,24 +169,24 @@ class Trainer:
         # max_iter means iterations per epoch
         self.max_iter = len(self.train_loader)
 
-        self.lr_scheduler = self.exp.get_lr_scheduler(self.exp.basic_lr_per_img * self.args.batch_size,
+        self.lr_scheduler = self.exp.get_lr_scheduler(self.exp.basic_lr_per_img * self.opt.batch_size,
                                                       self.max_iter)
-        if self.args.occupy:
+        if self.opt.occupy:
             occupy_mem(self.local_rank)
 
         if self.is_distributed:
-            model = DDP(model, device_ids=[self.local_rank], broadcast_buffers=False)
+            net = DDP(net, device_ids=[self.local_rank], broadcast_buffers=False)
 
         if self.use_model_ema:
-            self.ema_model = ModelEMA(model, 0.9998)
+            self.ema_model = ModelEMA(net, 0.9998)
             self.ema_model.updates = self.max_iter * self.start_epoch
 
-        self.model = model
+        self.model = net
         self.model.train()  # train mode
 
-        self.evaluator = self.exp.get_evaluator(batch_size=self.args.batch_size,
+        self.evaluator = self.exp.get_evaluator(batch_size=self.opt.batch_size,
                                                 is_distributed=self.is_distributed,
-                                                data_dir=self.args.val_root)
+                                                data_dir=self.opt.val_root)
 
         # Tensorboard logger
         if self.rank == 0:
@@ -298,12 +301,12 @@ class Trainer:
         :param model:
         :return:
         """
-        if self.args.resume:
+        if self.opt.resume:
             logger.info("resume training")
-            if self.args.ckpt is None:
+            if self.opt.ckpt is None:
                 ckpt_path = os.path.join(self.dir_path, "latest" + "_ckpt.pth.tar")
             else:
-                ckpt_path = self.args.ckpt
+                ckpt_path = self.opt.ckpt
 
             ckpt_path = os.path.abspath(ckpt_path)
             ckpt = torch.load(ckpt_path, map_location=self.device)
@@ -311,23 +314,24 @@ class Trainer:
             ## ---- resume the model/optimizer state dict
             model.load_state_dict(ckpt["model"])
             self.optimizer.load_state_dict(ckpt["optimizer"])
-            start_epoch = (self.args.start_epoch - 1
-                           if self.args.start_epoch is not None
+            start_epoch = (self.opt.start_epoch - 1
+                           if self.opt.start_epoch is not None
                            else ckpt["start_epoch"])
             self.start_epoch = start_epoch
             logger.info("loaded checkpoint '{}' (epoch {})"
-                        .format(self.args.resume, self.start_epoch))  # noqa
+                        .format(self.opt.resume, self.start_epoch))  # noqa
         else:
-            if self.args.ckpt is not None:
+            if self.opt.ckpt is not None:
                 logger.info("loading checkpoint for fine tuning...")
-                ckpt_path = os.path.abspath(self.args.ckpt)
-                if self.args.ckpt.endswith(".tar") \
-                        or self.args.ckpt.endswith(".pth") \
-                        or self.args.ckpt.endswith(".pth"):
+
+                ckpt_path = os.path.abspath(self.opt.ckpt)
+                if self.opt.ckpt.endswith(".tar") \
+                        or self.opt.ckpt.endswith(".pth") \
+                        or self.opt.ckpt.endswith(".pth"):
                     ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
                     model = load_ckpt(model, ckpt)
-                elif self.args.ckpt.endswith(".weights"):
-                    load_darknet_weights(model, ckpt_path, self.args.cutoff)
+                elif self.opt.ckpt.endswith(".weights"):
+                    load_darknet_weights(model, ckpt_path, self.opt.cutoff)
                 logger.info("{:s} loaded!".format(ckpt_path))
             self.start_epoch = 0
 

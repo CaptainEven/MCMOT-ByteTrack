@@ -35,7 +35,7 @@ class Exp(MyExp):
             from yolox.models import YOLOX, YOLOPAFPN, YOLOXHead
             in_channels = [256, 512, 1024]
 
-            # NANO model use depthwise = True, which is main difference.
+            # NANO model use depth_wise = True, which is main difference.
             backbone = YOLOPAFPN(self.depth,
                                  self.width,
                                  in_channels=in_channels,
