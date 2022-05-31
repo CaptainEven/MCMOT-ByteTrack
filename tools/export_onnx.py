@@ -37,7 +37,7 @@ def make_parser():
                         help="use onnxsim or not")
     parser.add_argument("-f",
                         "--exp_file",
-                        default=None,
+                        default="../exps/example/mot/yolox_tiny_track_c5_darknet.py",
                         type=str,
                         help="expriment description file", )
     parser.add_argument("-expn",
@@ -51,7 +51,7 @@ def make_parser():
                         help="model name")
     parser.add_argument("-c",
                         "--ckpt",
-                        default=None,
+                        default="../YOLOX_outputs/yolox_tiny_track_c5_darknet/latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt path")
     parser.add_argument("opts",
@@ -64,6 +64,9 @@ def make_parser():
 
 @logger.catch
 def run():
+    """
+    Run the exportation
+    """
     args = make_parser().parse_args()
     logger.info("args value: {}".format(args))
     exp = get_exp(args.exp_file, args.name)

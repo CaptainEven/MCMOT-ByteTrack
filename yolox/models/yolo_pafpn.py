@@ -123,4 +123,5 @@ class YOLOPAFPN(nn.Module):
         pan_out0 = self.C3_n4(p_out0)  # 1024->1024/32
 
         outputs = (pan_out2, pan_out1, pan_out0)
+
         return outputs

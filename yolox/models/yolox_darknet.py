@@ -69,6 +69,7 @@ class YOLOXDarknet(nn.Module):
         :param m:
         :return:
         """
+        import torch.nn.init as init
         if isinstance(m, nn.Conv2d):
             init.xavier_uniform_(m.weight)
             if m.bias is not None:
@@ -721,7 +722,6 @@ class YOLOXDarknetReID(nn.Module):
     The network returns loss values from three YOLO layers during training
     and detection results during test.
     """
-
     def __init__(self,
                  cfg,
                  net_size=(768, 448),
@@ -783,7 +783,7 @@ class YOLOXDarknetReID(nn.Module):
             logger.info("ReID: False")
 
         ## ----- define some modules
-        self.decode_in_inference = True  # for deploy, set to False
+        self.decode_in_inference = False  # for deploy, set to False
         self.use_l1 = False
         self.scale_1st = 0.125  # 1/8
 
@@ -812,6 +812,7 @@ class YOLOXDarknetReID(nn.Module):
         :param m:
         :return:
         """
+        import torch.nn.init as init
         if isinstance(m, nn.Conv2d):
             init.xavier_uniform_(m.weight)
             if m.bias is not None:

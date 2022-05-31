@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# encoding=utf-8
 # encoding=utf-8
 
 import math
@@ -13,7 +13,7 @@ from .losses import IOUloss
 from .network_blocks import BaseConv, DWConv
 
 
-class YOLOXHead(nn.Module):
+class DarknetHead(nn.Module):
     def __init__(self,
                  num_classes,
                  width=1.0,
