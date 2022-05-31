@@ -2424,31 +2424,31 @@ class ByteTracker(object):
             scores = scores_dict[cls_id]
             scores = np.array(scores)
 
-            remain_inds = scores > self.high_det_thresh
-            inds_low = scores > self.low_det_thresh
-            inds_high = scores < self.high_det_thresh
+            remain_high = scores > self.high_det_thresh
+            inds_lb = scores > self.low_det_thresh
+            inds_hb = scores < self.high_det_thresh
 
             ## class second indices
-            inds_2nd = np.logical_and(inds_low, inds_high)
+            inds_low = np.logical_and(inds_lb, inds_hb)
 
-            bboxes_1st = bboxes[remain_inds]
-            bboxes_2nd = bboxes[inds_2nd]
+            bboxes_high = bboxes[remain_high]
+            bboxes_low = bboxes[inds_low]
 
-            scores_1st = scores[remain_inds]
-            scores_2nd = scores[inds_2nd]
+            scores_high = scores[remain_high]
+            scores_low = scores[inds_low]
 
-            if len(bboxes_1st) > 0:
+            if len(bboxes_high) > 0:
                 '''Build Tracks from Detections'''
                 detections_1st = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id) for
-                                  (tlbr, s) in zip(bboxes_1st, scores_1st)]
+                                  (tlbr, s) in zip(bboxes_high, scores_high)]
 
                 # scores_1st_ = np.expand_dims(scores_1st, axis=1)
-                dets_1st = np.concatenate((bboxes_1st, np.expand_dims(scores_1st, axis=1)), axis=1)
+                dets_1st = np.concatenate((bboxes_high, np.expand_dims(scores_high, axis=1)), axis=1)
             else:
                 detections_1st = []
-                bboxes_1st = np.empty((0, 4), dtype=float)
-                scores_1st = np.empty((0, 1), dtype=float)
-                dets_1st = np.concatenate((bboxes_1st, scores_1st), axis=1)
+                bboxes_high = np.empty((0, 4), dtype=float)
+                scores_high = np.empty((0, 1), dtype=float)
+                dets_1st = np.concatenate((bboxes_high, scores_high), axis=1)
 
             '''Add newly detected tracks(current frame) to tracked_tracks'''
             for track in self.tracked_tracks_dict[cls_id]:
@@ -2497,12 +2497,12 @@ class ByteTracker(object):
             First round of association
             using high confidence dets and existed trks
             """
-            matches, unmatched_dets, unmatched_trks = associate(dets_1st,
-                                                                k_observations,
-                                                                trks,
-                                                                velocities,
-                                                                self.iou_threshold,
-                                                                self.vel_dir_weight)
+            matches, u_dets_1st, u_trks_1st = associate(dets_1st,
+                                                        k_observations,
+                                                        trks,
+                                                        velocities,
+                                                        self.iou_threshold,
+                                                        self.vel_dir_weight)
 
             # --- process matched pairs between track pool and current frame detection
             for i_det, i_track in matches:
@@ -2520,20 +2520,20 @@ class ByteTracker(object):
 
             ''' Step 3: Second association, with low score detection boxes'''
             # association the un-track to the low score detections
-            if len(bboxes_2nd) > 0:
+            if len(bboxes_low) > 0:
                 '''Detections'''
                 detections_2nd = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id) for
-                                  (tlbr, s) in zip(bboxes_2nd, scores_2nd)]
+                                  (tlbr, s) in zip(bboxes_low, scores_low)]
             else:
                 detections_2nd = []
 
             unmatched_tracks = [track_pool_dict[cls_id][i]
-                                for i in unmatched_trks
+                                for i in u_trks_1st
                                 if track_pool_dict[cls_id][i].state == TrackState.Tracked]
 
             dists = matching.iou_distance(unmatched_tracks, detections_2nd)
-            matches, unmatched_trks, u_detection_2nd = matching.linear_assignment(dists,
-                                                                                  thresh=self.low_match_thresh)  # thresh=0.5
+            matches, u_trks_2nd, u_dets_2nd = matching.linear_assignment(dists,
+                                                                         thresh=self.low_match_thresh)  # thresh=0.5
 
             for i_track, i_det in matches:
                 track = unmatched_tracks[i_track]
@@ -2547,7 +2547,7 @@ class ByteTracker(object):
                     retrieve_tracks_dict[cls_id].append(track)
 
             # process unmatched tracks for two rounds
-            for i_track in unmatched_trks:
+            for i_track in u_trks_2nd:
                 track = unmatched_tracks[i_track]
                 if not track.state == TrackState.Lost:
                     # mark unmatched track as lost track
@@ -2556,17 +2556,20 @@ class ByteTracker(object):
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             # current frame's unmatched detection
-            detections_1st = [detections_1st[i] for i in unmatched_dets]
+            detections_left = [detections_1st[i] for i in u_dets_1st]
+            if len(u_dets_2nd) > 0:
+                detections_2nd_left = [detections_2nd[i] for i in u_dets_2nd]
+                detections_left = join_tracks(detections_left, detections_2nd_left)
 
             # iou matching
-            dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections_1st)
-            dists = matching.fuse_score(dists, detections_1st)
-            matches, u_unconfirmed, unmatched_dets = matching.linear_assignment(dists,
-                                                                                thresh=self.unconfirmed_match_thresh)  # 0.7
+            dists = matching.iou_distance(unconfirmed_tracks_dict[cls_id], detections_left)
+            dists = matching.fuse_score(dists, detections_left)
+            matches, u_unconfirmed, u_dets_left = matching.linear_assignment(dists,
+                                                                             thresh=self.unconfirmed_match_thresh)  # 0.7
 
             for i_track, i_det in matches:
                 track = unconfirmed_tracks_dict[cls_id][i_track]
-                det = detections_1st[i_det]
+                det = detections_left[i_det]
                 track.update(det, self.frame_id)
                 activated_tracks_dict[cls_id].append(unconfirmed_tracks_dict[cls_id][i_track])
 
@@ -2576,8 +2579,8 @@ class ByteTracker(object):
                 removed_tracks_dict[cls_id].append(track)
 
             """Step 4: Init new tracks"""
-            for i_new in unmatched_dets:  # current frame's unmatched detection
-                track = detections_1st[i_new]
+            for i_new in u_dets_left:  # current frame's unmatched detection
+                track = detections_left[i_new]
                 if track.score < self.new_track_thresh:
                     continue
 
@@ -2616,7 +2619,8 @@ class ByteTracker(object):
                 self.lost_tracks_dict[cls_id])
 
             # get scores of lost tracks
-            output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id] if track.is_activated]
+            output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
+                                          if track.is_activated]
 
         ## ---------- Return final online targets of the frame
         return output_tracks_dict
