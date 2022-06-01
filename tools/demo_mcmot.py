@@ -420,12 +420,12 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     # write_results(result_filename, results)
 
 
-def video_tracking(predictor, cap, vid_save_path, opt):
+def video_tracking(predictor, cap, save_path, opt):
     """
     online or offline tracking
     :param predictor:
     :param cap:
-    :param vid_save_path:
+    :param save_path:
     :param opt:
     :return:
     """
@@ -434,8 +434,8 @@ def video_tracking(predictor, cap, vid_save_path, opt):
     fps = cap.get(cv2.CAP_PROP_FPS)
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
 
-    vid_save_path = os.path.abspath(vid_save_path)
-    vid_writer = cv2.VideoWriter(vid_save_path,
+    save_path = os.path.abspath(save_path)
+    vid_writer = cv2.VideoWriter(save_path,
                                  cv2.VideoWriter_fourcc(*"mp4v"),
                                  fps,
                                  (int(width), int(height)))
@@ -581,7 +581,7 @@ def video_tracking(predictor, cap, vid_save_path, opt):
         ## ----- update frame id
         frame_id += 1
 
-    print("{:s} saved.".format(vid_save_path))
+    print("{:s} saved.".format(save_path))
 
 
 def imageflow_demo(predictor, vis_dir, current_time, args):
@@ -693,17 +693,17 @@ def run(exp, opt):
 
     if not opt.trt:
         if opt.ckpt is None:
-            ckpt_path = os.path.join(file_name, "best_ckpt.pth.tar")
+            ckpt_file_path = os.path.join(file_name, "best_ckpt.pth.tar")
         else:
-            ckpt_path = opt.ckpt
-        ckpt_path = os.path.abspath(ckpt_path)
+            ckpt_file_path = opt.ckpt
+        ckpt_file_path = os.path.abspath(ckpt_file_path)
 
         logger.info("Loading checkpoint...")
-        ckpt = torch.load(ckpt_path, map_location="cpu")
+        ckpt = torch.load(ckpt_file_path, map_location="cpu")
 
         # load the model state dict
         net.load_state_dict(ckpt["model"])
-        logger.info("Checkpoint {:s} loaded done.".format(ckpt_path))
+        logger.info("Checkpoint {:s} loaded done.".format(ckpt_file_path))
 
     if opt.fuse:
         logger.info("\tFusing model...")

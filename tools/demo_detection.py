@@ -330,19 +330,12 @@ class Predictor(object):
             if self.decoder is not None:
                 outputs = self.decoder(outputs, dtype=outputs.type())
 
-            if self.reid:
+            if isinstance(outputs, tuple):
                 outputs, feature_map = outputs[0], outputs[1]
-                outputs = post_process(outputs, self.num_classes, self.conf_thresh, self.nms_thresh)
-            else:
-                if isinstance(outputs, tuple):
-                    outputs, feature_map = outputs[0], outputs[1]
-                outputs = post_process(outputs, self.num_classes, self.conf_thresh, self.nms_thresh)
+            outputs = post_process(outputs, self.num_classes, self.conf_thresh, self.nms_thresh)
             # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
 
-        if self.reid:
-            return outputs, feature_map, img_info
-        else:
-            return outputs, img_info
+        return outputs, img_info
 
 
 def image_demo(predictor, vis_folder, path, current_time, save_result):
