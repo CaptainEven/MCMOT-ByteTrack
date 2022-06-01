@@ -90,10 +90,11 @@ def run():
     # load the model state dict
     ckpt = torch.load(ckpt_path, map_location="cpu")
 
-    net.eval()
     if "model" in ckpt:
         ckpt = ckpt["model"]
+    net.eval()
     net.load_state_dict(ckpt)
+
     # net = replace_module(net, nn.SiLU, SiLU)
     net.head.decode_in_inference = False
     logger.info("loading checkpoint done.")

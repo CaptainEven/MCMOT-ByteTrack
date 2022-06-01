@@ -298,9 +298,9 @@ class Trainer:
         """
         return self.epoch * self.max_iter + self.iter
 
-    def resume_train(self, model):
+    def resume_train(self, net):
         """
-        :param model:
+        :param net:
         :return:
         """
         if self.opt.resume:
@@ -314,7 +314,7 @@ class Trainer:
             ckpt = torch.load(ckpt_path, map_location=self.device)
 
             ## ---- resume the model/optimizer state dict
-            model.load_state_dict(ckpt["model"])
+            net.load_state_dict(ckpt["model"])
             self.optimizer.load_state_dict(ckpt["optimizer"])
             start_epoch = (self.opt.start_epoch - 1
                            if self.opt.start_epoch is not None
@@ -334,18 +334,18 @@ class Trainer:
                 if self.opt.ckpt.endswith(".tar") \
                         or self.opt.ckpt.endswith(".pth"):
                     ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
-                    model = load_ckpt(model, ckpt)
+                    net = load_ckpt(net, ckpt)
                 elif self.opt.ckpt.endswith(".weights"):
-                    if hasattr(model, "module_list"):
-                        load_darknet_weights(model, ckpt_path, self.opt.cutoff)
-                    elif hasattr(model, "backbone") and \
-                            hasattr(model.backbone, "module_list"):
-                        load_darknet_weights(model.backbone, ckpt_path, self.opt.cutoff)
+                    if hasattr(net, "module_list"):
+                        load_darknet_weights(net, ckpt_path, self.opt.cutoff)
+                    elif hasattr(net, "backbone") and \
+                            hasattr(net.backbone, "module_list"):
+                        load_darknet_weights(net.backbone, ckpt_path, self.opt.cutoff)
                 logger.info("{:s} loaded!".format(ckpt_path))
 
             self.start_epoch = 0
 
-        return model
+        return net
 
     def evaluate_and_save_model(self):
         """

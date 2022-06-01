@@ -693,17 +693,17 @@ def run(exp, opt):
 
     if not opt.trt:
         if opt.ckpt is None:
-            ckpt_file_path = os.path.join(file_name, "best_ckpt.pth.tar")
+            ckpt_path = os.path.join(file_name, "best_ckpt.pth.tar")
         else:
-            ckpt_file_path = opt.ckpt
-        ckpt_file_path = os.path.abspath(ckpt_file_path)
+            ckpt_path = opt.ckpt
+        ckpt_path = os.path.abspath(ckpt_path)
 
         logger.info("Loading checkpoint...")
-        ckpt = torch.load(ckpt_file_path, map_location="cpu")
+        ckpt = torch.load(ckpt_path, map_location="cpu")
 
         # load the model state dict
         net.load_state_dict(ckpt["model"])
-        logger.info("Checkpoint {:s} loaded done.".format(ckpt_file_path))
+        logger.info("Checkpoint {:s} loaded done.".format(ckpt_path))
 
     if opt.fuse:
         logger.info("\tFusing model...")
