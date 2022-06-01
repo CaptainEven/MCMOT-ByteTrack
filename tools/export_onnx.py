@@ -128,12 +128,15 @@ def run():
 
         from onnxsim import simplify
 
-        # use onnxsimplify to reduce reduent model.
+        # use onnxsimplify to reduce redundant model.
         onnx_model = onnx.load(opt.output_onnx_path)
         model_simp, check = simplify(onnx_model)
+
         assert check, "Simplified ONNX model could not be validated"
+
         onnx.save(model_simp, opt.output_onnx_path)
-        logger.info("generated simplified onnx model named {}".format(opt.output_onnx_path))
+        logger.info("generated simplified onnx model named {}"
+                    .format(opt.output_onnx_path))
 
 
 if __name__ == "__main__":
