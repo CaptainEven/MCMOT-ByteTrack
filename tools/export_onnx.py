@@ -104,12 +104,6 @@ def run():
         logger.error("invalid ckpt path: {:s}".format(ckpt_path))
 
     ## ----- load the model state dict
-    # ckpt = torch.load(ckpt_path, map_location="cpu")
-    # if "model" in ckpt:
-    #     ckpt = ckpt["model"]
-    # net = load_ckpt(net, ckpt)
-    # net.eval()
-
     ckpt = torch.load(ckpt_path, map_location="cpu")
     if "model" in ckpt:
         ckpt = ckpt["model"]
