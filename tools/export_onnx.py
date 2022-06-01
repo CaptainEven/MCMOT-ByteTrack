@@ -94,10 +94,10 @@ def run():
     if "model" in ckpt:
         ckpt = ckpt["model"]
     net.load_state_dict(ckpt)
-    net = replace_module(net, nn.SiLU, SiLU)
+    # net = replace_module(net, nn.SiLU, SiLU)
     net.head.decode_in_inference = False
-
     logger.info("loading checkpoint done.")
+
     dummy_input = torch.randn(1, 3, exp.test_size[0], exp.test_size[1])
     torch.onnx._export(net,
                        dummy_input,

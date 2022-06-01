@@ -144,7 +144,7 @@ class Trainer:
         ## ----- Set device
         torch.cuda.set_device(self.local_rank)
 
-        ## ----- Get the model
+        ## ----- Get the network
         net = self.exp.get_model()
 
         if not self.opt.debug:
@@ -332,7 +332,6 @@ class Trainer:
                     logger.info("Loading ckpt {:s}...".format(ckpt_path))
 
                 if self.opt.ckpt.endswith(".tar") \
-                        or self.opt.ckpt.endswith(".pth") \
                         or self.opt.ckpt.endswith(".pth"):
                     ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
                     model = load_ckpt(model, ckpt)
@@ -384,30 +383,30 @@ class Trainer:
 
 
 class Trainer_det:  # line 115. loss = outputs["total_loss"]
-    def __init__(self, exp, args):
+    def __init__(self, exp, opt):
         # init function only defines some basic attr, other attrs like model, optimizer are built in
         # before_train methods.
         self.exp = exp
-        self.args = args
+        self.opt = opt
 
         # training related attr
         self.max_epoch = exp.max_epoch
-        self.amp_training = args.fp16
-        self.scaler = torch.cuda.amp.GradScaler(enabled=args.fp16)
+        self.amp_training = opt.fp16
+        self.scaler = torch.cuda.amp.GradScaler(enabled=opt.fp16)
         self.is_distributed = get_world_size() > 1
         self.rank = get_rank()
-        self.local_rank = args.local_rank
+        self.local_rank = opt.local_rank
         self.device = "cuda:{}".format(self.local_rank)
         self.use_model_ema = exp.ema
 
         # ---------- data/dataloader related attr
-        self.data_type = torch.float16 if args.fp16 else torch.float32
+        self.data_type = torch.float16 if opt.fp16 else torch.float32
         self.input_size = exp.input_size
         self.best_ap = 0
 
         # metric record
         self.meter = MeterBuffer(window_size=exp.print_interval)
-        self.file_name = os.path.join(exp.output_dir, args.experiment_name)
+        self.file_name = os.path.join(exp.output_dir, opt.experiment_name)
         print("file path: ", self.file_name)
 
         if self.rank == 0:
@@ -492,28 +491,28 @@ class Trainer_det:  # line 115. loss = outputs["total_loss"]
         The preparations before training
         :return:
         """
-        logger.info("args: {}".format(self.args))
+        logger.info("args: {}".format(self.opt))
         logger.info("exp value:\n{}".format(self.exp))
 
         ## ----- model related init
         torch.cuda.set_device(self.local_rank)
         model = self.exp.get_model()
-        if not self.args.debug:
+        if not self.opt.debug:
             logger.info("Model Summary: {}"
                         .format(get_model_info(model, self.exp.test_size)))
         model.to(self.device)
 
         # solver related init
-        self.optimizer = self.exp.get_optimizer(self.args.batch_size)
+        self.optimizer = self.exp.get_optimizer(self.opt.batch_size)
 
         # value of epoch will be set in `resume_train`
         model = self.resume_train(model)
 
         # data related init
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.no_aug_epochs
-        self.train_loader = self.exp.get_data_loader(batch_size=self.args.batch_size,
+        self.train_loader = self.exp.get_data_loader(batch_size=self.opt.batch_size,
                                                      is_distributed=self.is_distributed,
-                                                     data_dir=self.args.train_root,
+                                                     data_dir=self.opt.train_root,
                                                      no_aug=self.no_aug)
 
         logger.info("Init prefetcher, this might take one minute or less...")
@@ -522,9 +521,9 @@ class Trainer_det:  # line 115. loss = outputs["total_loss"]
         # max_iter means iters per epoch
         self.max_iter = len(self.train_loader)
 
-        self.lr_scheduler = self.exp.get_lr_scheduler(self.exp.basic_lr_per_img * self.args.batch_size,
+        self.lr_scheduler = self.exp.get_lr_scheduler(self.exp.basic_lr_per_img * self.opt.batch_size,
                                                       self.max_iter)
-        if self.args.occupy:
+        if self.opt.occupy:
             occupy_mem(self.local_rank)
 
         if self.is_distributed:
@@ -537,9 +536,9 @@ class Trainer_det:  # line 115. loss = outputs["total_loss"]
         self.model = model
         self.model.train()  # train mode
 
-        self.evaluator = self.exp.get_evaluator(batch_size=self.args.batch_size,
+        self.evaluator = self.exp.get_evaluator(batch_size=self.opt.batch_size,
                                                 is_distributed=self.is_distributed,
-                                                data_dir=self.args.val_root)
+                                                data_dir=self.opt.val_root)
 
         # Tensorboard logger
         if self.rank == 0:
@@ -654,28 +653,28 @@ class Trainer_det:  # line 115. loss = outputs["total_loss"]
         :param model:
         :return:
         """
-        if self.args.resume:
+        if self.opt.resume:
             logger.info("resume training")
-            if self.args.ckpt is None:
+            if self.opt.ckpt is None:
                 ckpt_path = os.path.join(self.file_name, "latest" + "_ckpt.pth.tar")
             else:
-                ckpt_path = self.args.ckpt
+                ckpt_path = self.opt.ckpt
 
             ckpt = torch.load(ckpt_path, map_location=self.device)
 
             ## ---- resume the model/optimizer state dict
             model.load_state_dict(ckpt["model"])
             self.optimizer.load_state_dict(ckpt["optimizer"])
-            start_epoch = (self.args.start_epoch - 1
-                           if self.args.start_epoch is not None
+            start_epoch = (self.opt.start_epoch - 1
+                           if self.opt.start_epoch is not None
                            else ckpt["start_epoch"])
             self.start_epoch = start_epoch
             logger.info("loaded checkpoint '{}' (epoch {})"
-                        .format(self.args.resume, self.start_epoch))  # noqa
+                        .format(self.opt.resume, self.start_epoch))  # noqa
         else:
-            if self.args.ckpt is not None:
+            if self.opt.ckpt is not None:
                 logger.info("loading checkpoint for fine tuning...")
-                ckpt_path = self.args.ckpt
+                ckpt_path = self.opt.ckpt
                 ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
                 model = load_ckpt(model, ckpt)
                 print("{:s} loaded!".format(ckpt_path))
