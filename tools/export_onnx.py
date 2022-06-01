@@ -86,7 +86,7 @@ def run():
         cfg_name = os.path.split(opt.cfg)[-1]
         if "." in cfg_name:
             cfg_name = cfg_name.split(".")[0]
-        opt.output_onnx_path = "../" + cfg_name + ".onnx"
+            opt.output_onnx_path = os.path.abspath("../" + cfg_name + ".onnx")
 
     if not opt.experiment_name:
         opt.experiment_name = exp.exp_name
