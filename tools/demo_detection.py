@@ -420,12 +420,12 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     # write_results(result_filename, results)
 
 
-def video_tracking(predictor, cap, save_path, opt):
+def visualize_video(predictor, cap, vid_save_path, opt):
     """
     online or offline tracking
     :param predictor:
     :param cap:
-    :param save_path:
+    :param vid_save_path:
     :param opt:
     :return:
     """
@@ -434,8 +434,8 @@ def video_tracking(predictor, cap, save_path, opt):
     fps = cap.get(cv2.CAP_PROP_FPS)
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
 
-    save_path = os.path.abspath(save_path)
-    vid_writer = cv2.VideoWriter(save_path,
+    vid_save_path = os.path.abspath(vid_save_path)
+    vid_writer = cv2.VideoWriter(vid_save_path,
                                  cv2.VideoWriter_fourcc(*"mp4v"),
                                  fps,
                                  (int(width), int(height)))
@@ -571,7 +571,7 @@ def video_tracking(predictor, cap, save_path, opt):
         ## ----- update frame id
         frame_id += 1
 
-    print("{:s} saved.".format(save_path))
+    print("{:s} saved.".format(vid_save_path))
 
 
 def imageflow_demo(predictor, vis_dir, current_time, args):
@@ -604,7 +604,7 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
                     save_path = os.path.join(save_dir, current_time + ".mp4")
 
                     ## ---------- Get tracking results
-                    video_tracking(predictor, cap, save_path, args)
+                    visualize_video(predictor, cap, save_path, args)
                     ## ----------
 
                     print("{:s} tracking offline done.".format(video_name))
@@ -628,7 +628,7 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             save_path = os.path.join(save_dir, current_time + ".mp4")
 
             ## ---------- Get tracking results
-            video_tracking(predictor, cap, save_path, args)
+            visualize_video(predictor, cap, save_path, args)
             ## ----------
 
             print("{:s} tracking done offline.".format(video_name))
