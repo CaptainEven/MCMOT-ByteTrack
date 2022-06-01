@@ -55,34 +55,34 @@ def make_parser():
     ## ---------- experiment file path, eg: ../exps/example/mot/yolox_tiny_det.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5_darknet.py",
+                        default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
                         type=str,
                         help="plz input your expriment description file")
 
     ## -----Darknet cfg file path
     parser.add_argument("--cfg",
                         type=str,
-                        default="../cfg/yolox_darknet_tiny.cfg",
+                        default="../cfg/yolox_darknet_tiny_bb46.cfg",
                         help="")
-
-    ## ----- Darknet weights
-    parser.add_argument("--weights",
-                        type=str,
-                        default="",
-                        help="Darknet weights file path")
 
     ## ---------- checkpoint file path
     ## latest_ckpt.pth.tar, yolox_tiny_32.8.pth
+    # ../YOLOX_outputs/yolox_tiny_det_c5_darknet/latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_tiny_det_c5_darknet/latest_ckpt.pth.tar",  # None
+                        default="../pretrained/v5.46.weights",  # None
                         type=str,
                         help="checkpoint file")
+
+    parser.add_argument("--cutoff",
+                        type=int,
+                        default=44,
+                        help="")
     ## ----------
 
     parser.add_argument("--debug",
                         type=int,
-                        default=0,  # False | True
+                        default=1,  # False | True
                         help="")
 
     # distributed
@@ -99,7 +99,7 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=20,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
+                        default=4,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
     parser.add_argument("-nd",
                         "--n_devices",

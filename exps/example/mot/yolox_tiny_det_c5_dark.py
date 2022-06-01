@@ -30,7 +30,13 @@ class Exp(MyExp):
 
         ## ----- Define file list path(imgs and txts(labels) path)
         self.train_f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
-        self.test_f_list_path = "/users/duanyou/c5/data_all/test5000.txt"
+        self.test_f_list_path = "/users/duanyou/c5/data_all/test3000.txt"
+        if not os.path.isfile(self.train_f_list_path):
+            logger.error("invalid train file list path: {:s}".format(self.train_f_list_path))
+            exit(-1)
+        if not os.path.isfile(self.test_f_list_path):
+            logger.error("invalid test file list path: {:s}".format(self.test_f_list_path))
+            exit(-1)
         ## -----
 
         if debug:
@@ -61,8 +67,8 @@ class Exp(MyExp):
 
         self.n_classes = 5
         self.cfg_file_path = "../cfg/yolox_darknet_tiny.cfg"
-        self.backbone_weights = "./pretrained/v5.45.weights"
-        self.cutoff = 45  # the layer to cutoff
+        # self.backbone_weights = "./pretrained/v5.45.weights"
+        # self.cutoff = 45  # the layer to cutoff
 
     def get_model(self):
         """
@@ -83,22 +89,13 @@ class Exp(MyExp):
             backbone = DarknetBackbone(cfg_path=self.cfg_file_path,
                                        net_size=(768, 448),
                                        in_chans=3,
-                                       init_weights=False,
+                                       out_inds=[20, 26, 45],
+                                       init_weights=True,
                                        use_momentum=True)
-
-            ## ----- load darknet backbone weights
-            if len(self.backbone_weights) > 0:
-                from yolox.models.darknet_modules import load_darknet_weights
-                self.backbone_weights = os.path.abspath(self.backbone_weights)
-                if not os.path.isfile(self.backbone_weights):
-                    logger.error("invalid backbone weights path: {:s}, exit now!"
-                                .format(self.backbone_weights))
-                load_darknet_weights(backbone, self.backbone_weights, self.cutoff)
-
             head = DarknetHead(num_classes=self.n_classes,
                                width=self.width,
                                strides=[8, 16, 32],
-                               in_channels=[256, 512, 1024],
+                               in_channels=[256, 256, 512],
                                act="lrelu",
                                depth_wise=False)
             self.model = YOLOXDark(cfg_path=self.cfg_file_path,

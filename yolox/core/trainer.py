@@ -141,9 +141,12 @@ class Trainer:
         logger.info("args: {}".format(self.opt))
         logger.info("exp value:\n{}".format(self.exp))
 
-        ## ----- model related init
+        ## ----- Set device
         torch.cuda.set_device(self.local_rank)
+
+        ## ----- Get the model
         net = self.exp.get_model()
+
         if not self.opt.debug:
             logger.info("Model Summary: {}"
                         .format(get_model_info(net, self.exp.test_size)))
@@ -322,17 +325,26 @@ class Trainer:
                         .format(self.opt.resume, self.start_epoch))  # noqa
         else:
             if self.opt.ckpt is not None:
-                logger.info("loading checkpoint for fine tuning...")
-
                 ckpt_path = os.path.abspath(self.opt.ckpt)
+                if not os.path.isfile(ckpt_path):
+                    logger.error("invalid ckpt file path: {:s}"
+                                 .format(ckpt_path))
+                else:
+                    logger.info("Loading ckpt {:s}...".format(ckpt_path))
+
                 if self.opt.ckpt.endswith(".tar") \
                         or self.opt.ckpt.endswith(".pth") \
                         or self.opt.ckpt.endswith(".pth"):
                     ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
                     model = load_ckpt(model, ckpt)
                 elif self.opt.ckpt.endswith(".weights"):
-                    load_darknet_weights(model, ckpt_path, self.opt.cutoff)
+                    if hasattr(model, "module_list"):
+                        load_darknet_weights(model, ckpt_path, self.opt.cutoff)
+                    elif hasattr(model, "backbone") and \
+                            hasattr(model.backbone, "module_list"):
+                        load_darknet_weights(model.backbone, ckpt_path, self.opt.cutoff)
                 logger.info("{:s} loaded!".format(ckpt_path))
+
             self.start_epoch = 0
 
         return model

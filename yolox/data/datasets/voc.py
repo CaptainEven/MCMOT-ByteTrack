@@ -120,8 +120,9 @@ class VOCDetection(Dataset):
         logger.info("Classes: " + ",".join(self._classes))
         self.ids = list()
 
+        self.f_list_path = os.path.abspath(self.f_list_path)
         if not os.path.isfile(self.f_list_path):
-            logger.error("invalid file list path!")
+            logger.error("invalid file list path: {:s}!".format(self.f_list_path))
             exit(-1)
 
         with open(self.f_list_path, 'r') as f:

@@ -20,6 +20,7 @@ class DarknetBackbone(nn.Module):
                  cfg_path,
                  net_size=(768, 448),
                  in_chans=3,
+                 out_inds=[],
                  init_weights=False,
                  use_momentum=True):
         """
@@ -27,6 +28,7 @@ class DarknetBackbone(nn.Module):
         :param cfg_path:
         :param net_size: w, h
         :param in_chans:
+        :param out_inds: output layer inds
         :param init_weights:
         :param use_momentum:
         """
@@ -35,6 +37,12 @@ class DarknetBackbone(nn.Module):
         if not os.path.isfile(cfg_path):
             logger.error("Invalid cfg file path: {:s}, exit now!".format(cfg_path))
             exit(-1)
+
+        self.out_inds = out_inds
+        assert len(out_inds) == 3
+        self.id0, self.id1, self.id2 = self.out_inds
+        logger.info("id0: {:d}, id1: {:d}, id2: {:d}"
+                    .format(self.id0, self.id1, self.id2))
 
         ## ----- build the network
         self.module_defs = parse_darknet_cfg(cfg_path)
@@ -134,6 +142,8 @@ class DarknetBackbone(nn.Module):
         out, layer_outs = self.forward_once(x)
 
         ## ----- build feature maps of 3 scales: 1/8, 1/16, 1/32
-        self.fpn_outs = (layer_outs[58], layer_outs[52], layer_outs[46])
+        self.fpn_outs = (layer_outs[self.id0],
+                         layer_outs[self.id1],
+                         layer_outs[self.id2])
 
         return self.fpn_outs
