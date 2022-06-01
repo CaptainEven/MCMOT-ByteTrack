@@ -66,7 +66,7 @@ class Exp(MyExp):
         self.warmup_epochs = 1
 
         self.n_classes = 5
-        self.cfg_file_path = "../cfg/yolox_darknet_tiny.cfg"
+        self.cfg_file_path = "../cfg/yolox_darknet_tiny_bb46.cfg"
         # self.backbone_weights = "./pretrained/v5.45.weights"
         # self.cutoff = 45  # the layer to cutoff
 

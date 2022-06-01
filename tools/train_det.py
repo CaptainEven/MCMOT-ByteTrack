@@ -66,11 +66,11 @@ def make_parser():
                         help="")
 
     ## ---------- checkpoint file path
-    ## latest_ckpt.pth.tar, yolox_tiny_32.8.pth
-    # ../YOLOX_outputs/yolox_tiny_det_c5_darknet/latest_ckpt.pth.tar
+    ## latest_ckpt.pth.tar, yolox_tiny_32.8.pth ../pretrained/v5.46.weights
+    # ../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/v5.46.weights",  # None
+                        default="../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar",  # None
                         type=str,
                         help="checkpoint file")
 
@@ -199,6 +199,7 @@ if __name__ == "__main__":
     if opt.debug:
         exp.data_num_workers = 0
 
+    ## ----- Using cfg file from opt
     if hasattr(exp, "cfg_file_path"):
         exp.cfg_file_path = os.path.abspath(opt.cfg)
 

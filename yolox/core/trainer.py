@@ -333,7 +333,9 @@ class Trainer:
 
                 if self.opt.ckpt.endswith(".tar") \
                         or self.opt.ckpt.endswith(".pth"):
-                    ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
+                    ckpt = torch.load(ckpt_path, map_location=self.device)
+                    if "model" in ckpt:
+                        ckpt = ckpt["model"]
                     net = load_ckpt(net, ckpt)
                 elif self.opt.ckpt.endswith(".weights"):
                     if hasattr(net, "module_list"):
