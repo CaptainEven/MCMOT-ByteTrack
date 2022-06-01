@@ -16,9 +16,9 @@ from yolox.utils import load_ckpt
 def make_parser():
     parser = argparse.ArgumentParser("YOLOX onnx deploy")
 
-    parser.add_argument("--output-name",
+    parser.add_argument("--output_onnx_path",
                         type=str,
-                        default="bytetrack_s.onnx",
+                        default="bytetrack.onnx",
                         help="output name of models")
     parser.add_argument("--input",
                         default="images",
@@ -41,6 +41,11 @@ def make_parser():
                         default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
                         type=str,
                         help="expriment description file", )
+    ## -----Darknet cfg file path
+    parser.add_argument("--cfg",
+                        type=str,
+                        default="../cfg/yolox_darknet_tiny_bb46.cfg",
+                        help="")
     parser.add_argument("-expn",
                         "--experiment-name",
                         type=str,
@@ -70,8 +75,18 @@ def run():
     """
     opt = make_parser().parse_args()
     logger.info("args value: {}".format(opt))
+
     exp = get_exp(opt.exp_file, opt.name)
     exp.merge(opt.opts)
+
+    ## ----- Using cfg file from opt
+    if hasattr(exp, "cfg_file_path"):
+        exp.cfg_file_path = os.path.abspath(opt.cfg)
+
+        cfg_name = os.path.split(opt.cfg)[-1]
+        if "." in cfg_name:
+            cfg_name = cfg_name.split(".")[0]
+        opt.output_onnx_path = "../" + cfg_name + ".onnx"
 
     if not opt.experiment_name:
         opt.experiment_name = exp.exp_name
@@ -98,8 +113,8 @@ def run():
     ckpt = torch.load(ckpt_path, map_location="cpu")
     if "model" in ckpt:
         ckpt = ckpt["model"]
-    net.eval()
     net.load_state_dict(ckpt)
+    net.eval()
 
     # net = replace_module(net, nn.SiLU, SiLU)
     net.head.decode_in_inference = False
@@ -108,11 +123,11 @@ def run():
     dummy_input = torch.randn(1, 3, exp.test_size[0], exp.test_size[1])
     torch.onnx._export(net,
                        dummy_input,
-                       opt.output_name,
+                       opt.output_onnx_path,
                        input_names=[opt.input],
                        output_names=[opt.output],
                        opset_version=opt.opset, )
-    logger.info("generated onnx model named {}".format(opt.output_name))
+    logger.info("generated onnx model named {}".format(opt.output_onnx_path))
 
     if not opt.no_onnxsim:
         import onnx
@@ -120,11 +135,11 @@ def run():
         from onnxsim import simplify
 
         # use onnxsimplify to reduce reduent model.
-        onnx_model = onnx.load(opt.output_name)
+        onnx_model = onnx.load(opt.output_onnx_path)
         model_simp, check = simplify(onnx_model)
         assert check, "Simplified ONNX model could not be validated"
-        onnx.save(model_simp, opt.output_name)
-        logger.info("generated simplified onnx model named {}".format(opt.output_name))
+        onnx.save(model_simp, opt.output_onnx_path)
+        logger.info("generated simplified onnx model named {}".format(opt.output_onnx_path))
 
 
 if __name__ == "__main__":

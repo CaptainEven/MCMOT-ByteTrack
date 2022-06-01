@@ -196,6 +196,7 @@ if __name__ == "__main__":
     exp = get_exp(opt.exp_file, opt.name)
     exp.merge(opt.opts)
 
+    ## ----- modify number of workers
     if opt.debug:
         exp.data_num_workers = 0
 
