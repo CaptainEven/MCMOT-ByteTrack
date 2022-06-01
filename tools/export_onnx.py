@@ -37,7 +37,7 @@ def make_parser():
                         help="use onnxsim or not")
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_track_c5_darknet.py",
+                        default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
                         type=str,
                         help="expriment description file", )
     parser.add_argument("-expn",
@@ -51,7 +51,7 @@ def make_parser():
                         help="model name")
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_tiny_track_c5_darknet/latest_ckpt.pth.tar",
+                        default="../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt path")
     parser.add_argument("opts",
@@ -77,13 +77,18 @@ def run():
 
     net = exp.get_model()
     if args.ckpt is None:
-        file_name = os.path.join(exp.output_dir, args.experiment_name)
-        ckpt_file = os.path.join(file_name, "best_ckpt.pth.tar")
+        ckpt_name = os.path.join(exp.output_dir, args.experiment_name)
+        ckpt_path = os.path.join(ckpt_name, "best_ckpt.pth.tar")
     else:
-        ckpt_file = args.ckpt
+        ckpt_path = args.ckpt
+    ckpt_path = os.path.abspath(ckpt_path)
+    if os.path.isfile(ckpt_path):
+        logger.info("loading ckpt {:s}...".format(ckpt_path))
+    else:
+        logger.error("invalid ckpt path: {:s}".format(ckpt_path))
 
     # load the model state dict
-    ckpt = torch.load(ckpt_file, map_location="cpu")
+    ckpt = torch.load(ckpt_path, map_location="cpu")
 
     net.eval()
     if "model" in ckpt:
