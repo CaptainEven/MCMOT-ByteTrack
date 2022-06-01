@@ -420,12 +420,12 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     # write_results(result_filename, results)
 
 
-def video_tracking(predictor, cap, vid_save_path, opt):
+def video_tracking(predictor, cap, save_path, opt):
     """
     online or offline tracking
     :param predictor:
     :param cap:
-    :param vid_save_path:
+    :param save_path:
     :param opt:
     :return:
     """
@@ -434,8 +434,8 @@ def video_tracking(predictor, cap, vid_save_path, opt):
     fps = cap.get(cv2.CAP_PROP_FPS)
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
 
-    vid_save_path = os.path.abspath(vid_save_path)
-    vid_writer = cv2.VideoWriter(vid_save_path,
+    save_path = os.path.abspath(save_path)
+    vid_writer = cv2.VideoWriter(save_path,
                                  cv2.VideoWriter_fourcc(*"mp4v"),
                                  fps,
                                  (int(width), int(height)))
@@ -483,11 +483,7 @@ def video_tracking(predictor, cap, vid_save_path, opt):
         ret_val, frame = cap.read()
 
         if ret_val:
-            if opt.reid:
-                outputs, feature_map, img_info = predictor.inference(frame, timer)
-            else:
-                outputs, img_info = predictor.inference(frame, timer)
-
+            outputs, img_info = predictor.inference(frame, timer)
             dets = outputs[0]
 
             if dets is not None:
@@ -496,16 +492,10 @@ def video_tracking(predictor, cap, vid_save_path, opt):
                 # online_targets = tracker.update(dets, img_size, exp.test_size)
 
                 if opt.tracker == "byte":
-                    if opt.reid:
-                        online_dict = tracker.update_mcmot_emb(dets,
-                                                               feature_map,
-                                                               img_size,
-                                                               net_size)
-                    else:
-                        # online_dict = tracker.update_mcmot_byte(dets, img_size, net_size)
-                        # online_dict = tracker.update_byte_nk(dets, img_size, net_size)
-                        online_dict = tracker.update_byte_enhance2(dets, img_size, net_size)
-                        # online_dict = tracker.update_oc_enhance2(dets, img_size, net_size)
+                    # online_dict = tracker.update_mcmot_byte(dets, img_size, net_size)
+                    # online_dict = tracker.update_byte_nk(dets, img_size, net_size)
+                    online_dict = tracker.update_byte_enhance2(dets, img_size, net_size)
+                    # online_dict = tracker.update_oc_enhance2(dets, img_size, net_size)
 
                 elif opt.tracker == "oc":
                     online_dict = tracker.update_frame(dets, img_size, exp.test_size)
@@ -581,7 +571,7 @@ def video_tracking(predictor, cap, vid_save_path, opt):
         ## ----- update frame id
         frame_id += 1
 
-    print("{:s} saved.".format(vid_save_path))
+    print("{:s} saved.".format(save_path))
 
 
 def imageflow_demo(predictor, vis_dir, current_time, args):

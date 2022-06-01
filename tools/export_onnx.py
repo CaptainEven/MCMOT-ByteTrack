@@ -5,12 +5,8 @@ import os
 
 import torch
 from loguru import logger
-from torch import nn
 
 from yolox.exp import get_exp
-from yolox.models.network_blocks import SiLU
-from yolox.utils import replace_module
-from yolox.utils import load_ckpt
 
 
 def make_parser():
