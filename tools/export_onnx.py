@@ -128,7 +128,7 @@ def run():
 
         from onnxsim import simplify
 
-        # use onnxsimplify to reduce redundant model.
+        # use onnx-simplify to reduce redundant model.
         onnx_model = onnx.load(opt.output_onnx_path)
         model_simp, check = simplify(onnx_model)
 
