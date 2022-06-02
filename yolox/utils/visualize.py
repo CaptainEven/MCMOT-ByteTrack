@@ -93,7 +93,6 @@ def plot_detection(img,
         x1, y1, x2, y2, score, cls_id = det
 
         int_box = tuple(map(int, (x1, y1, x2, y2)))  # x1, y1, x2, y2
-        cls_id_text = '{}'.format(int(cls_id))
 
         _line_thickness = 1 if cls_id <= 0 else line_thickness
         color = get_color(abs(cls_id))
@@ -106,8 +105,9 @@ def plot_detection(img,
                       thickness=line_thickness)
 
         ## draw class name
+        class_name_txt = id2cls[cls_id]
         cv2.putText(img,
-                    id2cls[cls_id],
+                    class_name_txt,
                     (int(x1), int(y1)),
                     cv2.FONT_HERSHEY_PLAIN,
                     text_scale,

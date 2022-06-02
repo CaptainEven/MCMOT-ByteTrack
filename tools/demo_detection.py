@@ -32,6 +32,10 @@ def make_parser():
                         type=str,
                         default="../YOLOX_outputs",
                         help="")
+    parser.add_argument("--conf",
+                        default=0.6,
+                        type=float,
+                        help="test conf")
     parser.add_argument("-expn",
                         "--experiment-name",
                         type=str,
@@ -76,11 +80,6 @@ def make_parser():
                         type=str,
                         help="ckpt for eval")
 
-    parser.add_argument("--task",
-                        type=str,
-                        default="track",
-                        help="Task mode: track or detect")
-
     ## ----- videos dir path
     parser.add_argument("--video_dir",
                         type=str,
@@ -106,10 +105,7 @@ def make_parser():
                         default="gpu",
                         type=str,
                         help="device to run our model, can either be cpu or gpu")
-    parser.add_argument("--conf",
-                        default=0.7,
-                        type=float,
-                        help="test conf")
+
     parser.add_argument("--nms",
                         default=None,
                         type=float,
@@ -358,7 +354,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     file_path_list.sort()
 
     net_size = exp.test_size
-    
+
     ## ----- class name to class id and class id to class name
     id2cls = defaultdict(str)
     cls2id = defaultdict(int)
