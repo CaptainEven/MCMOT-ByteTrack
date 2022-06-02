@@ -12,7 +12,6 @@ from loguru import logger
 
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
-from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
 from yolox.utils.visualize import plot_detection
@@ -353,17 +352,25 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     :return:
     """
     if os.path.isdir(path):
-        files = get_image_list(path)
+        file_path_list = get_image_list(path)
     else:
-        files = [path]
+        file_path_list = [path]
+    file_path_list.sort()
 
-    files.sort()
-    tracker = ByteTracker(opt, frame_rate=30)
+    net_size = exp.test_size
+    
+    ## ----- class name to class id and class id to class name
+    id2cls = defaultdict(str)
+    cls2id = defaultdict(int)
+    for cls_id, cls_name in enumerate(opt.class_names):
+        id2cls[cls_id] = cls_name
+        cls2id[cls_name] = cls_id
+
     timer = Timer()
+
     frame_id = 0
     results = []
-
-    for image_name in files:
+    for image_name in file_path_list:
         if frame_id % 30 == 0:
             if frame_id != 0:
                 logger.info('Processing frame {} ({:.2f} fps)'
@@ -373,26 +380,36 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
                 logger.info('Processing frame {} ({:.2f} fps)'
                             .format(frame_id,
                                     30.0))
+        net_h, net_w = net_size
 
-        outputs, img_info = predictor.inference(image_name, timer)
-        if outputs[0] is not None:
-            online_targets = tracker.update(outputs[0],
-                                            [img_info['height'], img_info['width']],
-                                            exp.test_size)
-            online_tlwhs = []
-            online_ids = []
-            online_scores = []
-            for t in online_targets:
-                tlwh = t._tlwh
-                tid = t.track_id
-                vertical = tlwh[2] / tlwh[3] > 1.6
-                if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:
-                    online_tlwhs.append(tlwh)
-                    online_ids.append(tid)
-                    online_scores.append(t.score)
+        with torch.no_grad():
+            outputs, img_info = predictor.inference(image_name, timer)
+            dets = outputs[0]
+            dets = dets.cpu().numpy()
+            dets = dets[np.where(dets[:, 4] > opt.conf)]
 
-            # save results
-            results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
+        ## turn x1,y1,x2,y2,score1,score2,cls_id  (7)
+        ## tox1,y1,x2,y2,score,cls_id  (6)
+        if dets.shape[1] == 7:
+            dets[:, 4] *= dets[:, 5]
+            dets[:, 5] = dets[:, 6]
+            dets = dets[:, :6]
+
+        if dets.shape[0] > 0:
+            ## ----- update the frame
+            img_size = [img_info['height'], img_info['width']]
+
+            ## ----- scale back the bbox
+            img_h, img_w = img_size
+            scale = min(net_h / float(img_h), net_w / float(img_w))
+            dets[:, :4] /= scale  # scale x1, y1, x2, y2
+            timer.toc()
+            online_img = plot_detection(img=img_info['raw_img'],
+                                        dets=dets,
+                                        frame_id=frame_id + 1,
+                                        fps=1.0 / timer.average_time,
+                                        id2cls=id2cls)
+
             timer.toc()
             online_im = None
         else:
