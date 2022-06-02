@@ -114,6 +114,20 @@ def plot_detection(img,
                     (0, 255, 255),  # cls_id: yellow
                     thickness=text_thickness)
 
+        txt_w, txt_h = cv2.getTextSize(id2cls[cls_id],
+                                       fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                       fontScale=text_scale, thickness=text_thickness)
+
+        ## draw score
+        score_txt = "{:.3f}".format(score)
+        cv2.putText(img,
+                    score_txt,
+                    (int(x1), int(y1) - txt_h),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    text_scale * 1.2,
+                    (0, 255, 255),  # cls_id: yellow
+                    thickness=text_thickness)
+
     return img
 
 

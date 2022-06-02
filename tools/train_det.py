@@ -207,7 +207,8 @@ if __name__ == "__main__":
     if not opt.experiment_name:
         opt.experiment_name = exp.exp_name
 
-    num_gpu = torch.cuda.device_count() if opt.n_devices is None else opt.n_devices
+    num_gpu = torch.cuda.device_count() if opt.n_devices is None \
+        else opt.n_devices
     assert num_gpu <= torch.cuda.device_count()
 
     launch(main,

@@ -6,6 +6,7 @@ import time
 from collections import defaultdict
 
 import cv2
+import numpy as np
 import torch
 from loguru import logger
 
@@ -28,10 +29,10 @@ def make_parser():
     parser.add_argument("--demo",
                         default="video",  # image
                         help="demo type, eg. image, video, videos, and webcam")
-    parser.add_argument("--tracker",
+    parser.add_argument("--output_dir",
                         type=str,
-                        default="byte",
-                        help="byte | oc")
+                        default="../YOLOX_outputs",
+                        help="")
     parser.add_argument("-expn",
                         "--experiment-name",
                         type=str,
@@ -107,7 +108,7 @@ def make_parser():
                         type=str,
                         help="device to run our model, can either be cpu or gpu")
     parser.add_argument("--conf",
-                        default=None,
+                        default=0.7,
                         type=float,
                         help="test conf")
     parser.add_argument("--nms",
@@ -468,6 +469,7 @@ def detect_video(predictor, cap, vid_save_path, opt):
                 outputs, img_info = predictor.inference(frame, timer)
                 dets = outputs[0]
                 dets = dets.cpu().numpy()
+                dets = dets[np.where(dets[:, 4] > opt.conf)]
 
             ## turn x1,y1,x2,y2,score1,score2,cls_id  (7)
             ## tox1,y1,x2,y2,score,cls_id  (6)
@@ -522,7 +524,8 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
     """
     if args.demo == "videos":
         if os.path.isdir(args.video_dir):
-            mp4_path_list = [args.video_dir + "/" + x for x in os.listdir(args.video_dir)
+            mp4_path_list = [args.video_dir + "/" + x
+                             for x in os.listdir(args.video_dir)
                              if x.endswith(".mp4")]
             mp4_path_list.sort()
             if len(mp4_path_list) == 0:
@@ -671,6 +674,11 @@ def run(exp, opt):
 if __name__ == "__main__":
     opt = make_parser().parse_args()
     exp = get_exp(opt.exp_file, opt.name)
+
+    if hasattr(exp, "cfg_file_path"):
+        exp.cfg_file_path = os.path.abspath(opt.cfg)
+    if hasattr(exp, "output_dir"):
+        exp.output_dir = opt.output_dir
 
     class_names = opt.class_names.split(",")
     opt.class_names = class_names
