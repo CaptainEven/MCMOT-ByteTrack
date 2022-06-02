@@ -33,7 +33,7 @@ def make_parser():
                         default="../YOLOX_outputs",
                         help="")
     parser.add_argument("--conf",
-                        default=0.6,
+                        default=0.55,
                         type=float,
                         help="test conf")
     parser.add_argument("-expn",
@@ -354,6 +354,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     file_path_list.sort()
 
     net_size = exp.test_size
+    net_h, net_w = net_size
 
     ## ----- class name to class id and class id to class name
     id2cls = defaultdict(str)
@@ -362,6 +363,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
         id2cls[cls_id] = cls_name
         cls2id[cls_name] = cls_id
 
+    logger.info("Confidence threshold: {:.3f}".format(opt.conf))
     timer = Timer()
 
     frame_id = 0
@@ -376,7 +378,6 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
                 logger.info('Processing frame {} ({:.2f} fps)'
                             .format(frame_id,
                                     30.0))
-        net_h, net_w = net_size
 
         with torch.no_grad():
             outputs, img_info = predictor.inference(image_name, timer)
@@ -697,7 +698,7 @@ if __name__ == "__main__":
     opt.class_names = class_names
     exp.class_names = class_names
     exp.n_classes = len(exp.class_names)
-    print("Number of classes: ", exp.n_classes)
+    logger.info("Number of classes: {:d}".format(exp.n_classes))
 
     ## ----- run the tracking
     run(exp, opt)
