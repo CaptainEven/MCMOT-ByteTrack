@@ -14,7 +14,7 @@ from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
-from yolox.utils.visualize import plot_tracking_sc
+from yolox.utils.visualize import plot_detection
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -393,11 +393,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
             # save results
             results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
             timer.toc()
-            online_im = plot_tracking_sc(img_info['raw_img'],
-                                         online_tlwhs,
-                                         online_ids,
-                                         frame_id=frame_id + 1,
-                                         fps=1.0 / timer.average_time)
+            online_im = None
         else:
             timer.toc()
             online_im = img_info['raw_img']
@@ -465,14 +461,36 @@ def detect_video(predictor, cap, vid_save_path, opt):
 
         ## ----- read the video
         ret_val, frame = cap.read()
+        net_h, net_w = net_size
 
         if ret_val:
-            outputs, img_info = predictor.inference(frame, timer)
-            dets = outputs[0]
+            with torch.no_grad():
+                outputs, img_info = predictor.inference(frame, timer)
+                dets = outputs[0]
+                dets = dets.cpu().numpy()
 
-            if dets is not None:
+            ## turn x1,y1,x2,y2,score1,score2,cls_id  (7)
+            ## tox1,y1,x2,y2,score,cls_id  (6)
+            if dets.shape[1] == 7:
+                dets[:, 4] *= dets[:, 5]
+                dets[:, 5] = dets[:, 6]
+                dets = dets[:, :6]
+
+            if dets.shape[0] > 0:
                 ## ----- update the frame
                 img_size = [img_info['height'], img_info['width']]
+
+                ## ----- scale back the bbox
+                img_h, img_w = img_size
+                scale = min(net_h / float(img_h), net_w / float(img_w))
+                dets[:, :4] /= scale  # scale x1, y1, x2, y2
+
+                timer.toc()
+                online_img = plot_detection(img=img_info['raw_img'],
+                                            dets=dets,
+                                            frame_id=frame_id + 1,
+                                            fps=1.0 / timer.average_time,
+                                            id2cls=id2cls)
 
             else:
                 timer.toc()

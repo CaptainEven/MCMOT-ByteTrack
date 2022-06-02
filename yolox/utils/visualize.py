@@ -68,8 +68,53 @@ def plot_detection(img,
                    id2cls=None):
     """
     :param img:
-
+    :param dets: n×6: x1,y1,x2,y2,score, cls_id
     """
+    img = np.ascontiguousarray(np.copy(img))
+    im_h, im_w = img.shape[:2]
+
+    # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
+
+    text_scale = max(1.0, img.shape[1] / 1000.0)  # 1600.
+    # text_thickness = 1 if text_scale > 1.1 else 1
+    text_thickness = 2  # 自定义ID文本线宽
+    line_thickness = max(1, int(img.shape[1] / 500.0))
+
+    ## ----- draw fps
+    cv2.putText(img,
+                "frame: %d fps: %.2f".format(frame_id, fps),
+                (0, int(15 * text_scale)),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                (0, 255, 255),
+                thickness=2)
+
+    for det in dets:
+        x1, y1, x2, y2, score, cls_id = det
+
+        int_box = tuple(map(int, (x1, y1, x2, y2)))  # x1, y1, x2, y2
+        cls_id_text = '{}'.format(int(cls_id))
+
+        _line_thickness = 1 if cls_id <= 0 else line_thickness
+        color = get_color(abs(cls_id))
+
+        # draw bbox
+        cv2.rectangle(img=img,
+                      pt1=int_box[0:2],  # (x1, y1)
+                      pt2=int_box[2:4],  # (x2, y2)
+                      color=color,
+                      thickness=line_thickness)
+
+        ## draw class name
+        cv2.putText(img,
+                    id2cls[cls_id],
+                    (int(x1), int(y1)),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    text_scale,
+                    (0, 255, 255),  # cls_id: yellow
+                    thickness=text_thickness)
+
+    return img
 
 
 def plot_tracking_ocsort(img,

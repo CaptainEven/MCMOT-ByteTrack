@@ -15,7 +15,8 @@ from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
-from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc, plot_tracking_ocsort
+from yolox.utils.visualize import plot_tracking_sc, \
+    plot_tracking_mc, plot_tracking_ocsort
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
