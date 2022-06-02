@@ -433,22 +433,10 @@ def visualize_video(predictor, cap, vid_save_path, opt):
                                  fps,
                                  (int(width), int(height)))
 
-    ## ---------- define the tracker
-    if opt.tracker == "byte":
-        tracker = ByteTracker(opt, frame_rate=30)
-        logger.info("Tracker backend: byte.")
-    elif opt.tracker == "oc":
-        tracker = MCOCSort(class_names=opt.class_names,
-                           det_thresh=opt.track_thresh,
-                           iou_thresh=opt.iou_thresh,
-                           max_age=opt.track_buffer)
-        logger.info("Tracker backend: oc.")
-    ## ----------
-
     ## ----- class name to class id and class id to class name
     id2cls = defaultdict(str)
     cls2id = defaultdict(int)
-    for cls_id, cls_name in enumerate(tracker.class_names):
+    for cls_id, cls_name in enumerate(opt.class_names):
         id2cls[cls_id] = cls_name
         cls2id[cls_name] = cls_id
 
@@ -458,7 +446,6 @@ def visualize_video(predictor, cap, vid_save_path, opt):
 
     frame_id = 0
     results = []
-
     while True:
         if frame_id % 30 == 0:  # logging per 30 frames
             if frame_id != 0:
@@ -482,70 +469,6 @@ def visualize_video(predictor, cap, vid_save_path, opt):
             if dets is not None:
                 ## ----- update the frame
                 img_size = [img_info['height'], img_info['width']]
-                # online_targets = tracker.update(dets, img_size, exp.test_size)
-
-                if opt.tracker == "byte":
-                    # online_dict = tracker.update_mcmot_byte(dets, img_size, net_size)
-                    # online_dict = tracker.update_byte_nk(dets, img_size, net_size)
-                    online_dict = tracker.update_byte_enhance2(dets, img_size, net_size)
-                    # online_dict = tracker.update_oc_enhance2(dets, img_size, net_size)
-
-                elif opt.tracker == "oc":
-                    online_dict = tracker.update_frame(dets, img_size, exp.test_size)
-
-                ## ----- plot single-class multi-object tracking results
-                if tracker.n_classes == 1:
-                    online_tlwhs = []
-                    online_ids = []
-                    online_scores = []
-                    for track in online_targets:
-                        tlwh = track.tlwh
-                        tid = track.track_id
-
-                        # vertical = tlwh[2] / tlwh[3] > 1.6
-                        # if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
-
-                        if tlwh[2] * tlwh[3] > opt.min_box_area:
-                            online_tlwhs.append(tlwh)
-                            online_ids.append(tid)
-                            online_scores.append(track.score)
-
-                    results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
-
-                    timer.toc()
-                    online_img = plot_tracking_sc(img_info['raw_img'],
-                                                  online_tlwhs,
-                                                  online_ids,
-                                                  frame_id=frame_id + 1,
-                                                  fps=1.0 / timer.average_time)
-
-                ## ----- plot multi-class multi-object tracking results
-                elif tracker.n_classes > 1:
-                    if opt.tracker == "byte":
-                        ## ---------- aggregate current frame's results for each object class
-                        online_tlwhs_dict = defaultdict(list)
-                        online_tr_ids_dict = defaultdict(list)
-                        for cls_id in range(tracker.n_classes):  # process each object class
-                            online_targets = online_dict[cls_id]
-                            for track in online_targets:
-                                online_tlwhs_dict[cls_id].append(track.tlwh)
-                                online_tr_ids_dict[cls_id].append(track.track_id)
-
-                        timer.toc()
-                        online_img = plot_tracking_mc(img=img_info['raw_img'],
-                                                      tlwhs_dict=online_tlwhs_dict,
-                                                      obj_ids_dict=online_tr_ids_dict,
-                                                      num_classes=tracker.n_classes,
-                                                      frame_id=frame_id + 1,
-                                                      fps=1.0 / timer.average_time,
-                                                      id2cls=id2cls)
-                    elif opt.tracker == "oc":
-                        timer.toc()
-                        online_img = plot_tracking_ocsort(img=img_info['raw_img'],
-                                                          tracks_dict=online_dict,
-                                                          frame_id=frame_id + 1,
-                                                          fps=1.0 / timer.average_time,
-                                                          id2cls=id2cls)
 
             else:
                 timer.toc()
@@ -580,10 +503,15 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             mp4_path_list = [args.video_dir + "/" + x for x in os.listdir(args.video_dir)
                              if x.endswith(".mp4")]
             mp4_path_list.sort()
+            if len(mp4_path_list) == 0:
+                logger.error("empty mp4 video list, exit now!")
+                exit(-1)
+
             for video_path in mp4_path_list:
                 if os.path.isfile(video_path):
                     video_name = os.path.split(video_path)[-1][:-4]
-                    print("\nStart tracking video {:s} offline...".format(video_name))
+                    print("\nStart tracking video {:s} offline..."
+                          .format(video_name))
 
                     ## ----- video capture
                     cap = cv2.VideoCapture(video_path)
