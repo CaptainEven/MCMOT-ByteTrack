@@ -58,8 +58,8 @@ def iou_distance(atracks, btracks):
     :type btracks: list[STrack]
     :rtype cost_matrix np.ndarray
     """
-    atlbrs = [track._tlbr for track in atracks]
-    btlbrs = [track._tlbr for track in btracks]
+    atlbrs = [track.tlbr for track in atracks]
+    btlbrs = [track.tlbr for track in btracks]
     _ious = ious(atlbrs, btlbrs)
     cost_matrix = 1 - _ious
 

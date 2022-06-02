@@ -31,13 +31,7 @@ class Exp(MyExp):
 
         ## ----- Define file list path(imgs and txts(labels) path)
         self.train_f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
-        self.test_f_list_path = "/users/duanyou/c5/data_all/test3000.txt"
-        if not os.path.isfile(self.train_f_list_path):
-            logger.error("invalid train file list path: {:s}".format(self.train_f_list_path))
-            exit(-1)
-        if not os.path.isfile(self.test_f_list_path):
-            logger.error("invalid test file list path: {:s}".format(self.test_f_list_path))
-            exit(-1)
+        self.test_f_list_path = "/users/duanyou/c5/data_all/test5000.txt"
         ## -----
 
         if debug:

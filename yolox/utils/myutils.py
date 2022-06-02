@@ -69,9 +69,3 @@ def parse_darknet_cfg(path):
     return m_defs
 
 
-def save_max_id_dict(max_id_dict, dict_path):
-    """
-    序列化max_id_dict到磁盘
-    """
-    with open(dict_path, "wb") as f:
-        np.savez(dict_path, max_id_dict=max_id_dict)

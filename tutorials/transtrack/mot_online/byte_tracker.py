@@ -58,7 +58,7 @@ class STrack(BaseTrack):
 
     def re_activate(self, new_track, frame_id, new_id=False):
         self.mean, self.covariance = self.kalman_filter.update(
-            self.mean, self.covariance, self.tlwh_to_xyah(new_track._tlwh)
+            self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
         )
         self.tracklet_len = 0
         self.state = TrackState.Tracked
@@ -294,7 +294,7 @@ class BYTETracker(object):
                 track_dict = {}
                 track_dict['tracking_id'] = track.track_id
                 track_dict['active'] = 1
-                track_dict['bbox'] = track._tlbr
+                track_dict['bbox'] = track.tlbr
                 track_dict['score'] = track.score
                 ret.append(track_dict)
 

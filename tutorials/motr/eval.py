@@ -182,7 +182,7 @@ class MOTR(object):
             
             online_ret = []
             for t in online_targets:
-                online_ret.append(np.array([t._tlbr[0], t._tlbr[1], t._tlbr[2], t._tlbr[3], t.score, t.track_id]).reshape(1, -1))
+                online_ret.append(np.array([t.tlbr[0], t.tlbr[1], t.tlbr[2], t.tlbr[3], t.score, t.track_id]).reshape(1, -1))
 
             if len(online_ret) > 0:
                 return np.concatenate(online_ret)

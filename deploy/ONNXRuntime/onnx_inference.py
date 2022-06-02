@@ -133,7 +133,7 @@ def imageflow_demo(predictor, args):
             online_ids = []
             online_scores = []
             for t in online_targets:
-                tlwh = t._tlwh
+                tlwh = t.tlwh
                 tid = t.track_id
                 vertical = tlwh[2] / tlwh[3] > 1.6
                 if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:

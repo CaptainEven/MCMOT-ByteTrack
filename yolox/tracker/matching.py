@@ -48,9 +48,7 @@ def linear_assignment(cost_matrix, thresh):
     :return:
     """
     if cost_matrix.size == 0:
-        return np.empty((0, 2), dtype=int), \
-               tuple(range(cost_matrix.shape[0])), \
-               tuple(range(cost_matrix.shape[1]))
+        return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
 
     matches, unmatched_a, unmatched_b = [], [], []
     cost, x, y = lap.lapjv(cost_matrix, extend_cost=True, cost_limit=thresh)
@@ -84,23 +82,23 @@ def ious(atlbrs, btlbrs):
     return ious
 
 
-def iou_distance(tracks_1, tracks_2):
+def iou_distance(atracks, btracks):
     """
     Compute cost based on IoU
-    :type tracks_1: list[STrack]
-    :type tracks_2: list[STrack]
+    :type atracks: list[STrack]
+    :type btracks: list[STrack]
 
     :rtype cost_matrix np.ndarray
     """
 
-    if (len(tracks_1) > 0 and isinstance(tracks_1[0], np.ndarray)) or (
-            len(tracks_2) > 0 and isinstance(tracks_2[0], np.ndarray)):
-        tlbrs_1 = tracks_1
-        tlbrs_2 = tracks_2
+    if (len(atracks) > 0 and isinstance(atracks[0], np.ndarray)) or (
+            len(btracks) > 0 and isinstance(btracks[0], np.ndarray)):
+        atlbrs = atracks
+        btlbrs = btracks
     else:
-        tlbrs_1 = [track.tlbr for track in tracks_1]
-        tlbrs_2 = [track.tlbr for track in tracks_2]
-    _ious = ious(tlbrs_1, tlbrs_2)
+        atlbrs = [track.tlbr for track in atracks]
+        btlbrs = [track.tlbr for track in btracks]
+    _ious = ious(atlbrs, btlbrs)
     cost_matrix = 1 - _ious
 
     return cost_matrix

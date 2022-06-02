@@ -8,19 +8,18 @@ import torch
 from loguru import logger
 
 
-def load_ckpt(net, ckpt):
+def load_ckpt(model, ckpt):
     """
-    :param net:
+    :param model:
     :param ckpt:
     :return:
     """
-    model_state_dict = net.state_dict()
+    model_state_dict = model.state_dict()
     load_dict = {}
 
     for key_model, v in model_state_dict.items():
         if key_model not in ckpt:
-            logger.warning("{} is not in the ckpt."
-                           " Please double check and see if this is desired."
+            logger.warning("{} is not in the ckpt. Please double check and see if this is desired."
                            .format(key_model))
             continue
 
@@ -31,9 +30,9 @@ def load_ckpt(net, ckpt):
             continue
         load_dict[key_model] = v_ckpt
 
-    net.load_state_dict(load_dict, strict=False)
+    model.load_state_dict(load_dict, strict=False)
 
-    return net
+    return model
 
 
 def save_checkpoint(state, is_best, save_dir, model_name=""):

@@ -93,7 +93,7 @@ def run_each_dataset(model_dir, retinanet, dataset_path, subset, cur_dataset):
                 online_ids = []
                 online_scores = []
                 for t in online_targets:
-                    tlwh = t._tlwh
+                    tlwh = t.tlwh
                     tid = t.track_id
                     online_tlwhs.append(tlwh)
                     online_ids.append(tid)

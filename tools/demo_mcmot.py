@@ -17,7 +17,6 @@ from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
 from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc, plot_tracking_ocsort
 
-
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
 
@@ -32,7 +31,7 @@ def make_parser():
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("--tracker",
                         type=str,
-                        default="byte",
+                        default="oc",
                         help="byte | oc")
     parser.add_argument("-expn",
                         "--experiment-name",
@@ -46,6 +45,10 @@ def make_parser():
     parser.add_argument("--reid",
                         type=bool,
                         default=False,  # True | False
+                        help="")
+    parser.add_argument("-debug",
+                        type=bool,
+                        default=True,  # True
                         help="")
 
     ## ----- object classes
@@ -68,7 +71,7 @@ def make_parser():
     ## ----- checkpoint file path, eg: ../pretrained/latest_ckpt.pth.tar, track_latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_tiny_track_c5_darknet/latest_ckpt.pth.tar",
+                        default="../pretrained/latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
 
@@ -156,10 +159,6 @@ def make_parser():
                         default=False,
                         action="store_true",
                         help="test mot20.")
-    parser.add_argument("--debug",
-                        type=bool,
-                        default=False,  # True
-                        help="")
 
     return parser
 
@@ -378,14 +377,12 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
 
         outputs, img_info = predictor.inference(image_name, timer)
         if outputs[0] is not None:
-            online_targets = tracker.update(outputs[0],
-                                            [img_info['height'], img_info['width']],
-                                            exp.test_size)
+            online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], exp.test_size)
             online_tlwhs = []
             online_ids = []
             online_scores = []
             for t in online_targets:
-                tlwh = t._tlwh
+                tlwh = t.tlwh
                 tid = t.track_id
                 vertical = tlwh[2] / tlwh[3] > 1.6
                 if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:
@@ -420,12 +417,12 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     # write_results(result_filename, results)
 
 
-def video_tracking(predictor, cap, save_path, opt):
+def video_tracking(predictor, cap, vid_save_path, opt):
     """
     online or offline tracking
     :param predictor:
     :param cap:
-    :param save_path:
+    :param vid_save_path:
     :param opt:
     :return:
     """
@@ -434,9 +431,8 @@ def video_tracking(predictor, cap, save_path, opt):
     fps = cap.get(cv2.CAP_PROP_FPS)
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
 
-    save_path = os.path.abspath(save_path)
-    logger.info("Video saving path: {:s}".format(save_path))
-    vid_writer = cv2.VideoWriter(save_path,
+    vid_save_path = os.path.abspath(vid_save_path)
+    vid_writer = cv2.VideoWriter(vid_save_path,
                                  cv2.VideoWriter_fourcc(*"mp4v"),
                                  fps,
                                  (int(width), int(height)))
@@ -444,13 +440,11 @@ def video_tracking(predictor, cap, save_path, opt):
     ## ---------- define the tracker
     if opt.tracker == "byte":
         tracker = ByteTracker(opt, frame_rate=30)
-        logger.info("Tracker backend: byte.")
     elif opt.tracker == "oc":
         tracker = MCOCSort(class_names=opt.class_names,
                            det_thresh=opt.track_thresh,
                            iou_thresh=opt.iou_thresh,
                            max_age=opt.track_buffer)
-        logger.info("Tracker backend: oc.")
     ## ----------
 
     ## ----- class name to class id and class id to class name
@@ -501,11 +495,11 @@ def video_tracking(predictor, cap, save_path, opt):
                         online_dict = tracker.update_mcmot_emb(dets,
                                                                feature_map,
                                                                img_size,
-                                                               net_size)
+                                                               exp.test_size)
                     else:
                         # online_dict = tracker.update_mcmot_byte(dets, img_size, net_size)
-                        online_dict = tracker.update_byte_nk(dets, img_size, net_size)
-                        # online_dict = tracker.update_byte_enhance2(dets, img_size, net_size)
+                        # online_dict = tracker.update_byte_nk(dets, img_size, net_size)
+                        online_dict = tracker.update_byte_enhance2(dets, img_size, net_size)
                         # online_dict = tracker.update_oc_enhance2(dets, img_size, net_size)
 
                 elif opt.tracker == "oc":
@@ -569,7 +563,7 @@ def video_tracking(predictor, cap, save_path, opt):
                 timer.toc()
                 online_img = img_info['raw_img']
 
-            if opt.save_result and not opt.debug:
+            if opt.save_result:
                 vid_writer.write(online_img)
 
             ch = cv2.waitKey(1)
@@ -582,22 +576,26 @@ def video_tracking(predictor, cap, save_path, opt):
         ## ----- update frame id
         frame_id += 1
 
-    print("{:s} saved.".format(save_path))
+    print("{:s} saved.".format(vid_save_path))
 
 
-def imageflow_demo(predictor, vis_dir, current_time, args):
+def imageflow_demo(predictor, vis_dir, current_time, opt):
     """
     :param predictor:
     :param vis_dir:
     :param current_time:
-    :param args:
+    :param opt:
     :return:
     """
-    if args.demo == "videos":
-        if os.path.isdir(args.video_dir):
-            mp4_path_list = [args.video_dir + "/" + x for x in os.listdir(args.video_dir)
+    if opt.demo == "videos":
+        if os.path.isdir(opt.video_dir):
+            mp4_path_list = [opt.video_dir + "/" + x for x in os.listdir(opt.video_dir)
                              if x.endswith(".mp4")]
             mp4_path_list.sort()
+            if len(mp4_path_list) == 0:
+                logger.error("empty mp4 video list.")
+                exit(-1)
+
             for video_path in mp4_path_list:
                 if os.path.isfile(video_path):
                     video_name = os.path.split(video_path)[-1][:-4]
@@ -615,20 +613,24 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
                     save_path = os.path.join(save_dir, current_time + ".mp4")
 
                     ## ---------- Get tracking results
-                    video_tracking(predictor, cap, save_path, args)
+                    video_tracking(predictor, cap, save_path, opt)
                     ## ----------
 
                     print("{:s} tracking offline done.".format(video_name))
 
-    elif args.demo == "video":
-        if os.path.isfile(args.path):
-            video_name = args.path.split("/")[-1][:-4]
+    elif opt.demo == "video":
+        opt.path = os.path.abspath(opt.path)
+
+        if os.path.isfile(opt.path):
+            video_name = opt.path.split("/")[-1][:-4]
             print("Start tracking video {:s} offline...".format(video_name))
 
-            args.path = os.path.abspath(args.path)
+            if not os.path.isfile(opt.path):
+                logger.error("invalid path: {:s}, exit now!".format(opt.path))
+                exit(-1)
 
             ## ----- video capture
-            cap = cv2.VideoCapture(args.path)
+            cap = cv2.VideoCapture(opt.path)
             ## -----
 
             save_dir = os.path.join(vis_dir, video_name)
@@ -639,15 +641,18 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             save_path = os.path.join(save_dir, current_time + ".mp4")
 
             ## ---------- Get tracking results
-            video_tracking(predictor, cap, save_path, args)
+            video_tracking(predictor, cap, save_path, opt)
             ## ----------
 
             print("{:s} tracking done offline.".format(video_name))
+        else:
+            logger.error("invalid video path: {:s}, exit now!".format(opt.path))
+            exit(-1)
 
-    elif args.demo == "camera":
-        if os.path.isfile(args.path):
-            cap = cv2.VideoCapture(args.camid)
-            video_name = args.path.split("/")[-1][:-4]
+    elif opt.demo == "camera":
+        if os.path.isfile(opt.path):
+            cap = cv2.VideoCapture(opt.camid)
+            video_name = opt.path.split("/")[-1][:-4]
             save_dir = os.path.join(vis_dir, video_name)
             save_path = os.path.join(save_dir, "camera.mp4")
 

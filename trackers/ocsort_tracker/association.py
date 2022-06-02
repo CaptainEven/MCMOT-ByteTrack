@@ -12,8 +12,8 @@ def iou_batch(bboxes1, bboxes2):
     yy1 = np.maximum(bboxes1[..., 1], bboxes2[..., 1])
     xx2 = np.minimum(bboxes1[..., 2], bboxes2[..., 2])
     yy2 = np.minimum(bboxes1[..., 3], bboxes2[..., 3])
-    w = np.maximum(0.0, xx2 - xx1)
-    h = np.maximum(0.0, yy2 - yy1)
+    w = np.maximum(0., xx2 - xx1)
+    h = np.maximum(0., yy2 - yy1)
     wh = w * h
     o = wh / ((bboxes1[..., 2] - bboxes1[..., 0]) * (bboxes1[..., 3] - bboxes1[..., 1])
               + (bboxes2[..., 2] - bboxes2[..., 0]) * (bboxes2[..., 3] - bboxes2[..., 1]) - wh)
@@ -182,11 +182,11 @@ def velocity_direction_batch(dets, tracks):
     tracks = tracks[..., np.newaxis]
 
     # center x, center y
-    dx1, dy1 = (dets[:, 0] + dets[:, 2]) * 0.5, (dets[:, 1] + dets[:, 3]) * 0.5
-    dx2, dy2 = (tracks[:, 0] + tracks[:, 2]) * 0.5, (tracks[:, 1] + tracks[:, 3]) * 0.5
+    CX1, CY1 = (dets[:, 0] + dets[:, 2]) * 0.5, (dets[:, 1] + dets[:, 3]) * 0.5
+    CX2, CY2 = (tracks[:, 0] + tracks[:, 2]) * 0.5, (tracks[:, 1] + tracks[:, 3]) * 0.5
 
-    dx = dx1 - dx2
-    dy = dy1 - dy2
+    dx = CX1 - CX2
+    dy = CY1 - CY2
 
     norm = np.sqrt(dx ** 2 + dy ** 2) + 1e-6
     dx = dx / norm
@@ -266,9 +266,8 @@ def associate(dets,
     @param tracks:  current tracks: x1y1x2y2score
     @param velocities: velocity directions of current tracks
     @param vel_dir_weight: velocity direction weight(λ)
-    @return: matches, u_detection, u_track
     """
-    if tracks.shape[0] == 0 or dets.shape[0] == 0:
+    if len(tracks) == 0 or len(dets) == 0:
         return np.empty((0, 2), dtype=int), \
                np.arange(len(dets)), \
                np.empty((0, 5), dtype=int)
@@ -307,27 +306,27 @@ def associate(dets,
     if min(iou_matrix.shape) > 0:
         iou_mask = (iou_matrix > iou_threshold).astype(np.int32)
         if iou_mask.sum(1).max() == 1 and iou_mask.sum(0).max() == 1:
-            matched_inds = np.stack(np.where(iou_mask), axis=1)
+            matched_indices = np.stack(np.where(iou_mask), axis=1)
         else:
             ## ----- negative pairwise IoU (Intersection over Union) and Cv(·; ·)
             ## why using negative?
-            matched_inds = linear_assignment(-(iou_matrix + angle_diff_cost))
+            matched_indices = linear_assignment(-(iou_matrix + angle_diff_cost))
     else:
-        matched_inds = np.empty(shape=(0, 2))
+        matched_indices = np.empty(shape=(0, 2))
 
     unmatched_dets = []
     for i, det in enumerate(dets):
-        if i not in matched_inds[:, 0]:
+        if i not in matched_indices[:, 0]:
             unmatched_dets.append(i)
 
     unmatched_trks = []
     for t, trk in enumerate(tracks):
-        if t not in matched_inds[:, 1]:
+        if t not in matched_indices[:, 1]:
             unmatched_trks.append(t)
 
     # filter out matched with low IOU
     matches = []
-    for m in matched_inds:
+    for m in matched_indices:
         if iou_matrix[m[0], m[1]] < iou_threshold:
             unmatched_dets.append(m[0])
             unmatched_trks.append(m[1])

@@ -121,21 +121,21 @@ class KalmanBoxTracker(object):
         # give high uncertainty to the unobservable initial velocities
         self.kf.P[4:, 4:] *= 1000.0
         self.kf.P *= 10.0
+
         self.kf.Q[-1, -1] *= 0.01
         self.kf.Q[4:, 4:] *= 0.01
+
         self.kf.R[2:, 2:] *= 10.0
 
         # states: z: center_x, center_y, s(area), r(aspect ratio)
-        # and center_x, center_y, s, derivatives of time
         self.kf.x[:4] = convert_bbox_to_z(bbox)
 
-        ## Set new id for a new track
+        self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
         self.id = KalmanBoxTracker.count
         KalmanBoxTracker.count += 1
-
-        self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
         self.history = []
 
+        ## what's the difference?
         self.hits = 0
         self.hit_streak = 0
 
@@ -209,14 +209,10 @@ class KalmanBoxTracker(object):
         if (self.kf.x[6] + self.kf.x[2]) <= 0:
             self.kf.x[6] *= 0.0
 
-        ## ----- Kalman prediction
         self.kf.predict()
+        self.age += 1  # 每predict一次, 生命周期+1
 
-        # 每predict一次, 生命周期+1
-        self.age += 1
-
-        # 如果丢失了一次更新, 连胜(连续跟踪)被终止
-        if self.time_since_last_update > 0:
+        if self.time_since_last_update > 0:  # 如果丢失了一次更新, 连胜(连续跟踪)被终止
             self.hit_streak = 0
 
         self.time_since_last_update += 1  # 每predict一次, 未更新时间(帧数)+1
@@ -285,7 +281,7 @@ class MCKalmanTrack(MCTrackBase):
     def __init__(self, bbox, cls_id, delta_t=3, orig=False):
         """
         Initialises a tracker using initial bounding box.
-        @param bbox: x1y1x2y2
+        @param bbox:
         @param cls_id: class id
         @param delta_t:
         @param orig:
@@ -294,6 +290,7 @@ class MCKalmanTrack(MCTrackBase):
 
         ## ----- record
         self.cls_id = cls_id
+
         self.x1y1x2y2, self.tlwh = None, None
 
         ## ----- update track id
@@ -323,15 +320,22 @@ class MCKalmanTrack(MCTrackBase):
         # give high uncertainty to the unobservable initial velocities
         self.kf.P[4:, 4:] *= 1000.0
         self.kf.P *= 10.0
+
         self.kf.Q[-1, -1] *= 0.01
         self.kf.Q[4:, 4:] *= 0.01
+
         self.kf.R[2:, 2:] *= 10.0
-        self.kf.x[:4] = convert_bbox_to_z(bbox)  # states: z: center_x, center_y, s(area), r(aspect ratio)
+
+        # states: z: center_x, center_y, s(area), r(aspect ratio)
+        self.kf.x[:4] = convert_bbox_to_z(bbox)
 
         self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
+
         self.history = []
+
         self.hits = 0
         self.hit_streak = 0
+
         self.age = 0
 
         """
@@ -349,12 +353,12 @@ class MCKalmanTrack(MCTrackBase):
         self.vel_dir = None
         self.delta_t = delta_t
 
-    def update(self, bbox_score):
+    def update(self, bbox):
         """
         Updates the state vector with observed bbox.
-        @param bbox_score: x1, y1, x2, y2, score
+        @param bbox: x1, y1, x2, y2
         """
-        if bbox_score is not None:
+        if bbox is not None:
             if self.last_observation.sum() >= 0:  # if previous observation exist
                 previous_box = None
 
@@ -372,16 +376,16 @@ class MCKalmanTrack(MCTrackBase):
                 with observations delta t steps away
                 a 2d vector
                 """
-                self.vel_dir = get_velocity_direction(previous_box, bbox_score)
+                self.vel_dir = get_velocity_direction(previous_box, bbox)
 
             """
             Insert new observations. 
             This is a ugly way to maintain both self.observations
             and self.history_observations. Bear it for the moment.
             """
-            self.last_observation = bbox_score
-            self.observations_dict[self.age] = self.last_observation  # record history
-            self.history_observations.append(bbox_score)  # record history
+            self.last_observation = bbox
+            self.observations_dict[self.age] = bbox  # record history
+            self.history_observations.append(bbox)  # record history
 
             self.time_since_last_update = 0
             self.history = []
@@ -389,10 +393,10 @@ class MCKalmanTrack(MCTrackBase):
             self.hits += 1
             self.hit_streak += 1
 
-            self.kf.update(convert_bbox_to_z(bbox_score))
+            self.kf.update(convert_bbox_to_z(bbox))
 
         else:
-            self.kf.update(bbox_score)
+            self.kf.update(bbox)
 
     def predict(self):
         """
@@ -403,16 +407,12 @@ class MCKalmanTrack(MCTrackBase):
             self.kf.x[6] *= 0.0
 
         self.kf.predict()
+        self.age += 1  # 每predict一次, 生命周期+1
 
-        # 每predict一次, 生命周期+1
-        self.age += 1
-
-        # 如果丢失了一次更新, 连胜(连续跟踪)被终止
-        if self.time_since_last_update > 0:
+        if self.time_since_last_update > 0:  # 如果丢失了一次更新, 连胜(连续跟踪)被终止
             self.hit_streak = 0
 
-        # 每predict一次, 未更新时间(帧数)+1
-        self.time_since_last_update += 1
+        self.time_since_last_update += 1  # 每predict一次, 未更新时间(帧数)+1
         self.history.append(convert_x_to_bbox(self.kf.x))
 
         return self.history[-1]
@@ -579,11 +579,11 @@ class MCOCSort(object):
             scores = np.array(scores)
 
             ## ----- build cls_dets
-            scores_ = np.expand_dims(scores, axis=1)
+            scores_2d = np.expand_dims(scores, axis=1)
             if bboxes.shape[0] == 0:
                 bboxes = np.empty((0, 4), dtype=float)
-                scores_ = np.empty((0, 1), dtype=float)
-            dets = np.concatenate((bboxes, scores_), axis=1)
+                scores_2d = np.empty((0, 1), dtype=float)
+            dets = np.concatenate((bboxes, scores_2d), axis=1)
 
             inds_low = scores > self.low_det_thresh
             inds_high = scores < self.det_thresh
@@ -598,9 +598,9 @@ class MCOCSort(object):
 
             ## ----- Build dets for the object class
             if remain_inds.size > 0:
-                dets_1st = dets[remain_inds]
+                dets = dets[remain_inds]
             else:
-                dets_1st = np.empty((0, 5), dtype=float)
+                dets = np.empty((0, 5), dtype=float)
 
             ## ----- get current frame's object class tracks
             self.tracks = self.tracks_dict[cls_id]
@@ -610,10 +610,10 @@ class MCOCSort(object):
             to_del = []
             for i, trk in enumerate(trks):
                 ## ----- prediction
-                bbox = self.tracks[i].predict()[0]  # x1y1x2y2
+                pos = self.tracks[i].predict()[0]
 
-                trk[:] = [bbox[0], bbox[1], bbox[2], bbox[3], 0]
-                if np.any(np.isnan(bbox)):
+                trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
+                if np.any(np.isnan(pos)):
                     to_del.append(i)
 
             trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
@@ -632,7 +632,7 @@ class MCOCSort(object):
             First round of association
             using high confidence dets and existed trks
             """
-            matched, unmatched_dets, unmatched_trks = associate(dets_1st,
+            matched, unmatched_dets, unmatched_trks = associate(dets,
                                                                 k_observations,
                                                                 trks,
                                                                 velocities,
@@ -673,7 +673,7 @@ class MCOCSort(object):
 
             ## ----- process the unmatched dets and trks in the first round
             if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
-                left_dets = dets_1st[unmatched_dets]
+                left_dets = dets[unmatched_dets]
                 left_trks = last_boxes[unmatched_trks]
                 iou_left = self.associate_func(left_dets, left_trks)  # calculate iou
                 iou_left = np.array(iou_left)
@@ -694,7 +694,7 @@ class MCOCSort(object):
                         if iou_left[m[0], m[1]] < self.iou_threshold:
                             continue
 
-                        self.tracks[trk_idx].update(dets_1st[det_idx, :])
+                        self.tracks[trk_idx].update(dets[det_idx, :])
 
                         # record matched det inds and trk inds
                         to_remove_from_unmatch_det_inds.append(det_idx)

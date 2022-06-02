@@ -2522,8 +2522,8 @@ class ByteTracker(object):
             # association the un-track to the low score detections
             if len(bboxes_low) > 0:
                 '''Detections'''
-                detections_2nd = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id) for
-                                  (tlbr, s) in zip(bboxes_low, scores_low)]
+                detections_2nd = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id)
+                                  for (tlbr, s) in zip(bboxes_low, scores_low)]
             else:
                 detections_2nd = []
 

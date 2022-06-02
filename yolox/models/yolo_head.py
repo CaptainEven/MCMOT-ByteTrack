@@ -28,7 +28,7 @@ class YOLOXHead(nn.Module):
         :param strides:
         :param in_channels:
         :param act(str): activation type of conv. Defalut value: "silu".
-        :param depth-wise (bool): whether apply depth-wise conv in conv branch. Defalut value: False.
+        :param depthwise (bool): wheather apply depthwise conv in conv branch. Defalut value: False.
         """
         super().__init__()
 
