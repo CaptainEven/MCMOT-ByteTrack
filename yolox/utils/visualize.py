@@ -71,7 +71,7 @@ def plot_detection(img,
     :param dets: n×6: x1,y1,x2,y2,score, cls_id
     """
     img = np.ascontiguousarray(np.copy(img))
-    im_h, im_w = img.shape[:2]
+    # im_h, im_w = img.shape[:2]
 
     # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
 
@@ -95,7 +95,7 @@ def plot_detection(img,
         int_box = tuple(map(int, (x1, y1, x2, y2)))  # x1, y1, x2, y2
 
         _line_thickness = 1 if cls_id <= 0 else line_thickness
-        color = get_color(abs(cls_id))
+        color = get_color(abs(cls_id + 1))
 
         # draw bbox
         cv2.rectangle(img=img,

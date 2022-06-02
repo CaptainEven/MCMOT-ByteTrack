@@ -416,7 +416,8 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
         # result_image = predictor.visual(outputs[0], img_info, predictor.confthre)
         if save_result:
             save_folder = os.path.join(vis_folder,
-                                       time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
+                                       time.strftime("%Y_%m_%d_%H_%M_%S",
+                                                     current_time))
             os.makedirs(save_folder, exist_ok=True)
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
             cv2.imwrite(save_file_name, online_im)
@@ -456,6 +457,7 @@ def detect_video(predictor, cap, vid_save_path, opt):
         cls2id[cls_name] = cls_id
 
     net_size = exp.test_size
+    logger.info("Confidence threshold: {:.3f}".format(opt.conf))
 
     timer = Timer()
 
@@ -549,7 +551,7 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             for video_path in mp4_path_list:
                 if os.path.isfile(video_path):
                     video_name = os.path.split(video_path)[-1][:-4]
-                    print("\nStart tracking video {:s} offline..."
+                    logger.info("\nstart detecting video {:s} offline..."
                           .format(video_name))
 
                     ## ----- video capture
@@ -572,7 +574,7 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
     elif args.demo == "video":
         if os.path.isfile(args.path):
             video_name = args.path.split("/")[-1][:-4]
-            print("Start tracking video {:s} offline...".format(video_name))
+            logger.info("start detecting video {:s} offline...".format(video_name))
 
             args.path = os.path.abspath(args.path)
 
@@ -627,10 +629,6 @@ def run(exp, opt):
         exp.nms_thresh = opt.nms
     if opt.tsize is not None:
         exp.test_size = (opt.tsize, opt.tsize)
-
-    ## ---------- whether to do ReID
-    if hasattr(exp, "reid"):
-        exp.reid = opt.reid
 
     ## ----- Define the network
     net = exp.get_model()
