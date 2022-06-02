@@ -417,7 +417,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     # write_results(result_filename, results)
 
 
-def video_tracking(predictor, cap, vid_save_path, opt):
+def track_video(predictor, cap, vid_save_path, opt):
     """
     online or offline tracking
     :param predictor:
@@ -613,7 +613,7 @@ def imageflow_demo(predictor, vis_dir, current_time, opt):
                     save_path = os.path.join(save_dir, current_time + ".mp4")
 
                     ## ---------- Get tracking results
-                    video_tracking(predictor, cap, save_path, opt)
+                    track_video(predictor, cap, save_path, opt)
                     ## ----------
 
                     print("{:s} tracking offline done.".format(video_name))
@@ -641,7 +641,7 @@ def imageflow_demo(predictor, vis_dir, current_time, opt):
             save_path = os.path.join(save_dir, current_time + ".mp4")
 
             ## ---------- Get tracking results
-            video_tracking(predictor, cap, save_path, opt)
+            track_video(predictor, cap, save_path, opt)
             ## ----------
 
             print("{:s} tracking done offline.".format(video_name))

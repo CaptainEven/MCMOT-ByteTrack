@@ -413,7 +413,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
     # write_results(result_filename, results)
 
 
-def visualize_video(predictor, cap, vid_save_path, opt):
+def detect_video(predictor, cap, vid_save_path, opt):
     """
     online or offline tracking
     :param predictor:
@@ -481,13 +481,13 @@ def visualize_video(predictor, cap, vid_save_path, opt):
             if ch == 27 or ch == ord("q") or ch == ord("Q"):
                 break
         else:
-            print("Read frame {:d} failed!".format(frame_id))
+            logger.warning("Read frame {:d} failed!".format(frame_id))
             break
 
         ## ----- update frame id
         frame_id += 1
 
-    print("{:s} saved.".format(vid_save_path))
+    logger.info("{:s} saved.".format(vid_save_path))
 
 
 def imageflow_demo(predictor, vis_dir, current_time, args):
@@ -525,7 +525,7 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
                     save_path = os.path.join(save_dir, current_time + ".mp4")
 
                     ## ---------- Get tracking results
-                    visualize_video(predictor, cap, save_path, args)
+                    detect_video(predictor, cap, save_path, args)
                     ## ----------
 
                     print("{:s} tracking offline done.".format(video_name))
@@ -549,7 +549,7 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             save_path = os.path.join(save_dir, current_time + ".mp4")
 
             ## ---------- Get tracking results
-            visualize_video(predictor, cap, save_path, args)
+            detect_video(predictor, cap, save_path, args)
             ## ----------
 
             print("{:s} tracking done offline.".format(video_name))
