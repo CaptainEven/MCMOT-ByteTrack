@@ -27,13 +27,14 @@ def make_parser():
 
     parser.add_argument("--demo",
                         default="video",  # image
-                        help="demo type, eg. image, video, videos, and webcam")
+                        help="demo type,"
+                             "eg. image, video, videos, and webcam")
     parser.add_argument("--output_dir",
                         type=str,
                         default="../YOLOX_outputs",
                         help="")
     parser.add_argument("--conf",
-                        default=0.55,
+                        default=0.4,
                         type=float,
                         help="test conf")
     parser.add_argument("-expn",
