@@ -61,6 +61,17 @@ def get_color(idx):
     return color
 
 
+def plot_detection(img,
+                   dets,
+                   frame_id=0,
+                   fps=0.0,
+                   id2cls=None):
+    """
+    :param img:
+
+    """
+
+
 def plot_tracking_ocsort(img,
                          tracks_dict,
                          frame_id=0,

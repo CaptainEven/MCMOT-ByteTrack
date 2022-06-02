@@ -9,14 +9,12 @@ import cv2
 import torch
 from loguru import logger
 
-from trackers.ocsort_tracker.ocsort import MCOCSort
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
-from yolox.utils.visualize import plot_tracking_sc, plot_tracking_mc, plot_tracking_ocsort
-
+from yolox.utils.visualize import plot_tracking_sc
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -61,14 +59,20 @@ def make_parser():
     ## ----- exp file, eg: yolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_track_c5_darknet.py",
+                        default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
                         type=str,
                         help="pls input your experiment description file")
+
+    ## -----Darknet cfg file path
+    parser.add_argument("--cfg",
+                        type=str,
+                        default="../cfg/yolox_darknet_tiny_bb46.cfg",
+                        help="")
 
     ## ----- checkpoint file path, eg: ../pretrained/latest_ckpt.pth.tar, track_latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_tiny_track_c5_darknet/latest_ckpt.pth.tar",
+                        default="../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
 
