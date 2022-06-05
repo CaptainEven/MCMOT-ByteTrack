@@ -62,54 +62,55 @@ def make_parser():
                         help="cpu | cuda | cuda_fp16")
     return parser
 
-    def inference(net,
-                  img,
-                  test_size, mean, std,
-                  num_classes, conf_thresh, nms_thresh,
-                  timer):
-        """
-        :param net:
-        :param img:
-        :param test_size:
-        :param mean:
-        :param std:
-        :param num_classes:
-        :param conf_thresh:
-        :param nms_thresh:
-        :param timer:
-        :return:
-        """
-        img_info = {"id": 0}
 
-        if isinstance(img, str):
-            img_info["file_name"] = os.path.basename(img)
-            img = cv2.imread(img, cv2.IMREAD_UNCHANGED)
-        else:
-            img_info["file_name"] = None
+def inference(net,
+              img,
+              test_size, mean, std,
+              num_classes, conf_thresh, nms_thresh,
+              timer):
+    """
+    :param net:
+    :param img:
+    :param test_size:
+    :param mean:
+    :param std:
+    :param num_classes:
+    :param conf_thresh:
+    :param nms_thresh:
+    :param timer:
+    :return:
+    """
+    img_info = {"id": 0}
 
-        height, width = img.shape[:2]
-        img_info["height"] = height
-        img_info["width"] = width
-        img_info["raw_img"] = img
+    if isinstance(img, str):
+        img_info["file_name"] = os.path.basename(img)
+        img = cv2.imread(img, cv2.IMREAD_UNCHANGED)
+    else:
+        img_info["file_name"] = None
 
-        img, ratio = preproc(img, test_size, mean, std)
-        img_info["ratio"] = ratio
-        img = torch.from_numpy(img).unsqueeze(0)
-        img = img.float()
+    height, width = img.shape[:2]
+    img_info["height"] = height
+    img_info["width"] = width
+    img_info["raw_img"] = img
 
-        with torch.no_grad():
-            timer.tic()
+    img, ratio = preproc(img, test_size, mean, std)
+    img_info["ratio"] = ratio
+    img = torch.from_numpy(img).unsqueeze(0)
+    img = img.float()
 
-            ## ----- forward
-            outputs = net.forward(img)
-            ## -----
+    with torch.no_grad():
+        timer.tic()
 
-            if isinstance(outputs, tuple):
-                outputs, feature_map = outputs[0], outputs[1]
-            outputs = post_process(outputs, num_classes, conf_thresh, nms_thresh)
-            # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+        ## ----- forward
+        outputs = net.forward(img)
+        ## -----
 
-        return outputs, img_info
+        if isinstance(outputs, tuple):
+            outputs, feature_map = outputs[0], outputs[1]
+        outputs = post_process(outputs, num_classes, conf_thresh, nms_thresh)
+        # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+
+    return outputs, img_info
 
 
 def detect_onnx(opt):
