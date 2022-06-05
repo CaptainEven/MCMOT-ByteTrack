@@ -34,6 +34,10 @@ def make_parser():
                         type=str,
                         default="oc",
                         help="byte | oc")
+    parser.add_argument("--time_type",
+                        type=str,
+                        default="current",
+                        help="current | latest")
     parser.add_argument("-expn",
                         "--experiment-name",
                         type=str,
@@ -258,7 +262,7 @@ class Predictor(object):
                  decoder=None,
                  device="cpu",
                  fp16=False,
-                 reid=False):
+                 reid=False, torch2trt=None):
         """
         :param model:
         :param exp:
@@ -433,6 +437,7 @@ def track_video(predictor, cap, vid_save_path, opt):
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
 
     vid_save_path = os.path.abspath(vid_save_path)
+    logger.info("Writing results to {:s}...".format(vid_save_path))
     vid_writer = cv2.VideoWriter(vid_save_path,
                                  cv2.VideoWriter_fourcc(*"mp4v"),
                                  fps,
@@ -609,12 +614,13 @@ def imageflow_demo(predictor, vis_dir, current_time, opt):
                     save_dir = os.path.join(vis_dir, video_name)
                     if not os.path.isdir(save_dir):
                         os.makedirs(save_dir)
+
                     current_time = time.localtime()
                     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
-                    save_path = os.path.join(save_dir, current_time + ".mp4")
+                    vid_save_path = os.path.join(save_dir, current_time + ".mp4")
 
                     ## ---------- Get tracking results
-                    track_video(predictor, cap, save_path, opt)
+                    track_video(predictor, cap, vid_save_path, opt)
                     ## ----------
 
                     print("{:s} tracking offline done.".format(video_name))
@@ -639,10 +645,10 @@ def imageflow_demo(predictor, vis_dir, current_time, opt):
                 os.makedirs(save_dir)
             current_time = time.localtime()
             current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
-            save_path = os.path.join(save_dir, current_time + ".mp4")
+            vid_save_path = os.path.join(save_dir, current_time + ".mp4")
 
             ## ---------- Get tracking results
-            track_video(predictor, cap, save_path, opt)
+            track_video(predictor, cap, vid_save_path, opt)
             ## ----------
 
             print("{:s} tracking done offline.".format(video_name))
@@ -655,7 +661,7 @@ def imageflow_demo(predictor, vis_dir, current_time, opt):
             cap = cv2.VideoCapture(opt.camid)
             video_name = opt.path.split("/")[-1][:-4]
             save_dir = os.path.join(vis_dir, video_name)
-            save_path = os.path.join(save_dir, "camera.mp4")
+            vid_save_path = os.path.join(save_dir, "camera.mp4")
 
 
 def run(exp, opt):

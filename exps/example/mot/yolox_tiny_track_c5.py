@@ -36,7 +36,8 @@ class Exp(MyExp):
 
         ## ----- Define max id dict
         # self.max_id_dict_f_path = "/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz"
-        self.max_id_dict_f_path = "../datasets/max_id_dict.npz"
+        # self.max_id_dict_f_path = "../datasets/max_id_dict.npz"
+        self.max_id_dict_f_path = "../../datasets/max_id_dict.npz"
         self.max_id_dict_f_path = os.path.abspath(self.max_id_dict_f_path)
         if os.path.isfile(self.max_id_dict_f_path):
             load_dict = np.load(self.max_id_dict_f_path, allow_pickle=True)
