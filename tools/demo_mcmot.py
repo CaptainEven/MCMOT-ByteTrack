@@ -382,7 +382,9 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
 
         outputs, img_info = predictor.inference(image_name, timer)
         if outputs[0] is not None:
-            online_targets = tracker.update(outputs[0], [img_info['height'], img_info['width']], exp.test_size)
+            online_targets = tracker.update(outputs[0],
+                                            [img_info['height'], img_info['width']],
+                                            exp.test_size)
             online_tlwhs = []
             online_ids = []
             online_scores = []
