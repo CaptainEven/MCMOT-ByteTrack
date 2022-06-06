@@ -30,13 +30,15 @@ def make_parser():
                         type=int,
                         help="onnx opset version")
     parser.add_argument("--no-onnxsim",
-                        action="store_true",
+                        type=bool,
+                        default=False,
                         help="use onnxsim or not")
     parser.add_argument("-f",
                         "--exp_file",
                         default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
                         type=str,
                         help="expriment description file", )
+
     ## -----Darknet cfg file path
     parser.add_argument("--cfg",
                         type=str,
