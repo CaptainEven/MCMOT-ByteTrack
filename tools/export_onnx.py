@@ -31,7 +31,7 @@ def make_parser():
                         help="onnx opset version")
     parser.add_argument("--no-onnxsim",
                         type=bool,
-                        default=False,
+                        default=True,
                         help="use onnxsim or not")
     parser.add_argument("-f",
                         "--exp_file",

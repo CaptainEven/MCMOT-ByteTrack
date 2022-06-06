@@ -81,13 +81,23 @@ def plot_detection(img,
     line_thickness = max(1, int(img.shape[1] / 500.0))
 
     ## ----- draw fps
-    cv2.putText(img,
-                "frame: %d fps: %.2f".format(frame_id, fps),
-                (0, int(15 * text_scale)),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                (0, 255, 255),
-                thickness=2)
+    txt = "frame: {:d} fps: {:.2f}".format(frame_id, fps)
+    txt_size = cv2.getTextSize(txt,
+                               fontFace=cv2.FONT_HERSHEY_PLAIN,
+                               fontScale=text_scale,
+                               thickness=text_thickness)
+    txt_width = txt_size[0][0]
+    txt_height = txt_size[0][1]
+    line_height = txt_height + txt_size[1] + 5
+
+    cv2.putText(img=img,
+                text=txt,
+                org=(10, line_height + 10),
+                fontFace=cv2.FONT_HERSHEY_TRIPLEX,
+                fontScale=text_scale,
+                color=(0, 255, 255),
+                thickness=2,
+                bottomLeftOrigin=False)
 
     for det in dets:
         x1, y1, x2, y2, score, cls_id = det
@@ -109,23 +119,24 @@ def plot_detection(img,
         cv2.putText(img,
                     class_name_txt,
                     (int(x1), int(y1)),
-                    cv2.FONT_HERSHEY_PLAIN,
-                    text_scale,
-                    (0, 255, 255),  # cls_id: yellow
+                    cv2.FONT_HERSHEY_TRIPLEX,
+                    fontScale=text_scale,
+                    color=(0, 255, 255),  # cls_id: yellow
                     thickness=text_thickness)
 
-        txt_w, txt_h = cv2.getTextSize(id2cls[cls_id],
-                                       fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                       fontScale=text_scale, thickness=text_thickness)
+        txt_w, txt_h = cv2.getTextSize(class_name_txt,
+                                       fontFace=cv2.FONT_HERSHEY_TRIPLEX,
+                                       fontScale=text_scale,
+                                       thickness=text_thickness)
 
         ## draw score
         score_txt = "{:.3f}".format(score)
         cv2.putText(img,
                     score_txt,
-                    (int(x1), int(y1) - txt_h),
+                    (int(x1), int(y1) - txt_h - 10),
                     cv2.FONT_HERSHEY_PLAIN,
-                    text_scale * 1.2,
-                    (0, 255, 255),  # cls_id: yellow
+                    fontScale=text_scale*1.2,
+                    color=(0, 255, 255),  # cls_id: yellow
                     thickness=text_thickness)
 
     return img

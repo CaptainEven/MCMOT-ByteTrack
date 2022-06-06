@@ -28,7 +28,7 @@ def make_parser():
 
     parser.add_argument("--output_dir",
                         type=str,
-                        default="./output",
+                        default="../output",
                         help="")
 
     ## ----- object classes
@@ -62,6 +62,11 @@ def make_parser():
     parser.add_argument("--save_result",
                         type=bool,
                         default=True,
+                        help="")
+
+    parser.add_argument("--log_interval",
+                        type=int,
+                        default=1,
                         help="")
 
     parser.add_argument("--dev",
@@ -190,8 +195,7 @@ def inference(net,
               mean=(0.485, 0.456, 0.406),
               std=(0.229, 0.224, 0.225),
               conf_thresh=0.001,
-              nms_thresh=0.65,
-              dev="cuda_fp16"):
+              nms_thresh=0.65):
     """
     :param net:
     :param img:
@@ -200,7 +204,6 @@ def inference(net,
     :param std:
     :param conf_thresh:
     :param nms_thresh:
-    :param dev:
     :return:
     """
 
@@ -295,19 +298,21 @@ def detect_onnx(opt):
         cls2id[cls_name] = cls_id
 
     net_size = (448, 768)
-    net_h, net_w = net_size
+    # net_h, net_w = net_size
 
     timer = Timer()
 
     frame_id = 0
 
     while True:
-        if frame_id % 30 == 0:  # logging per 30 frames
+        fps = 1.0 / max(1e-5, timer.average_time)
+
+        if frame_id % opt.log_interval == 0:  # logging per 30 frames
             if frame_id != 0:
                 logger.info("Processing frame {:03d}/{:03d} | fps {:.2f}"
                             .format(frame_id,
                                     n_frames,
-                                    1.0 / max(1e-5, timer.average_time)))
+                                    fps))
             else:
                 logger.info("Processing frame {:03d}/{:03d} | fps {:.2f}"
                             .format(frame_id,
@@ -320,21 +325,21 @@ def detect_onnx(opt):
         if ret_val:
             timer.tic()
 
+            ## ----- inference: pre-process, inference, post-process
             dets, img_info = inference(net,
                                        frame,
-                                       net_size=net_size,
-                                       dev=opt.dev)
-            timer.toc()
+                                       net_size=net_size)
 
             dets = dets[np.where(dets[:, 4] > opt.conf)]
             if dets.shape[0] > 0:
                 ## ----- update the frame
 
-                # timer.toc()
+                timer.toc()
+
                 online_img = plot_detection(img=img_info['raw_image'],
                                             dets=dets,
                                             frame_id=frame_id + 1,
-                                            fps=1.0 / timer.average_time,
+                                            fps=fps,
                                             id2cls=id2cls)
             else:
                 # timer.toc()
