@@ -247,6 +247,7 @@ def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
     ## ----- Normalize to [0, 1]
     padded_img /= 255.0
 
+    ## ----- Standardization
     if mean is not None:
         padded_img -= mean
     if std is not None:

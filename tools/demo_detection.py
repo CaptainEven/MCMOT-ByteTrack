@@ -463,7 +463,7 @@ def detect_video(predictor, cap, vid_save_path, opt):
     timer = Timer()
 
     frame_id = 0
-    results = []
+    # results = []
     while True:
         if frame_id % 30 == 0:  # logging per 30 frames
             if frame_id != 0:

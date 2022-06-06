@@ -1200,8 +1200,8 @@ class EnhanceTrack(MCBaseTrack):
 
     @property
     def tlwh(self):
-        tlbr = self.get_bbox()
-        self._tlwh = MCTrackOCByte.tlbr2tlwh(tlbr)
+        x1y1x2y2 = self.get_bbox()
+        self._tlwh = MCTrackOCByte.tlbr2tlwh(x1y1x2y2)
         return self._tlwh
 
     @staticmethod
@@ -2365,8 +2365,8 @@ class ByteTracker(object):
         """
         enhanced byte track
         :param dets:
-        :param img_size:
-        :param net_size:
+        :param img_size: img_h, img_w
+        :param net_size: net_h, net_w
         :return:
         """
         ## ----- update frame id

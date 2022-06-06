@@ -32,7 +32,7 @@ def make_parser():
                         help="demo type, eg. image, video, videos, and webcam")
     parser.add_argument("--tracker",
                         type=str,
-                        default="oc",
+                        default="byte",
                         help="byte | oc")
     parser.add_argument("--time_type",
                         type=str,
@@ -124,8 +124,7 @@ def make_parser():
                         help="test img size")
     parser.add_argument("--fp16",
                         dest="fp16",
-                        default=False,  # False
-                        action="store_true",
+                        default=True,  # False
                         help="Adopting mix precision evaluating.")
     parser.add_argument("--fuse",
                         dest="fuse",
@@ -485,6 +484,7 @@ def track_video(predictor, cap, vid_save_path, opt):
         ## ----- read the video
         ret_val, frame = cap.read()
 
+        ## ----- inference
         if ret_val:
             if opt.reid:
                 outputs, feature_map, img_info = predictor.inference(frame, timer)

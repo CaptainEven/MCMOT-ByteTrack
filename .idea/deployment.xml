@@ -9,7 +9,14 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="jaya@10.8.3.1:22">
+      <paths name="CarMultiLabel">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="SelfIQA">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
