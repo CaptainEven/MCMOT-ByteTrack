@@ -579,9 +579,12 @@ def track_video(predictor, cap, vid_save_path, opt):
             elif opt.mode == "show":
                 cv2.namedWindow("Track", 0)
                 cv2.imshow("Track", online_img)
+
                 ch = cv2.waitKey(1)
-                if ch == 27 or ch == ord("q") or ch == ord("Q"):
+                if ch == 27 or ch == ord("q") or ch == ord("Q"):  # quit
                     break
+                elif ch == ord("p"):  # pause
+                    cv2.waitKey(0)
         else:
             print("Read frame {:d} failed!".format(frame_id))
             break

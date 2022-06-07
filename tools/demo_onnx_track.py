@@ -350,7 +350,7 @@ def track_onnx(opt):
             dets = dets[np.where(dets[:, 4] > opt.conf)]
             if dets.shape[0] > 0:
                 ## ----- update the results of tracking
-                tracks_dict = tracker.update_byte_enhance(dets)
+                tracks_dict = tracker.update_tracking(dets)
 
                 timer.toc()
                 online_img = draw_mcmot(img=img_info["raw_img"],
@@ -369,8 +369,10 @@ def track_onnx(opt):
                 cv2.imshow("Track", online_img)
 
                 ch = cv2.waitKey(1)
-                if ch == 27 or ch == ord("q") or ch == ord("Q"):
+                if ch == 27 or ch == ord("q") or ch == ord("Q"):  # quit
                     break
+                elif ch == ord("p"):  # pause
+                    cv2.waitKey(0)
         else:
             logger.warning("Read frame {:d} failed!".format(frame_id))
             break

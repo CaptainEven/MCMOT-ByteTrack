@@ -329,7 +329,8 @@ class MCKalmanTrack(MCTrackBase):
         # states: z: center_x, center_y, s(area), r(aspect ratio)
         self.kf.x[:4] = convert_bbox_to_z(bbox)
 
-        self.time_since_last_update = 0  # 距离上次更新的时间(帧数)
+        # time: number of frames since last updating
+        self.time_since_last_update = 0
 
         self.history = []
 
@@ -356,7 +357,7 @@ class MCKalmanTrack(MCTrackBase):
     def update(self, bbox):
         """
         Updates the state vector with observed bbox.
-        @param bbox: x1, y1, x2, y2
+        @param bbox: x1, y1, x2, y2, score
         """
         if bbox is not None:
             if self.last_observation.sum() >= 0:  # if previous observation exist
@@ -406,13 +407,18 @@ class MCKalmanTrack(MCTrackBase):
         if (self.kf.x[6] + self.kf.x[2]) <= 0:
             self.kf.x[6] *= 0.0
 
+        ## ----- Kalman prediction
         self.kf.predict()
-        self.age += 1  # 每predict一次, 生命周期+1
 
-        if self.time_since_last_update > 0:  # 如果丢失了一次更新, 连胜(连续跟踪)被终止
+        ## age +1 for each prediction
+        self.age += 1
+
+        # if lost one update, winning streak terminates
+        if self.time_since_last_update > 0:
             self.hit_streak = 0
 
-        self.time_since_last_update += 1  # 每predict一次, 未更新时间(帧数)+1
+        ## ----- time_since_last_update +1 for each prediction
+        self.time_since_last_update += 1
         self.history.append(convert_x_to_bbox(self.kf.x))
 
         return self.history[-1]
