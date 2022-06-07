@@ -344,14 +344,11 @@ def track_onnx(opt):
             timer.tic()
 
             ## ----- inference: pre-process, inference, post-process
-            dets, img_info = inference(net,
-                                       frame,
-                                       net_size=net_size)
+            dets, img_info = inference(net, frame, net_size)
 
             dets = dets[np.where(dets[:, 4] > opt.conf)]
             if dets.shape[0] > 0:
                 ## ----- update the results of tracking
-                img_size = [img_info['height'], img_info['width']]
                 online_dict = tracker.update_byte_enhance(dets)
 
                 ## ---------- aggregate current frame's results for each object class

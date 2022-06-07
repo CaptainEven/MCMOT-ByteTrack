@@ -995,7 +995,7 @@ class EnhanceTrack(MCBaseTrack):
         # init tlwh
         self._tlwh = np.asarray(tlwh, dtype=np.float)
 
-        # init tlbr
+        # init tlbr: x1y1x2y2
         self._tlbr = MCByteTrackNK.tlwh2tlbr(self._tlwh)
 
         ## ----- build and initiate the Kalman filter
@@ -1141,13 +1141,11 @@ class EnhanceTrack(MCBaseTrack):
     def re_activate(self,
                     new_track,
                     frame_id,
-                    new_id=False,
-                    using_delta_t=False):
+                    new_id=False):
         """
         :param new_track:
         :param frame_id:
         :param new_id:
-        :param using_delta_t:
         :return:
         """
         ## ----- Kalman filter update
@@ -2633,10 +2631,6 @@ class ByteTracker(object):
         img_h, img_w = img_size
         net_h, net_w = net_size
         scale = min(net_h / float(img_h), net_w / float(img_w))
-
-        # ## ----- gpu ——> cpu
-        # with torch.no_grad():
-        #     dets = dets.cpu().numpy()
 
         ## ----- The current frame 8 tracking states recording
         unconfirmed_tracks_dict = defaultdict(list)

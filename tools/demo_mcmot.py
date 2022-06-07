@@ -101,10 +101,11 @@ def make_parser():
                         type=int,
                         default=0,
                         help="webcam demo camera id")
-    parser.add_argument("--save_result",
-                        type=bool,
-                        default=True,
-                        help="whether to save the inference result of image/video")
+
+    parser.add_argument("--mode",
+                        type=str,
+                        default="show",
+                        help="save | show")
 
     parser.add_argument("--device",
                         default="gpu",
@@ -348,13 +349,13 @@ class Predictor(object):
             return outputs, img_info
 
 
-def image_demo(predictor, vis_folder, path, current_time, save_result):
+def image_demo(predictor, vis_folder, path, current_time, mode):
     """
     :param predictor:
     :param vis_folder:
     :param path:
     :param current_time:
-    :param save_result:
+    :param mode:
     :return:
     """
     if os.path.isdir(path):
@@ -409,14 +410,14 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
             online_im = img_info['raw_img']
 
         # result_image = predictor.visual(outputs[0], img_info, predictor.confthre)
-        if save_result:
+        if mode == "save":
             save_folder = os.path.join(vis_folder,
                                        time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
             os.makedirs(save_folder, exist_ok=True)
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
             cv2.imwrite(save_file_name, online_im)
-        ch = cv2.waitKey(0)
 
+        ch = cv2.waitKey(0)
         frame_id += 1
         if ch == 27 or ch == ord("q") or ch == ord("Q"):
             break
@@ -437,12 +438,13 @@ def track_video(predictor, cap, vid_save_path, opt):
     fps = cap.get(cv2.CAP_PROP_FPS)
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
 
-    vid_save_path = os.path.abspath(vid_save_path)
-    logger.info("Writing results to {:s}...".format(vid_save_path))
-    vid_writer = cv2.VideoWriter(vid_save_path,
-                                 cv2.VideoWriter_fourcc(*"mp4v"),
-                                 fps,
-                                 (int(width), int(height)))
+    if opt.mode == "save":
+        vid_save_path = os.path.abspath(vid_save_path)
+        logger.info("Writing results to {:s}...".format(vid_save_path))
+        vid_writer = cv2.VideoWriter(vid_save_path,
+                                     cv2.VideoWriter_fourcc(*"mp4v"),
+                                     fps,
+                                     (int(width), int(height)))
 
     ## ---------- define the tracker
     if opt.tracker == "byte":
@@ -572,12 +574,14 @@ def track_video(predictor, cap, vid_save_path, opt):
                 timer.toc()
                 online_img = img_info['raw_img']
 
-            if opt.save_result:
+            if opt.mode == "save":
                 vid_writer.write(online_img)
-
-            ch = cv2.waitKey(1)
-            if ch == 27 or ch == ord("q") or ch == ord("Q"):
-                break
+            elif opt.mode == "show":
+                cv2.namedWindow("Track", 0)
+                cv2.imshow("Track", online_img)
+                ch = cv2.waitKey(1)
+                if ch == 27 or ch == ord("q") or ch == ord("Q"):
+                    break
         else:
             print("Read frame {:d} failed!".format(frame_id))
             break
@@ -588,10 +592,10 @@ def track_video(predictor, cap, vid_save_path, opt):
     print("{:s} saved.".format(vid_save_path))
 
 
-def imageflow_demo(predictor, vis_dir, current_time, opt):
+def imageflow_demo(predictor, save_dir, current_time, opt):
     """
     :param predictor:
-    :param vis_dir:
+    :param save_dir:
     :param current_time:
     :param opt:
     :return:
@@ -614,9 +618,10 @@ def imageflow_demo(predictor, vis_dir, current_time, opt):
                     cap = cv2.VideoCapture(video_path)
                     ## -----
 
-                    save_dir = os.path.join(vis_dir, video_name)
-                    if not os.path.isdir(save_dir):
-                        os.makedirs(save_dir)
+                    if opt.mode == "save":
+                        save_dir = os.path.join(save_dir, video_name)
+                        if not os.path.isdir(save_dir):
+                            os.makedirs(save_dir)
 
                     current_time = time.localtime()
                     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
@@ -643,7 +648,7 @@ def imageflow_demo(predictor, vis_dir, current_time, opt):
             cap = cv2.VideoCapture(opt.path)
             ## -----
 
-            save_dir = os.path.join(vis_dir, video_name)
+            save_dir = os.path.join(save_dir, video_name)
             if not os.path.isdir(save_dir):
                 os.makedirs(save_dir)
             current_time = time.localtime()
@@ -663,7 +668,7 @@ def imageflow_demo(predictor, vis_dir, current_time, opt):
         if os.path.isfile(opt.path):
             cap = cv2.VideoCapture(opt.camid)
             video_name = opt.path.split("/")[-1][:-4]
-            save_dir = os.path.join(vis_dir, video_name)
+            save_dir = os.path.join(save_dir, video_name)
             vid_save_path = os.path.join(save_dir, "camera.mp4")
 
 
@@ -679,9 +684,10 @@ def run(exp, opt):
     file_name = os.path.join(exp.output_dir, opt.experiment_name)
     os.makedirs(file_name, exist_ok=True)
 
-    if opt.save_result:
-        vis_dir = os.path.join(file_name, "track_vis")
-        os.makedirs(vis_dir, exist_ok=True)
+    save_dir = ""
+    if opt.mode == "save":
+        save_dir = os.path.join(file_name, "track_vis")
+        os.makedirs(save_dir, exist_ok=True)
 
     if opt.trt:
         opt.device = "gpu"
@@ -746,9 +752,9 @@ def run(exp, opt):
 
     current_time = time.localtime()
     if opt.demo == "image":
-        image_demo(predictor, vis_dir, opt.path, current_time, opt.save_result)
+        image_demo(predictor, save_dir, opt.path, current_time, opt.mode)
     elif opt.demo == "video" or opt.demo == "videos" or opt.demo == "webcam":
-        imageflow_demo(predictor, vis_dir, current_time, opt)
+        imageflow_demo(predictor, save_dir, current_time, opt)
 
 
 if __name__ == "__main__":

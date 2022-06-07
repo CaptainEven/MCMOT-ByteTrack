@@ -224,7 +224,6 @@ def plot_tracking_mc(img,
                      tlwhs_dict,
                      obj_ids_dict,
                      num_classes,
-                     scores=None,
                      frame_id=0,
                      fps=0.0,
                      id2cls=None):
