@@ -294,6 +294,7 @@ def track_onnx(opt):
     if opt.time_type == "latest":
         vid_save_path = opt.output_dir + "/detect_onnx.mp4"
     elif opt.time_type == "current":
+        logger.warning(" not implemented yet!")
         pass
 
     vid_save_path = os.path.abspath(vid_save_path)
