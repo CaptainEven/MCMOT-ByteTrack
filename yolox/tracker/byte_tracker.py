@@ -2278,9 +2278,6 @@ class ByteTracker(object):
                        or track.time_since_last_update > self.max_time_not_updated:
                     track.mark_removed()
                     removed_tracks_dict[cls_id].append(track)
-                # if track.time_since_last_update > self.max_time_not_updated:
-                #     track.mark_removed()
-                #     removed_tracks_dict[cls_id].append(track)
 
             """Post processing"""
             self.tracked_tracks_dict[cls_id] = [t for t in self.tracked_tracks_dict[cls_id] if
