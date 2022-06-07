@@ -2266,10 +2266,6 @@ class ByteTracker(object):
                 # activated_tracks_dict may contain track with 'is_activated' False
                 activated_tracks_dict[cls_id].append(track)
 
-            # for track in self.tracked_tracks_dict[cls_id]:
-            #     if cls_id == 2 and track.track_id == 1:
-            #         print("Pause.")
-
             """Step 5: Update state"""
             # update removed tracks
             # for some lost tracks(lost for a long time)
