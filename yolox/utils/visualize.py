@@ -142,11 +142,11 @@ def plot_detection(img,
     return img
 
 
-def draw_tracking(img,
-                  tracks_dict,
-                  id2cls,
-                  frame_id=0,
-                  fps=0.0):
+def draw_mcmot(img,
+               tracks_dict,
+               id2cls,
+               frame_id=0,
+               fps=0.0):
     """
     :param img:
     :param tracks_dict:
