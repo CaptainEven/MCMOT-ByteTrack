@@ -75,7 +75,7 @@ def plot_detection(img,
 
     # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
 
-    text_scale = max(1.0, img.shape[1] / 1000.0)  # 1600.
+    text_scale = max(1.0, img.shape[1] / 1200.0)  # 1600.
     # text_thickness = 1 if text_scale > 1.1 else 1
     text_thickness = 2  # 自定义ID文本线宽
     line_thickness = max(1, int(img.shape[1] / 500.0))

@@ -1726,7 +1726,6 @@ class ByteTracker(object):
         """
         self.frame_id = 0
         self.opt = opt
-        print("opt:\n", self.opt)
 
         # self.det_thresh = args.track_thresh
         self.low_det_thresh = 0.1
