@@ -86,7 +86,7 @@ def plot_detection(img,
                                fontFace=cv2.FONT_HERSHEY_PLAIN,
                                fontScale=text_scale,
                                thickness=text_thickness)
-    txt_width = txt_size[0][0]
+    # txt_width = txt_size[0][0]
     txt_height = txt_size[0][1]
     line_height = txt_height + txt_size[1] + 5
 
@@ -244,7 +244,7 @@ def plot_tracking_mc(img,
 
     # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
 
-    text_scale = max(1.0, img.shape[1] / 1200.0)  # 1600.
+    text_scale = max(1.0, img.shape[1] / 2000.0)  # 1600.
     # text_thickness = 1 if text_scale > 1.1 else 1
     text_thickness = 2  # 自定义ID文本线宽
     line_thickness = max(1, int(img.shape[1] / 500.0))
@@ -252,14 +252,22 @@ def plot_tracking_mc(img,
     radius = max(5, int(im_w / 140.0))
 
     ## ----- draw fps
-    txt = 'frame: %d fps: %.2f' % (frame_id, fps)
-    cv2.putText(img,
-                txt,
-                (0, int(15 * text_scale)),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                (0, 255, 255),
-                thickness=2)
+    txt = "frame: {:d} fps: {:.2f}".format(frame_id, fps)
+    txt_size = cv2.getTextSize(txt,
+                               fontFace=cv2.FONT_HERSHEY_PLAIN,
+                               fontScale=text_scale,
+                               thickness=text_thickness)
+    # txt_width = txt_size[0][0]
+    txt_height = txt_size[0][1]
+    line_height = txt_height + txt_size[1] + 5
+    cv2.putText(img=img,
+                text=txt,
+                org=(10, line_height + 10),
+                fontFace=cv2.FONT_HERSHEY_TRIPLEX,
+                fontScale=text_scale,
+                color=(0, 255, 255),
+                thickness=2,
+                bottomLeftOrigin=False)
 
     for cls_id in range(num_classes):
         cls_tlwhs = tlwhs_dict[cls_id]
@@ -271,7 +279,7 @@ def plot_tracking_mc(img,
 
             int_box = tuple(map(int, (x1, y1, x1 + w, y1 + h)))  # x1, y1, x2, y2
             obj_id = int(obj_ids[i])
-            tr_id_text = '{}'.format(int(obj_id))
+            tr_id_text = '{:d}'.format(int(obj_id))
 
             _line_thickness = 1 if obj_id <= 0 else line_thickness
             color = get_color(abs(obj_id))
@@ -288,20 +296,21 @@ def plot_tracking_mc(img,
             cv2.putText(img,
                         id2cls[cls_id],
                         (int(x1), int(y1)),
-                        cv2.FONT_HERSHEY_PLAIN,
+                        cv2.FONT_HERSHEY_TRIPLEX,
                         text_scale,
                         (0, 255, 255),  # cls_id: yellow
                         thickness=text_thickness)
 
             txt_w, txt_h = cv2.getTextSize(id2cls[cls_id],
-                                           fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                           fontScale=text_scale, thickness=text_thickness)
+                                           fontFace=cv2.FONT_HERSHEY_TRIPLEX,
+                                           fontScale=text_scale,
+                                           thickness=text_thickness)
 
             ## draw track id
             cv2.putText(img,
                         tr_id_text,
-                        (int(x1), int(y1) - txt_h),
-                        cv2.FONT_HERSHEY_PLAIN,
+                        (int(x1), int(y1) - txt_h - 10),
+                        cv2.FONT_HERSHEY_TRIPLEX,
                         text_scale * 1.2,
                         (0, 255, 255),  # cls_id: yellow
                         thickness=text_thickness)
