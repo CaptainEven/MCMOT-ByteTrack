@@ -135,7 +135,7 @@ def plot_detection(img,
                     score_txt,
                     (int(x1), int(y1) - txt_h - 10),
                     cv2.FONT_HERSHEY_PLAIN,
-                    fontScale=text_scale*1.2,
+                    fontScale=text_scale * 1.2,
                     color=(0, 255, 255),  # cls_id: yellow
                     thickness=text_thickness)
 
@@ -213,6 +213,96 @@ def plot_tracking_ocsort(img,
                         tr_id_text,
                         (int(x1), int(y1) - txt_h),
                         cv2.FONT_HERSHEY_PLAIN,
+                        text_scale * 1.2,
+                        (0, 255, 255),  # cls_id: yellow
+                        thickness=text_thickness)
+
+    return img
+
+
+def plot_mcmot(img,
+               n_classes,
+               id2cls,
+               bboxes_dict,
+               ids_dict,
+               frame_id=0,
+               fps=0.0):
+    """
+    :param img:
+    :param n_classes:
+    """
+    img = np.ascontiguousarray(np.copy(img))
+    im_h, im_w = img.shape[:2]
+
+    # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
+
+    text_scale = max(1.0, img.shape[1] / 2000.0)  # 1600.
+    # text_thickness = 1 if text_scale > 1.1 else 1
+    text_thickness = 2  # 自定义ID文本线宽
+    line_thickness = max(1, int(img.shape[1] / 500.0))
+
+    radius = max(5, int(im_w / 140.0))
+
+    ## ----- draw fps
+    txt = "frame: {:d} fps: {:.2f}".format(frame_id, fps)
+    txt_size = cv2.getTextSize(txt,
+                               fontFace=cv2.FONT_HERSHEY_PLAIN,
+                               fontScale=text_scale,
+                               thickness=text_thickness)
+    # txt_width = txt_size[0][0]
+    txt_height = txt_size[0][1]
+    line_height = txt_height + txt_size[1] + 5
+    cv2.putText(img=img,
+                text=txt,
+                org=(10, line_height + 10),
+                fontFace=cv2.FONT_HERSHEY_TRIPLEX,
+                fontScale=text_scale,
+                color=(0, 255, 255),
+                thickness=2,
+                bottomLeftOrigin=False)
+
+    for cls_id in range(n_classes):
+        bboxes = bboxes_dict[cls_id]
+        ids = ids_dict[cls_id]
+
+        for i, tlbr in enumerate(bboxes):
+            tlbr = np.squeeze(tlbr)
+            x1, y1, x2, y2 = tlbr
+
+            int_box = tuple(map(int, (x1, y1, x2, y2)))  # x1, y1, x2, y2
+            obj_id = int(ids[i])
+            tr_id_text = '{:d}'.format(int(obj_id))
+
+            _line_thickness = 1 if obj_id <= 0 else line_thickness
+            color = get_color(abs(obj_id))
+            # cls_color = cls_color_dict[id2cls[cls_id]]
+
+            # draw bbox
+            cv2.rectangle(img=img,
+                          pt1=int_box[0:2],  # (x1, y1)
+                          pt2=int_box[2:4],  # (x2, y2)
+                          color=color,
+                          thickness=line_thickness)
+
+            ## draw class name
+            cv2.putText(img,
+                        id2cls[cls_id],
+                        (int(x1), int(y1)),
+                        cv2.FONT_HERSHEY_TRIPLEX,
+                        text_scale,
+                        (0, 255, 255),  # cls_id: yellow
+                        thickness=text_thickness)
+
+            txt_w, txt_h = cv2.getTextSize(id2cls[cls_id],
+                                           fontFace=cv2.FONT_HERSHEY_TRIPLEX,
+                                           fontScale=text_scale,
+                                           thickness=text_thickness)
+
+            ## draw track id
+            cv2.putText(img,
+                        tr_id_text,
+                        (int(x1), int(y1) - txt_h - 10),
+                        cv2.FONT_HERSHEY_TRIPLEX,
                         text_scale * 1.2,
                         (0, 255, 255),  # cls_id: yellow
                         thickness=text_thickness)

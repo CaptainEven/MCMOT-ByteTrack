@@ -12,7 +12,7 @@ from loguru import logger
 from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils.demo_utils import multiclass_nms
-from yolox.utils.visualize import plot_tracking_mc
+from yolox.utils.visualize import plot_mcmot
 
 
 def make_parser():
@@ -352,22 +352,22 @@ def track_onnx(opt):
                 online_dict = tracker.update_byte_enhance(dets)
 
                 ## ---------- aggregate current frame's results for each object class
-                online_tlwhs_dict = defaultdict(list)
-                online_tr_ids_dict = defaultdict(list)
+                bboxes_dict = defaultdict(list)
+                ids_dict = defaultdict(list)
                 for cls_id in range(tracker.n_classes):  # process each object class
                     online_targets = online_dict[cls_id]
                     for track in online_targets:
-                        online_tlwhs_dict[cls_id].append(track.tlwh)
-                        online_tr_ids_dict[cls_id].append(track.track_id)
+                        bboxes_dict[cls_id].append(track.tlbr)
+                        ids_dict[cls_id].append(track.track_id)
 
                 timer.toc()
-                online_img = plot_tracking_mc(img=img_info['raw_img'],
-                                              tlwhs_dict=online_tlwhs_dict,
-                                              obj_ids_dict=online_tr_ids_dict,
-                                              num_classes=tracker.n_classes,
-                                              frame_id=frame_id + 1,
-                                              fps=1.0 / timer.average_time,
-                                              id2cls=id2cls)
+                online_img = plot_mcmot(img=img_info['raw_img'],
+                                        n_classes=tracker.n_classes,
+                                        id2cls=id2cls,
+                                        bboxes_dict=bboxes_dict,
+                                        ids_dict=ids_dict,
+                                        frame_id=frame_id + 1,
+                                        fps=1.0 / timer.average_time)
             else:
                 # timer.toc()
                 online_img = img_info['raw_img']
