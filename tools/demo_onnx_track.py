@@ -330,12 +330,12 @@ def track_onnx(opt):
 
         if frame_id % opt.log_interval == 0:  # logging per 30 frames
             if frame_id != 0:
-                logger.info("Processing frame {:03d}/{:03d} | fps {:.2f}"
+                logger.info("frame {:03d}/{:03d} | fps {:.2f}"
                             .format(frame_id,
                                     n_frames,
                                     fps))
             else:
-                logger.info("Processing frame {:03d}/{:03d} | fps {:.2f}"
+                logger.info("frame {:03d}/{:03d} | fps {:.2f}"
                             .format(frame_id,
                                     n_frames,
                                     30.0))
@@ -384,7 +384,10 @@ def track_onnx(opt):
         ## ----- update frame id
         frame_id += 1
 
-    logger.info("{:s} saved.".format(vid_save_path))
+    if opt.mode == "save":
+        logger.info("{:s} saved.".format(vid_save_path))
+    elif opt.mode == "show":
+        logger.info("visualizing done.")
 
 
 def run():
