@@ -351,15 +351,6 @@ def track_onnx(opt):
                 ## ----- update the results of tracking
                 online_dict = tracker.update_byte_enhance(dets)
 
-                ## ---------- aggregate current frame's results for each object class
-                bboxes_dict = defaultdict(list)
-                ids_dict = defaultdict(list)
-                for cls_id in range(tracker.n_classes):  # process each object class
-                    online_targets = online_dict[cls_id]
-                    for track in online_targets:
-                        bboxes_dict[cls_id].append(track.tlbr)
-                        ids_dict[cls_id].append(track.track_id)
-
                 timer.toc()
                 online_img = draw_tracking(img=img_info["raw_img"],
                                            tracks_dict=online_dict,
