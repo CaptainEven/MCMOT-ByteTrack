@@ -155,7 +155,6 @@ def draw_tracking(img,
     :param fps:
     """
     img = np.ascontiguousarray(np.copy(img))
-    # im_h, im_w = img.shape[:2]
 
     text_scale = max(1.0, img.shape[1] / 2000.0)  # 1600.
     text_thickness = 2 if text_scale > 2 else 2
