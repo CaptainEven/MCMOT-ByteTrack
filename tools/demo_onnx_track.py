@@ -346,11 +346,13 @@ def track_onnx(opt):
 
             ## ----- inference: pre-process, inference, post-process
             dets, img_info = inference(net, frame, net_size)
+            ## -----
 
             dets = dets[np.where(dets[:, 4] > opt.conf)]
             if dets.shape[0] > 0:
-                ## ----- update the results of tracking
+                ## ----- update the tracking results
                 tracks_dict = tracker.update_tracking(dets)
+                ## -----
 
                 timer.toc()
                 online_img = draw_mcmot(img=img_info["raw_img"],

@@ -2044,7 +2044,7 @@ class ByteTracker(object):
 
         self.delta_t = delta_t
         self.max_age = self.buffer_size
-        self.max_time_not_updated = 3
+        self.max_time_not_updated = 5
         self.min_hits = 3
         self.using_delta_t = True
 
