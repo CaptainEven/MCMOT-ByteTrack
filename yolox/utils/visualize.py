@@ -291,7 +291,7 @@ def draw_mcmot(img,
             ## draw track id
             cv2.putText(img,
                         tr_id_text,
-                        (int(x1), int(y1) - txt_h),
+                        (int(x1), int(y1) - txt_h - 10),
                         text_font,
                         text_scale * 1.2,
                         (0, 255, 255),  # cls_id: yellow
