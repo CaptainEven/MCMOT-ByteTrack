@@ -50,10 +50,10 @@ class STrack(BaseTrack):
         return True
 
     def predict(self):
-        if self.time_since_update > 0:
+        if self.time_since_last_update > 0:
             self.tracklet_len = 0
 
-        self.time_since_update += 1
+        self.time_since_last_update += 1
 
         mean_state = self.mean.copy()
         if self.state != TrackState.Tracked:
@@ -79,7 +79,7 @@ class STrack(BaseTrack):
 
         del self._tlwh
 
-        self.time_since_update = 0
+        self.time_since_last_update = 0
         self.time_by_tracking = 0
         self.tracklet_len = 0
         self.state = TrackState.Tracked
@@ -92,7 +92,7 @@ class STrack(BaseTrack):
         self.mean, self.covariance = self.kalman_filter.update(
             self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
         )
-        self.time_since_update = 0
+        self.time_since_last_update = 0
         self.time_by_tracking = 0
         self.tracklet_len = 0
         self.state = TrackState.Tracked
@@ -112,7 +112,7 @@ class STrack(BaseTrack):
         :return:
         """
         self.frame_id = frame_id
-        self.time_since_update = 0
+        self.time_since_last_update = 0
         if new_track.from_det:
             self.time_by_tracking = 0
         else:

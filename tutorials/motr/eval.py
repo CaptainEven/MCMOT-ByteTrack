@@ -135,7 +135,7 @@ class Track(object):
 
     def __init__(self, box):
         self.box = box
-        self.time_since_update = 0
+        self.time_since_last_update = 0
         self.id = Track.track_cnt
         Track.track_cnt += 1
         self.miss = 0

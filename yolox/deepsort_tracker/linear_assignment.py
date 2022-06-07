@@ -122,7 +122,7 @@ def matching_cascade(
 
         track_indices_l = [
             k for k in track_indices
-            if tracks[k].time_since_update == 1 + level
+            if tracks[k].time_since_last_update == 1 + level
         ]
         if len(track_indices_l) == 0:  # Nothing to match at this level
             continue

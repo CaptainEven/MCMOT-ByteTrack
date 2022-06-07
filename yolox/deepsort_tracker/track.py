@@ -50,7 +50,7 @@ class Track:
         Total number of measurement updates.
     age : int
         Total number of frames since first occurance.
-    time_since_update : int
+    time_since_last_update : int
         Total number of frames since last measurement update.
     state : TrackState
         The current track state.
@@ -67,7 +67,7 @@ class Track:
         self.class_id = class_id
         self.hits = 1
         self.age = 1
-        self.time_since_update = 0
+        self.time_since_last_update = 0
 
         self.state = TrackState.Tentative
         self.features = []
@@ -104,7 +104,7 @@ class Track:
 
     def increment_age(self):
         self.age += 1
-        self.time_since_update += 1
+        self.time_since_last_update += 1
 
     def predict(self, kf):
         """Propagate the state distribution to the current time step using a
@@ -132,7 +132,7 @@ class Track:
         self.features.append(detection.feature)
 
         self.hits += 1
-        self.time_since_update = 0
+        self.time_since_last_update = 0
         if self.state == TrackState.Tentative and self.hits >= self._n_init:
             self.state = TrackState.Confirmed
 
@@ -141,7 +141,7 @@ class Track:
         """
         if self.state == TrackState.Tentative:
             self.state = TrackState.Deleted
-        elif self.time_since_update > self._max_age:
+        elif self.time_since_last_update > self._max_age:
             self.state = TrackState.Deleted
 
     def is_tentative(self):

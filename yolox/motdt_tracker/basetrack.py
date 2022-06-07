@@ -23,7 +23,7 @@ class BaseTrack(object):
     score = 0
     start_frame = 0
     frame_id = 0
-    time_since_update = 0
+    time_since_last_update = 0
 
     # multi-camera
     location = (np.inf, np.inf)

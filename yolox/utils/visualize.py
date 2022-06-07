@@ -142,6 +142,85 @@ def plot_detection(img,
     return img
 
 
+def draw_specific(img,
+                  tracks_dict,
+                  id2cls,
+                  frame_id=0,
+                  fps=0.0):
+    """
+    :param img:
+    :param tracks_dict:
+    :param id2cls:
+    :param frame_id:
+    :param fps:
+    """
+    img = np.ascontiguousarray(np.copy(img))
+
+    text_scale = max(1.0, img.shape[1] / 2000.0)  # 1600.
+    text_thickness = 2 if text_scale > 2 else 2
+    line_thickness = max(1, int(img.shape[1] / 500.0))
+    text_font = cv2.FONT_HERSHEY_TRIPLEX
+
+    ## ----- draw fps
+    txt = "frame: {:d} fps: {:.2f}".format(frame_id, fps)
+    txt_size = cv2.getTextSize(txt,
+                               fontFace=text_font,
+                               fontScale=text_scale,
+                               thickness=text_thickness)
+    # txt_width = txt_size[0][0]
+    txt_height = txt_size[0][1]
+    line_height = txt_height + txt_size[1] + 5
+
+    cv2.putText(img=img,
+                text=txt,
+                org=(10, line_height + 10),
+                fontFace=text_font,
+                fontScale=text_scale,
+                color=(0, 255, 255),
+                thickness=2,
+                bottomLeftOrigin=False)
+
+    for cls_id, tracks in tracks_dict.items():
+        for track in tracks:
+            x1, y1, x2, y2 = track.tlbr
+            int_box = tuple(map(int, (x1, y1, x2, y2)))  # x1, y1, x2, y2
+            tr_id = int(track.track_id)
+            tr_id_text = '{}'.format(tr_id)
+            color = get_color(abs(tr_id))
+
+            # draw bbox
+            cv2.rectangle(img=img,
+                          pt1=int_box[0:2],  # (x1, y1)
+                          pt2=int_box[2:4],  # (x2, y2)
+                          color=color,
+                          thickness=line_thickness)
+
+            ## draw class name
+            cv2.putText(img,
+                        id2cls[cls_id],
+                        (int(x1), int(y1)),
+                        text_font,
+                        text_scale,
+                        (0, 255, 255),  # cls_id: yellow
+                        thickness=text_thickness)
+
+            txt_w, txt_h = cv2.getTextSize(id2cls[cls_id],
+                                           fontFace=text_font,
+                                           fontScale=text_scale,
+                                           thickness=text_thickness)
+
+            ## draw track id
+            cv2.putText(img,
+                        tr_id_text,
+                        (int(x1), int(y1) - txt_h),
+                        text_font,
+                        text_scale * 1.2,
+                        (0, 255, 255),  # cls_id: yellow
+                        thickness=text_thickness)
+
+    return img
+
+
 def draw_mcmot(img,
                tracks_dict,
                id2cls,

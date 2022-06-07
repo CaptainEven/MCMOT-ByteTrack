@@ -2044,6 +2044,7 @@ class ByteTracker(object):
 
         self.delta_t = delta_t
         self.max_age = self.buffer_size
+        self.max_time_not_updated = 3
         self.min_hits = 3
         self.using_delta_t = True
 
@@ -2265,10 +2266,18 @@ class ByteTracker(object):
                 # activated_tracks_dict may contain track with 'is_activated' False
                 activated_tracks_dict[cls_id].append(track)
 
+            # for track in self.tracked_tracks_dict[cls_id]:
+            #     if cls_id == 2 and track.track_id == 1:
+            #         print("Pause.")
+
             """Step 5: Update state"""
             # update removed tracks
+            # for some lost tracks(lost for a long time)
             for track in self.lost_tracks_dict[cls_id]:
                 if self.frame_id - track.end_frame > self.max_time_lost:
+                    track.mark_removed()
+                    removed_tracks_dict[cls_id].append(track)
+                if track.time_since_last_update > self.max_time_not_updated:
                     track.mark_removed()
                     removed_tracks_dict[cls_id].append(track)
 
@@ -2292,9 +2301,10 @@ class ByteTracker(object):
                 self.tracked_tracks_dict[cls_id],
                 self.lost_tracks_dict[cls_id])
 
-            # get scores of lost tracks
+            ## ----- return
             output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
-                                          if track.is_activated]
+                                          if track.is_activated
+                                          and track.time_since_last_update <= self.max_time_not_updated]
 
         ## ---------- Return final online targets of the frame
         return output_tracks_dict
@@ -4763,12 +4773,15 @@ def sub_tracks(t_list_a, t_list_b):
     :return:
     """
     tracks = {}
+
     for t in t_list_a:
         tracks[t.track_id] = t
+
     for t in t_list_b:
         tid = t.track_id
         if tracks.get(tid, 0):
             del tracks[tid]
+
     return list(tracks.values())
 
 
@@ -4778,19 +4791,19 @@ def remove_duplicate_tracks(tracks_a, tracks_b):
     :param tracks_b:
     :return:
     """
-    pdist = matching.iou_distance(tracks_a, tracks_b)
-    pairs = np.where(pdist < 0.15)
-    dupa, dupb = list(), list()
+    pair_dist = matching.iou_distance(tracks_a, tracks_b)
+    pairs = np.where(pair_dist < 0.15)
+    dup_a, dup_b = list(), list()
 
-    for p, q in zip(*pairs):
-        timep = tracks_a[p].frame_id - tracks_a[p].start_frame
-        timeq = tracks_b[q].frame_id - tracks_b[q].start_frame
-        if timep > timeq:
-            dupb.append(q)
+    for a, b in zip(*pairs):
+        time_a = tracks_a[a].frame_id - tracks_a[a].start_frame
+        time_b = tracks_b[b].frame_id - tracks_b[b].start_frame
+        if time_a > time_b:
+            dup_b.append(b)
         else:
-            dupa.append(p)
+            dup_a.append(a)
 
-    resa = [t for i, t in enumerate(tracks_a) if not i in dupa]
-    resb = [t for i, t in enumerate(tracks_b) if not i in dupb]
+    res_a = [t for i, t in enumerate(tracks_a) if not i in dup_a]
+    res_b = [t for i, t in enumerate(tracks_b) if not i in dup_b]
 
-    return resa, resb
+    return res_a, res_b
