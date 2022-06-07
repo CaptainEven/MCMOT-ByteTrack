@@ -126,7 +126,7 @@ def _pre_process(image, net_size, mean, std):
     :param image:
     """
     image_info = {'id': 0}
-    image_info['raw_image'] = copy.deepcopy(image)
+    image_info['raw_img'] = copy.deepcopy(image)
     image_info['width'] = image.shape[1]
     image_info['height'] = image.shape[0]
     preprocessed_image, ratio = pre_process(image,
@@ -336,7 +336,7 @@ def detect_onnx(opt):
 
                 timer.toc()
 
-                online_img = plot_detection(img=img_info['raw_image'],
+                online_img = plot_detection(img=img_info['raw_img'],
                                             dets=dets,
                                             frame_id=frame_id + 1,
                                             fps=fps,

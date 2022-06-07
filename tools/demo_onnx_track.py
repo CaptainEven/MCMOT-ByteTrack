@@ -9,10 +9,10 @@ import cv2
 import numpy as np
 from loguru import logger
 
+from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils.demo_utils import multiclass_nms
-from yolox.utils.visualize import plot_detection
-from yolox.tracker.byte_tracker import ByteTracker
+from yolox.utils.visualize import plot_tracking_mc
 
 
 def make_parser():
@@ -74,10 +74,10 @@ def make_parser():
                         default="latest",
                         help="latest | current")
 
-    parser.add_argument("--save_result",
-                        type=bool,
-                        default=True,
-                        help="")
+    parser.add_argument("--mode",
+                        type=str,
+                        default="show",
+                        help="save | show")
 
     parser.add_argument("--log_interval",
                         type=int,
@@ -140,8 +140,8 @@ def _pre_process(image, net_size, mean, std):
     """
     :param image:
     """
-    image_info = {'id': 0}
-    image_info['raw_image'] = copy.deepcopy(image)
+    image_info = {}
+    image_info['raw_img'] = copy.deepcopy(image)
     image_info['width'] = image.shape[1]
     image_info['height'] = image.shape[0]
     preprocessed_image, ratio = pre_process(image,
@@ -351,24 +351,39 @@ def track_onnx(opt):
             dets = dets[np.where(dets[:, 4] > opt.conf)]
             if dets.shape[0] > 0:
                 ## ----- update the results of tracking
+                img_size = [img_info['height'], img_info['width']]
+                online_dict = tracker.update_byte_enhance(dets)
+
+                ## ---------- aggregate current frame's results for each object class
+                online_tlwhs_dict = defaultdict(list)
+                online_tr_ids_dict = defaultdict(list)
+                for cls_id in range(tracker.n_classes):  # process each object class
+                    online_targets = online_dict[cls_id]
+                    for track in online_targets:
+                        online_tlwhs_dict[cls_id].append(track.tlwh)
+                        online_tr_ids_dict[cls_id].append(track.track_id)
 
                 timer.toc()
-
-                online_img = plot_detection(img=img_info['raw_image'],
-                                            dets=dets,
-                                            frame_id=frame_id + 1,
-                                            fps=fps,
-                                            id2cls=id2cls)
+                online_img = plot_tracking_mc(img=img_info['raw_img'],
+                                              tlwhs_dict=online_tlwhs_dict,
+                                              obj_ids_dict=online_tr_ids_dict,
+                                              num_classes=tracker.n_classes,
+                                              frame_id=frame_id + 1,
+                                              fps=1.0 / timer.average_time,
+                                              id2cls=id2cls)
             else:
                 # timer.toc()
                 online_img = img_info['raw_img']
 
-            if opt.save_result:
+            if opt.mode == "save":
                 vid_writer.write(online_img)
+            elif opt.mode == "show":
+                cv2.namedWindow("Track", 0)
+                cv2.imshow("Track", online_img)
 
-            ch = cv2.waitKey(1)
-            if ch == 27 or ch == ord("q") or ch == ord("Q"):
-                break
+                ch = cv2.waitKey(1)
+                if ch == 27 or ch == ord("q") or ch == ord("Q"):
+                    break
         else:
             logger.warning("Read frame {:d} failed!".format(frame_id))
             break

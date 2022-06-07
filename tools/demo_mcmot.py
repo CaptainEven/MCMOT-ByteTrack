@@ -300,7 +300,7 @@ class Predictor(object):
         :param timer:
         :return:
         """
-        img_info = {"id": 0}
+        img_info = {}
 
         if isinstance(img, str):
             img_info["file_name"] = os.path.basename(img)
@@ -486,12 +486,13 @@ def track_video(predictor, cap, vid_save_path, opt):
 
         ## ----- inference
         if ret_val:
-            if opt.reid:
-                outputs, feature_map, img_info = predictor.inference(frame, timer)
-            else:
-                outputs, img_info = predictor.inference(frame, timer)
-
-            dets = outputs[0]
+            with torch.no_grad():
+                if opt.reid:
+                    outputs, feature_map, img_info = predictor.inference(frame, timer)
+                else:
+                    outputs, img_info = predictor.inference(frame, timer)
+                dets = outputs[0]
+                dets = dets.cpu().numpy()
 
             if dets is not None:
                 ## ----- update the frame
