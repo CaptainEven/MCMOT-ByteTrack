@@ -271,6 +271,8 @@ def track_onnx(opt):
         net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
         net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
 
+    logger.info("Confidence threshold: {:.3f}.".format(opt.conf))
+
     ## ----- Set output dir
     if not os.path.isdir(opt.output_dir):
         logger.warning("invalid output dir: {:s}.".format(opt.output_dir))

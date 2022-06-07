@@ -2141,7 +2141,6 @@ class ByteTracker(object):
             self.tracks = track_pool_dict[cls_id]
             self.tracked_tracks = tracked_tracks_dict[cls_id]
 
-            # MCTrack.multi_predict(self.tracks)  # only predict tracked tracks
             for track in self.tracked_tracks:
                 track.predict()
             # ----------
@@ -2221,12 +2220,11 @@ class ByteTracker(object):
                     track.re_activate(det, self.frame_id, new_id=False)
                     retrieve_tracks_dict[cls_id].append(track)
 
-            # process unmatched tracks for two rounds
+            ## ----- process unmatched tracks for two rounds
             for i_track in u_trks_2nd:
                 track = unmatched_tracks[i_track]
                 if not track.state == TrackState.Lost:
-                    # mark unmatched track as lost track
-                    track.mark_lost()
+                    track.mark_lost()  # mark unmatched track as lost track
                     lost_tracks_dict[cls_id].append(track)
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
