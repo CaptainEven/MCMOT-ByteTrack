@@ -12,7 +12,7 @@ from loguru import logger
 from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils.demo_utils import multiclass_nms
-from yolox.utils.visualize import plot_mcmot
+from yolox.utils.visualize import draw_tracking
 
 
 def make_parser():
@@ -361,13 +361,11 @@ def track_onnx(opt):
                         ids_dict[cls_id].append(track.track_id)
 
                 timer.toc()
-                online_img = plot_mcmot(img=img_info['raw_img'],
-                                        n_classes=tracker.n_classes,
-                                        id2cls=id2cls,
-                                        bboxes_dict=bboxes_dict,
-                                        ids_dict=ids_dict,
-                                        frame_id=frame_id + 1,
-                                        fps=1.0 / timer.average_time)
+                online_img = draw_tracking(img=img_info["raw_img"],
+                                           tracks_dict=online_dict,
+                                           id2cls=id2cls,
+                                           frame_id=frame_id + 1,
+                                           fps=1.0 / timer.average_time)
             else:
                 # timer.toc()
                 online_img = img_info['raw_img']

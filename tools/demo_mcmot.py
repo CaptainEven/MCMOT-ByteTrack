@@ -16,7 +16,7 @@ from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info, post_process
 from yolox.utils.visualize import plot_tracking_sc, \
-    plot_tracking_mc, plot_tracking_ocsort
+    plot_tracking_mc, plot_tracking
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -564,11 +564,11 @@ def track_video(predictor, cap, vid_save_path, opt):
                                                       id2cls=id2cls)
                     elif opt.tracker == "oc":
                         timer.toc()
-                        online_img = plot_tracking_ocsort(img=img_info['raw_img'],
-                                                          tracks_dict=online_dict,
-                                                          frame_id=frame_id + 1,
-                                                          fps=1.0 / timer.average_time,
-                                                          id2cls=id2cls)
+                        online_img = plot_tracking(img=img_info['raw_img'],
+                                                   tracks_dict=online_dict,
+                                                   id2cls=id2cls,
+                                                   frame_id=frame_id + 1,
+                                                   fps=1.0 / timer.average_time)
 
             else:
                 timer.toc()
