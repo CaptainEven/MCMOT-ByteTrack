@@ -3161,7 +3161,7 @@ class ByteTracker(object):
 
         ## ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            MCTrack.init_id_dict(self.n_classes)
+            Tracklet.init_id_dict(self.n_classes)
         ## -----
 
         ## ----- image width, height and net width, height
@@ -3222,7 +3222,7 @@ class ByteTracker(object):
 
             if len(bboxes_high) > 0:
                 '''Build Tracks from Detections'''
-                detections_1st = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id) for
+                detections_1st = [Tracklet(Tracklet.tlbr2tlwh(tlbr), s, cls_id) for
                                   (tlbr, s) in zip(bboxes_high, scores_high)]
 
                 # scores_1st_ = np.expand_dims(scores_1st, axis=1)
@@ -3305,7 +3305,7 @@ class ByteTracker(object):
             # association the un-track to the low score detections
             if len(bboxes_low) > 0:
                 '''Detections'''
-                detections_2nd = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id)
+                detections_2nd = [Tracklet(Tracklet.tlbr2tlwh(tlbr), s, cls_id)
                                   for (tlbr, s) in zip(bboxes_low, scores_low)]
             else:
                 detections_2nd = []
@@ -3403,7 +3403,8 @@ class ByteTracker(object):
 
             # get scores of lost tracks
             output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
-                                          if track.is_activated]
+                                          if track.is_activated
+                                          and track.time_since_last_update < self.max_time_not_updated]
 
         ## ---------- Return final online targets of the frame
         return output_tracks_dict
