@@ -2061,7 +2061,7 @@ class ByteTracker(object):
 
         ## ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            Tracklet.init_id_dict(self.n_classes)
+            EnhanceTrack.init_id_dict(self.n_classes)
         ## -----
 
         ## ----- The current frame 8 tracking states recording
@@ -2116,7 +2116,7 @@ class ByteTracker(object):
 
             if len(bboxes_high) > 0:
                 '''Build Tracks from Detections'''
-                detections_1st = [Tracklet(Tracklet.tlbr2tlwh(tlbr), s, cls_id) for
+                detections_1st = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id) for
                                   (tlbr, s) in zip(bboxes_high, scores_high)]
 
                 # scores_1st_ = np.expand_dims(scores_1st, axis=1)
@@ -2147,9 +2147,9 @@ class ByteTracker(object):
             ## -----different from ByteTrack
             for track in self.tracked_tracks:
                 track.predict()
-                if track.time_since_last_update > self.max_time_not_updated:
-                    track.mark_lost()
-                    lost_tracks_dict[cls_id].append(track)
+                # if track.time_since_last_update > self.max_time_not_updated:
+                #     track.mark_lost()
+                #     lost_tracks_dict[cls_id].append(track)
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
@@ -2201,7 +2201,7 @@ class ByteTracker(object):
             # association the un-track to the low score detections
             if len(bboxes_low) > 0:
                 '''Detections'''
-                detections_2nd = [Tracklet(Tracklet.tlbr2tlwh(tlbr), s, cls_id)
+                detections_2nd = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id)
                                   for (tlbr, s) in zip(bboxes_low, scores_low)]
             else:
                 detections_2nd = []
@@ -2273,8 +2273,7 @@ class ByteTracker(object):
             # update removed tracks
             # for some lost tracks(lost for a long time)
             for track in self.lost_tracks_dict[cls_id]:
-                if self.frame_id - track.end_frame > self.max_time_lost \
-                       or track.time_since_last_update > self.max_time_not_updated:
+                if self.frame_id - track.end_frame > self.max_time_lost:
                     track.mark_removed()
                     removed_tracks_dict[cls_id].append(track)
 
