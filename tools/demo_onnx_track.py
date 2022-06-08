@@ -61,7 +61,7 @@ def make_parser():
 
     parser.add_argument("--conf",
                         type=float,
-                        default=0.4,
+                        default=0.3,
                         help="")
 
     parser.add_argument("--match_thresh",

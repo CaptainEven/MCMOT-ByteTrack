@@ -241,6 +241,7 @@ def draw_mcmot(img,
     text_font = cv2.FONT_HERSHEY_TRIPLEX
 
     ## ----- draw fps
+    MARGIN = 5
     txt = "frame: {:d} fps: {:.2f}".format(frame_id, fps)
     txt_size = cv2.getTextSize(txt,
                                fontFace=text_font,
@@ -248,11 +249,11 @@ def draw_mcmot(img,
                                thickness=text_thickness)
     # txt_width = txt_size[0][0]
     txt_height = txt_size[0][1]
-    line_height = txt_height + txt_size[1] + 5
+    line_height = txt_height + txt_size[1]
 
     cv2.putText(img=img,
                 text=txt,
-                org=(10, line_height + 10),
+                org=(MARGIN, line_height),
                 fontFace=text_font,
                 fontScale=text_scale,
                 color=(0, 255, 255),

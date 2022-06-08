@@ -1027,9 +1027,6 @@ class Tracklet(MCBaseTrack):
         self.score = score
         self.track_len = 0  # means age?
 
-        # time: number of frames since last updating
-        self.time_since_last_update = 0
-
         ## ---------- Added parameters for enhanced matching
         # add vel_dir
         self.age = 0
@@ -1067,9 +1064,6 @@ class Tracklet(MCBaseTrack):
         ## ----------
         # life age +1 every prediction
         self.age += 1
-
-        ## ----- time_since_last_update +1 each prediction
-        self.time_since_last_update += 1
 
         return bbox
 
@@ -1119,9 +1113,6 @@ class Tracklet(MCBaseTrack):
         ## ----- update last observations
         self.last_observation = bbox_score
         self.observations_dict[self.age] = self.last_observation
-
-        ## ----- reset time_since_last_update
-        self.time_since_last_update = 0
 
         ## ----- Update motion model: update Kalman filter
         self.kf.update(convert_bbox_to_z(bbox_score))
@@ -2061,7 +2052,7 @@ class ByteTracker(object):
 
         ## ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            EnhanceTrack.init_id_dict(self.n_classes)
+            Tracklet.init_id_dict(self.n_classes)
         ## -----
 
         ## ----- The current frame 8 tracking states recording
@@ -2116,7 +2107,7 @@ class ByteTracker(object):
 
             if len(bboxes_high) > 0:
                 '''Build Tracks from Detections'''
-                detections_1st = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id) for
+                detections_1st = [Tracklet(Tracklet.tlbr2tlwh(tlbr), s, cls_id) for
                                   (tlbr, s) in zip(bboxes_high, scores_high)]
 
                 # scores_1st_ = np.expand_dims(scores_1st, axis=1)
@@ -2201,7 +2192,7 @@ class ByteTracker(object):
             # association the un-track to the low score detections
             if len(bboxes_low) > 0:
                 '''Detections'''
-                detections_2nd = [EnhanceTrack(EnhanceTrack.tlbr2tlwh(tlbr), s, cls_id)
+                detections_2nd = [Tracklet(Tracklet.tlbr2tlwh(tlbr), s, cls_id)
                                   for (tlbr, s) in zip(bboxes_low, scores_low)]
             else:
                 detections_2nd = []
