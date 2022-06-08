@@ -2141,7 +2141,7 @@ class ByteTracker(object):
                                                   self.lost_tracks_dict[cls_id])
 
             # ---------- Predict the current location with KF
-            self.tracks = track_pool_dict[cls_id]
+            self.tracks = track_pool_dict[cls_id]  ## len(pool) >= len(tracked)
             self.tracked_tracks = tracked_tracks_dict[cls_id]
 
             ## -----different from ByteTrack
@@ -2187,7 +2187,7 @@ class ByteTracker(object):
 
             # --- process matched pairs between track pool and current frame detection
             for i_det, i_track in matches:
-                track = track_pool_dict[cls_id][i_track]
+                track = self.tracks[i_track]
                 det = detections_1st[i_det]
 
                 if track.state == TrackState.Tracked:
@@ -2206,9 +2206,9 @@ class ByteTracker(object):
             else:
                 detections_2nd = []
 
-            unmatched_tracks = [track_pool_dict[cls_id][i]
+            unmatched_tracks = [self.tracks[i]
                                 for i in u_trks_1st
-                                if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+                                if self.tracks[i].state == TrackState.Tracked]
 
             dists = matching.iou_distance(unmatched_tracks, detections_2nd)
             matches, u_trks_2nd, u_dets_2nd = matching.linear_assignment(dists,
