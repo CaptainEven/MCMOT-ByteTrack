@@ -81,7 +81,7 @@ def make_parser():
 
     parser.add_argument("--log_interval",
                         type=int,
-                        default=1,
+                        default=30,
                         help="")
 
     parser.add_argument("--dev",
