@@ -1191,6 +1191,7 @@ class CVTracklet(MCBaseTrack):
     @staticmethod
     def get_velocity_direction(bbox1, bbox2):
         """
+        vel_dir: dy, dx
         @param bbox1
         @param bbox2
         """
