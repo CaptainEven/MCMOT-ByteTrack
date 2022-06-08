@@ -983,7 +983,7 @@ class MCTrackOCByte(MCBaseTrack):
             .format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
 
 
-class CVTracklet(MCBaseTrack):
+class TrackletCV(MCBaseTrack):
     def __init__(self,
                  tlwh, score, cls_id,
                  delta_t=3,
@@ -2340,7 +2340,7 @@ class ByteTracker(object):
 
         ## ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            CVTracklet.init_id_dict(self.n_classes)
+            TrackletCV.init_id_dict(self.n_classes)
         ## -----
 
         ## ----- The current frame 8 tracking states recording
@@ -2395,7 +2395,7 @@ class ByteTracker(object):
 
             if len(bboxes_high) > 0:
                 '''Build Tracks from Detections'''
-                detections_1st = [CVTracklet(CVTracklet.tlbr2tlwh(tlbr), s, cls_id) for
+                detections_1st = [TrackletCV(TrackletCV.tlbr2tlwh(tlbr), s, cls_id) for
                                   (tlbr, s) in zip(bboxes_high, scores_high)]
 
                 # scores_1st_ = np.expand_dims(scores_1st, axis=1)
@@ -2480,7 +2480,7 @@ class ByteTracker(object):
             # association the un-track to the low score detections
             if len(bboxes_low) > 0:
                 '''Detections'''
-                detections_2nd = [CVTracklet(CVTracklet.tlbr2tlwh(tlbr), s, cls_id)
+                detections_2nd = [TrackletCV(TrackletCV.tlbr2tlwh(tlbr), s, cls_id)
                                   for (tlbr, s) in zip(bboxes_low, scores_low)]
             else:
                 detections_2nd = []
