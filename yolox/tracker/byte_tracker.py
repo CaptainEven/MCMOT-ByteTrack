@@ -1033,7 +1033,7 @@ class TrackletCV(MCBaseTrack):
 
         ## ----- define R matrix
         self.kf.measurementNoiseCov = np.eye(dim_z, dtype=np.float64)
-        self.kf.measurementNoiseCov[2:, 2:] *= 10.0
+        self.kf.measurementNoiseCov[2:, 2:] *= 1.0  # 10.0
 
         ## ----- define state matrix, statePre matrix, statePost matrix
         # center_x, center_y, s, derivatives of time
