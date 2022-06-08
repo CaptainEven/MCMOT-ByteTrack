@@ -21,7 +21,7 @@ class MCBaseTrack(object):
 
     track_id = 0
     is_activated = False
-    state = TrackState.New
+    state = TrackState.New  # init TRacking state to New
 
     # history = OrderedDict()
     history = []

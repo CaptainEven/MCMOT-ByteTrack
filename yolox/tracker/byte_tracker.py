@@ -1144,6 +1144,8 @@ class Tracklet(MCBaseTrack):
 
         self.frame_id = frame_id
         self.start_frame = frame_id
+
+        ## ----- only for the fist frame
         if self.frame_id == 1:
             self.is_activated = True
 
@@ -2127,13 +2129,14 @@ class ByteTracker(object):
 
             '''Add newly detected tracks(current frame) to tracked_tracks'''
             for track in self.tracked_tracks_dict[cls_id]:
-                if not track.is_activated:
+                if not track.is_activated:  # put un-matched tracks to unconfirmed
                     unconfirmed_tracks_dict[cls_id].append(track)  # record unconfirmed tracks in this frame
                 else:
                     tracked_tracks_dict[cls_id].append(track)  # record tracked tracks of this frame
 
-            ''' Step 2: First association, with high score detection boxes'''
-            ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
+            '''Step 2: First association, with high score detection boxes'''
+            ## ----- build track pool(track proposals for matching) the current frame
+            #  by joining tracked_tracks and lost tracks
             track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id],
                                                   self.lost_tracks_dict[cls_id])
 
@@ -2141,8 +2144,12 @@ class ByteTracker(object):
             self.tracks = track_pool_dict[cls_id]
             self.tracked_tracks = tracked_tracks_dict[cls_id]
 
+            ## -----different from ByteTrack
             for track in self.tracked_tracks:
                 track.predict()
+                if track.time_since_last_update > self.max_time_not_updated:
+                    track.mark_lost()
+                    lost_tracks_dict[cls_id].append(track)
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
@@ -2189,8 +2196,6 @@ class ByteTracker(object):
                 else:  # re-activate the lost track
                     track.re_activate(det, self.frame_id, new_id=False)
                     retrieve_tracks_dict[cls_id].append(track)
-
-            ## ----- process the unmatched dets and trks in the first round
 
             ''' Step 3: Second association, with low score detection boxes'''
             # association the un-track to the low score detections
@@ -2293,10 +2298,9 @@ class ByteTracker(object):
                 self.tracked_tracks_dict[cls_id],
                 self.lost_tracks_dict[cls_id])
 
-            ## ----- return
+            ## ----- return the tracking results ?()
             output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id]
-                                          if track.is_activated
-                                          and track.time_since_last_update <= self.max_time_not_updated]
+                                          if track.is_activated]
 
         ## ---------- Return final online targets of the frame
         return output_tracks_dict
