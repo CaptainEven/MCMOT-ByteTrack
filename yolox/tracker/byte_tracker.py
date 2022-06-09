@@ -2749,9 +2749,6 @@ class ByteTracker(object):
                 if track.vel_norm > self.vel_norm_thresh and \
                         track.time_since_last_update <= self.max_time_not_updated:
                     track.predict()
-                    if track.state != TrackState.Lost:
-                        track.mark_lost()  # mark unmatched track as lost track
-                        lost_tracks_dict[cls_id].append(track)
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
