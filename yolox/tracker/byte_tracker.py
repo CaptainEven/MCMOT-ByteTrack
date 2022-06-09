@@ -2741,10 +2741,11 @@ class ByteTracker(object):
             self.tracks = track_pool_dict[cls_id]  # len(pool) >= len(tracked)
             self.tracked_tracks = tracked_tracks_dict[cls_id]
 
-            ## -----different from ByteTrack
+            ## ----- predict the tracked tracks
             for track in self.tracked_tracks:
                 track.predict()
 
+            ## ----- predict the moving lost tracks
             for track in self.lost_tracks_dict[cls_id]:
                 if track.vel_norm > self.vel_norm_thresh and \
                         track.time_since_last_update <= self.max_time_not_updated:
