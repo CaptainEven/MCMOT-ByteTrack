@@ -1003,39 +1003,47 @@ class TrackCV(MCBaseTrack):
         # init tlbr: x1y1x2y2
         self._tlbr = MCByteTrackNK.tlwh2tlbr(self._tlwh)
 
+        # init state z
+        self.kalman_state = np.zeros(dim_x, dtype=np.float64)
+
+        ## ----- init last Kalman state z
+        self.last_kalman_state = np.zeros(dim_x, dtype=np.float64)
+
         ## ----- build and initiate the Kalman filter
         self.kf = cv2.KalmanFilter(dim_x, dim_z)
+
+        ## ----- define the transmission matrix
         self.kf.transitionMatrix = np.array([[1, 0, 0, 0, 1, 0, 0],
                                              [0, 1, 0, 0, 0, 1, 0],
                                              [0, 0, 1, 0, 0, 0, 1],
                                              [0, 0, 0, 1, 0, 0, 0],
                                              [0, 0, 0, 0, 1, 0, 0],
                                              [0, 0, 0, 0, 0, 1, 0],
-                                             [0, 0, 0, 0, 0, 0, 1]], dtype=np.float64)  # transmission matrix
+                                             [0, 0, 0, 0, 0, 0, 1]], dtype=np.float64)
 
         ## ----- define measurement matrix
         self.kf.measurementMatrix = np.array([[1, 0, 0, 0, 0, 0, 0],
                                               [0, 1, 0, 0, 0, 0, 0],
                                               [0, 0, 1, 0, 0, 0, 0],
-                                              [0, 0, 0, 1, 0, 0, 0]], dtype=np.float64)  # measurement matrix
+                                              [0, 0, 0, 1, 0, 0, 0]], dtype=np.float64)
 
-        ## ----- define P matrix, P_pre matrix and P_post matrix
+        ## ----- define the P matrix, P_pre matrix and P_post matrix
         # give high uncertainty to the unobservable initial velocities
         self.kf.errorCovPre = np.eye(dim_x, dtype=np.float64)
         self.kf.errorCovPre[4:, 4:] *= 1000.0
         self.kf.errorCovPre *= 10.0
         self.kf.errorCovPost = self.kf.errorCovPre.copy()
 
-        ## ----- define Q matrix
+        ## ----- define the Q matrix
         self.kf.processNoiseCov = np.eye(dim_x)
         self.kf.processNoiseCov[-1, -1] *= 0.01
         self.kf.processNoiseCov[4:, 4:] *= 0.01
 
-        ## ----- define R matrix
+        ## ----- define the R matrix
         self.kf.measurementNoiseCov = np.eye(dim_z, dtype=np.float64)
         self.kf.measurementNoiseCov[2:, 2:] *= 1.0  # 10.0
 
-        ## ----- define state matrix, statePre matrix, statePost matrix
+        ## ----- define the state matrix, statePre matrix, statePost matrix
         # center_x, center_y, s, derivatives of time
         self.kf.statePre = np.zeros((dim_x, 1), dtype=np.float64)
         self.kf.statePre[:4] = convert_bbox_to_z(self._tlbr)
@@ -1063,12 +1071,6 @@ class TrackCV(MCBaseTrack):
 
         ## ----- record the time(frames) not updated
         self.time_since_last_update = 0
-
-    def reset_track_id(self):
-        """
-        :return:
-        """
-        self.reset_track_id(self.cls_id)
 
     def predict(self):
         """
@@ -1138,6 +1140,9 @@ class TrackCV(MCBaseTrack):
         ## ----- update last observations
         self.last_observation = bbox_score
         self.observations_dict[self.age] = self.last_observation
+
+        ## ----- update last Kalman state
+        self.last_kalman_state = np.squeeze(convert_bbox_to_z(bbox))
 
         ## ----- reset time_since_last_update
         self.time_since_last_update = 0
@@ -1231,18 +1236,32 @@ class TrackCV(MCBaseTrack):
         speed = np.array([dy2 - dy1, dx2 - dx1])  # dy, dx
 
         # vel_norm = np.sqrt((dy2 - dy1) ** 2 + (dx2 - dx1) ** 2) + 1e-6
-        vel_norm = np.linalg.norm(speed, ord=2)
+        vel_norm = float(np.linalg.norm(speed, ord=2))
         vel_dir = speed / (vel_norm + 1e-9)
         return vel_dir, vel_norm
+
+    def get_state(self):
+        """
+        @return: the kalman post state
+        """
+        self.kalman_state = np.squeeze(self.kf.statePost)
+        return self.kalman_state
 
     def get_bbox(self):
         """
         Returns the current bounding box estimate.
         x1y1x2y2
         """
-        state = np.squeeze(convert_x_to_bbox(self.kf.statePost))
+        self.get_state()
+        state = np.squeeze(convert_x_to_bbox(self.kalman_state))
         self._tlbr = state[:4]  # x1y1x2y2
         return self._tlbr
+
+    def reset_track_id(self):
+        """
+        :return:
+        """
+        self.reset_track_id(self.cls_id)
 
     @property
     def tlbr(self):
@@ -2643,9 +2662,10 @@ class ByteTracker(object):
         self.delta_t = delta_t
         self.max_age = self.buffer_size
         self.max_time_not_updated = 15
-        self.vel_norm_thresh = 0.3
+        self.vel_norm_thresh = 3.0
+        self.bbox_area_change_rate_thresh = 0.005  # 0.01
         self.min_hits = 3
-        self.using_delta_t = True
+        self.using_delta_t = False
 
     def update_tracking(self, dets):
         """
@@ -2747,9 +2767,47 @@ class ByteTracker(object):
 
             ## ----- predict the moving lost tracks
             for track in self.lost_tracks_dict[cls_id]:
+                if track.last_kalman_state.sum() > 0.0 and track.kalman_state.sum() > 0.0:
+                    bbox_area_change_rate = abs(track.kalman_state[2] - track.last_kalman_state[2]) \
+                                            / track.last_kalman_state[2]
+
                 if track.vel_norm > self.vel_norm_thresh and \
                         track.time_since_last_update <= self.max_time_not_updated:
-                    track.predict()
+                    if track.last_kalman_state.sum() > 0.0 and track.kalman_state.sum() > 0.0:
+                        bbox_area_change_rate = abs(track.kalman_state[2] - track.last_kalman_state[2]) \
+                                                / track.last_kalman_state[2]
+                        if bbox_area_change_rate <= self.bbox_area_change_rate_thresh:
+                            track.predict()
+                    # else:
+                    #     track.predict()
+
+            # ## @debug
+            # if cls_id == 0:
+            #     print("Frame: {:d}".format(self.frame_id))
+            #     if self.frame_id > 129:
+            #         print("pause")
+            # for track in self.tracked_tracks:  # 统计正常情况下的bbox
+            #     if cls_id == 0 and track.track_id == 1:
+            #         print("Tracked| vel_dir: {:.3f}, {:.3f} | vel_norm: {:.3f}"
+            #               .format(track.vel_dir[0], track.vel_dir[1], track.vel_norm))
+            #
+            #         print("last kalman state:\n", track.last_kalman_state)
+            #         kal_state = track.get_state()
+            #         print("current kalman state:\n", kal_state)
+            #         print("\n")
+            #
+            # for track in self.lost_tracks_dict[cls_id]:
+            #     if cls_id == 0 and track.track_id == 1:  # 统计被严重遮挡情况下的bbox
+            #         print("Lost | vel_dir: {:.3f}, {:.3f} | vel_norm: {:.3f}"
+            #               .format(track.vel_dir[0], track.vel_dir[1], track.vel_norm))
+            #
+            #         print("last kalman state:\n", track.last_kalman_state)
+            #         kal_state = track.get_state()
+            #         print("current kalman state:\n", kal_state)
+            #         print("\n")
+            #     if track.vel_norm > self.vel_norm_thresh and \
+            #             track.time_since_last_update <= self.max_time_not_updated:
+            #         track.predict()
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
@@ -2789,7 +2847,6 @@ class ByteTracker(object):
             for i_det, i_track in matches:
                 track = self.tracks[i_track]
                 det = detections_1st[i_det]
-
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
                     activated_tracks_dict[cls_id].append(track)  # for multi-class
@@ -2810,7 +2867,6 @@ class ByteTracker(object):
             #                     for i in u_trks_1st
             #                     if self.tracks[i].state == TrackState.Tracked]
             unmatched_tracks = [self.tracks[i] for i in u_trks_1st]
-
             dists = matching.iou_distance(unmatched_tracks, detections_2nd)
             matches, u_trks_2nd, u_dets_2nd = matching.linear_assignment(dists,
                                                                          thresh=self.low_match_thresh)  # thresh=0.5
@@ -2818,7 +2874,6 @@ class ByteTracker(object):
             for i_track, i_det in matches:
                 track = unmatched_tracks[i_track]
                 det = detections_2nd[i_det]
-
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
                     activated_tracks_dict[cls_id].append(track)
