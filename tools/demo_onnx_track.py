@@ -23,7 +23,7 @@ def make_parser():
 
     parser.add_argument("--vid_path",
                         type=str,
-                        default="../videos/test_13.mp4",
+                        default="../videos/test_10.mp4",
                         help="The input video path.")
 
     parser.add_argument("--output_dir",
@@ -352,9 +352,9 @@ def track_onnx(opt):
 
             dets = dets[np.where(dets[:, 4] > opt.conf)]
             if dets.shape[0] > 0:
-                ## ----- update the tracking results
+                ## ---------- update the tracking results
                 tracks_dict = tracker.update_tracking(dets)
-                ## -----
+                ## ----------
 
                 timer.toc()
                 online_img = draw_mcmot(img=img_info["raw_img"],
