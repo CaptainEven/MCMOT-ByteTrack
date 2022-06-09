@@ -265,7 +265,7 @@ def draw_mcmot(img,
             x1, y1, x2, y2 = track.tlbr
             int_box = tuple(map(int, (x1, y1, x2, y2)))  # x1, y1, x2, y2
             tr_id = int(track.track_id)
-            tr_id_text = '{}'.format(tr_id)
+            tr_id_text = "{:d}".format(tr_id)
             color = get_color(abs(tr_id))
 
             # draw bbox

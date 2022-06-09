@@ -354,6 +354,30 @@ class MCKalmanTrack(MCTrackBase):
         self.vel_dir = None
         self.delta_t = delta_t
 
+    def predict(self):
+        """
+        Advances the state vector and
+        returns the predicted bounding box estimate.
+        """
+        if (self.kf.x[6] + self.kf.x[2]) <= 0:
+            self.kf.x[6] *= 0.0
+
+        ## ----- Kalman prediction
+        self.kf.predict()
+
+        ## age +1 for each prediction
+        self.age += 1
+
+        # if lost one update, winning streak terminates
+        if self.time_since_last_update > 0:
+            self.hit_streak = 0
+
+        ## ----- time_since_last_update +1 for each prediction
+        self.time_since_last_update += 1
+        self.history.append(convert_x_to_bbox(self.kf.x))
+
+        return self.history[-1]
+
     def update(self, bbox):
         """
         Updates the state vector with observed bbox.
@@ -398,30 +422,6 @@ class MCKalmanTrack(MCTrackBase):
 
         else:
             self.kf.update(bbox)
-
-    def predict(self):
-        """
-        Advances the state vector and
-        returns the predicted bounding box estimate.
-        """
-        if (self.kf.x[6] + self.kf.x[2]) <= 0:
-            self.kf.x[6] *= 0.0
-
-        ## ----- Kalman prediction
-        self.kf.predict()
-
-        ## age +1 for each prediction
-        self.age += 1
-
-        # if lost one update, winning streak terminates
-        if self.time_since_last_update > 0:
-            self.hit_streak = 0
-
-        ## ----- time_since_last_update +1 for each prediction
-        self.time_since_last_update += 1
-        self.history.append(convert_x_to_bbox(self.kf.x))
-
-        return self.history[-1]
 
     @staticmethod
     # @jit(nopython=True)

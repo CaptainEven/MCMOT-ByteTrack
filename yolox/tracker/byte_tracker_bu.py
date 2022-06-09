@@ -692,7 +692,8 @@ class MCTrack(MCBaseTrack):
         返回一个对象的 string 格式。
         :return:
         """
-        return 'OT_({}-{})_({}-{})'.format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
+        return 'OT_({}-{})_({}-{})'\
+            .format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
 
 
 class Track(BaseTrack):
@@ -869,7 +870,7 @@ class Track(BaseTrack):
         """
         :return:
         """
-        return 'OT_{}_({}-{})'.format(self.track_id, self.start_frame, self.end_frame)
+        return 'TO_{}_({}-{})'.format(self.track_id, self.start_frame, self.end_frame)
 
 
 class ByteTracker(object):
