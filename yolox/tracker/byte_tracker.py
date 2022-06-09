@@ -2643,6 +2643,7 @@ class ByteTracker(object):
         self.delta_t = delta_t
         self.max_age = self.buffer_size
         self.max_time_not_updated = 15
+        self.vel_norm_thresh = 0.3
         self.min_hits = 3
         self.using_delta_t = True
 
@@ -2745,7 +2746,7 @@ class ByteTracker(object):
                 track.predict()
 
             for track in self.lost_tracks_dict[cls_id]:
-                if track.vel_norm > 3.0 and \
+                if track.vel_norm > self.vel_norm_thresh and \
                         track.time_since_last_update <= self.max_time_not_updated:
                     track.predict()
                     if track.state != TrackState.Lost:
