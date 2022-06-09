@@ -1133,7 +1133,7 @@ class TrackCV(MCBaseTrack):
                 self.vel_dir, self.vel_norm = self.get_vel(self.last_observation, bbox_score)
             else:
                 self.vel_dir = np.array([0.0, 0.0], dtype=np.float64)
-                vel_norm = 0.0
+                self.vel_norm = 0.0
 
         ## ----- update last observations
         self.last_observation = bbox_score
@@ -2752,13 +2752,13 @@ class ByteTracker(object):
             #         elif track.cls_id == 0 and track.track_id > 15:
             #             print("id_{:d}".format(track.track_id), track.vel_dir)
 
-            # for track in self.lost_tracks_dict[cls_id]:
-            #     if abs(track.vel_dir[0]) > 0.1 or abs(track.vel_dir[1]) > 0.1 \
-            #             and track.time_since_last_update <= self.max_time_not_updated:
-            #         track.predict()
-            #         if track.state != TrackState.Lost:
-            #             track.mark_lost()  # mark unmatched track as lost track
-            #             lost_tracks_dict[cls_id].append(track)
+            for track in self.lost_tracks_dict[cls_id]:
+                if track.vel_norm > 2.0 and \
+                        track.time_since_last_update <= self.max_time_not_updated:
+                    track.predict()
+                    if track.state != TrackState.Lost:
+                        track.mark_lost()  # mark unmatched track as lost track
+                        lost_tracks_dict[cls_id].append(track)
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
