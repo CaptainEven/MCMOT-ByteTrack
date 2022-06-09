@@ -2642,7 +2642,7 @@ class ByteTracker(object):
 
         self.delta_t = delta_t
         self.max_age = self.buffer_size
-        self.max_time_not_updated = 5
+        self.max_time_not_updated = 15
         self.min_hits = 3
         self.using_delta_t = True
 
@@ -2744,16 +2744,8 @@ class ByteTracker(object):
             for track in self.tracked_tracks:
                 track.predict()
 
-            # ## @debug: vel_dir test
-            # if self.frame_id > 5:
-            #     for track in self.tracks:
-            #         if track.cls_id == 0 and 4 < track.track_id < 9:
-            #             print("id_{:d}".format(track.track_id), track.vel_dir)
-            #         elif track.cls_id == 0 and track.track_id > 15:
-            #             print("id_{:d}".format(track.track_id), track.vel_dir)
-
             for track in self.lost_tracks_dict[cls_id]:
-                if track.vel_norm > 2.0 and \
+                if track.vel_norm > 3.0 and \
                         track.time_since_last_update <= self.max_time_not_updated:
                     track.predict()
                     if track.state != TrackState.Lost:
@@ -2815,9 +2807,10 @@ class ByteTracker(object):
             else:
                 detections_2nd = []
 
-            unmatched_tracks = [self.tracks[i]
-                                for i in u_trks_1st
-                                if self.tracks[i].state == TrackState.Tracked]
+            # unmatched_tracks = [self.tracks[i]
+            #                     for i in u_trks_1st
+            #                     if self.tracks[i].state == TrackState.Tracked]
+            unmatched_tracks = [self.tracks[i] for i in u_trks_1st]
 
             dists = matching.iou_distance(unmatched_tracks, detections_2nd)
             matches, u_trks_2nd, u_dets_2nd = matching.linear_assignment(dists,
