@@ -23,7 +23,7 @@ def make_parser():
 
     parser.add_argument("--vid_path",
                         type=str,
-                        default="../videos/3.mp4",
+                        default="../videos/test_30.mp4",
                         help="The input video path.")
 
     parser.add_argument("--output_dir",

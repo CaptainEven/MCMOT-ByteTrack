@@ -70,7 +70,7 @@ def make_parser():
     # ../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar",  # None
+                        default="../pretrained/v5.46.weights",  # None
                         type=str,
                         help="checkpoint file")
 

@@ -151,7 +151,7 @@ class Trainer:
         self.optimizer = self.exp.get_optimizer(self.args.batch_size)
 
         # value of epoch will be set in `resume_train`
-        model = self.resume_train(model)
+        model = self.resume_train(model)  # load checkpoint or weights
 
         ## ---------- data related init
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.no_aug_epochs
@@ -327,7 +327,16 @@ class Trainer:
                     ckpt = torch.load(ckpt_path, map_location=self.device)["model"]
                     model = load_ckpt(model, ckpt)
                 elif self.args.ckpt.endswith(".weights"):
-                    load_darknet_weights(model, ckpt_path, self.args.cutoff)
+                    if hasattr(model, "backbone"):
+                        if hasattr(model.backbone, "module_defs"):
+                            load_darknet_weights(model.backbone, ckpt_path, self.args.cutoff)
+                        else:
+                            logger.error("in-compatible model and weights!")
+                    else:
+                        if hasattr(model, "module_defs"):
+                            load_darknet_weights(model, ckpt_path, self.args.cutoff)
+                        else:
+                            logger.error("in-compatible model and weights!")
                 logger.info("{:s} loaded!".format(ckpt_path))
             self.start_epoch = 0
 
