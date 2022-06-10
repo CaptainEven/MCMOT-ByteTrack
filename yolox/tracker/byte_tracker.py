@@ -2781,36 +2781,6 @@ class ByteTracker(object):
                         track.time_since_last_update <= self.max_time_not_updated and \
                 abs(track.vel_norm - track.last_vel_norm) < self.vel_norm_change_thresh:
                     track.predict()
-
-                    # track.predict()
-
-            # ## @debug
-            # for track in self.tracked_tracks:  # 统计正常情况下的bbox
-            #     if cls_id == 0 and track.track_id == 1 or track.track_id == 24:
-            #         print("Frame {:d} | cls_id: {:d} | trk_id: {:d} | "
-            #               "Tracked | vel_dir: {:.3f}, {:.3f} | vel_norm: {:.3f}"
-            #               .format(self.frame_id, cls_id, track.track_id,
-            #                       track.vel_dir[0], track.vel_dir[1], track.vel_norm))
-            #
-            #         print("last kalman state:\n", track.last_kalman_state)
-            #         kal_state = track.get_state()
-            #         print("current kalman state:\n", kal_state)
-            #         print("\n")
-            #
-            # for track in self.lost_tracks_dict[cls_id]:
-            #     if cls_id == 0 and track.track_id == 1 or track.track_id == 24:  # 统计被严重遮挡情况下的bbox
-            #         print("Frame {:d} | cls_id: {:d} | trk_id: {:d} | "
-            #               "Lost | vel_dir: {:.3f}, {:.3f} | vel_norm: {:.3f}"
-            #               .format(self.frame_id, cls_id, track.track_id,
-            #                       track.vel_dir[0], track.vel_dir[1], track.vel_norm))
-            #
-            #         print("last kalman state:\n", track.last_kalman_state)
-            #         kal_state = track.get_state()
-            #         print("current kalman state:\n", kal_state)
-            #         print("\n")
-                # if track.vel_norm > self.vel_norm_thresh and \
-                #         track.time_since_last_update <= self.max_time_not_updated:
-                #     track.predict()
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
@@ -2914,10 +2884,6 @@ class ByteTracker(object):
                 track = unconfirmed_tracks_dict[cls_id][i_track]
                 track.mark_removed()
                 removed_tracks_dict[cls_id].append(track)
-
-                ## @debug:
-                if track.cls_id == 0 and track.track_id == 1:
-                    print("pause")
 
             """Step 4: Init new tracks"""
             for i_new in u_dets_left:  # current frame's unmatched detection

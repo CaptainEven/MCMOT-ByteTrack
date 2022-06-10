@@ -23,7 +23,7 @@ def make_parser():
 
     parser.add_argument("--vid_path",
                         type=str,
-                        default="../videos/test_13.mp4",
+                        default="../videos/3.mp4",
                         help="The input video path.")
 
     parser.add_argument("--output_dir",
@@ -299,12 +299,13 @@ def track_onnx(opt):
         logger.warning(" not implemented yet!")
         pass
 
-    vid_save_path = os.path.abspath(vid_save_path)
-    logger.info("Writing results to {:s}...".format(vid_save_path))
-    vid_writer = cv2.VideoWriter(vid_save_path,
-                                 cv2.VideoWriter_fourcc(*"mp4v"),
-                                 fps,
-                                 (int(width), int(height)))
+    if opt.mode == "save":
+        vid_save_path = os.path.abspath(vid_save_path)
+        logger.info("Writing results to {:s}...".format(vid_save_path))
+        vid_writer = cv2.VideoWriter(vid_save_path,
+                                     cv2.VideoWriter_fourcc(*"mp4v"),
+                                     fps,
+                                     (int(width), int(height)))
 
     ## ----- class name to class id and class id to class name
     id2cls = defaultdict(str)
@@ -351,8 +352,12 @@ def track_onnx(opt):
             dets, img_info = inference(net, frame, net_size)
             ## ----------
 
-            dets = dets[np.where(dets[:, 4] > opt.conf)]
+            if dets is None:
+                continue
+
             if dets.shape[0] > 0:
+                dets = dets[np.where(dets[:, 4] > opt.conf)]
+
                 ## ---------- update the tracking results
                 tracks_dict = tracker.update_tracking(dets)
                 ## ----------
