@@ -23,7 +23,7 @@ def make_parser():
 
     parser.add_argument("--vid_path",
                         type=str,
-                        default="../videos/test_10.mp4",
+                        default="../videos/test_13.mp4",
                         help="The input video path.")
 
     parser.add_argument("--output_dir",
@@ -346,9 +346,10 @@ def track_onnx(opt):
         if ret_val:
             timer.tic()
 
-            ## ----- inference: pre-process, inference, post-process
+            ## ---------- inference:
+            # include: pre-process, inference, post-process
             dets, img_info = inference(net, frame, net_size)
-            ## -----
+            ## ----------
 
             dets = dets[np.where(dets[:, 4] > opt.conf)]
             if dets.shape[0] > 0:

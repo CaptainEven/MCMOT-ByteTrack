@@ -3,6 +3,7 @@
 from collections import defaultdict, deque
 
 import cv2
+import copy
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -1010,6 +1011,7 @@ class TrackCV(MCBaseTrack):
         self.last_kalman_state = np.zeros(dim_x, dtype=np.float64)
 
         ## ----- build and initiate the Kalman filter
+        self.dim_x, self.dim_z = dim_x, dim_z
         self.kf = cv2.KalmanFilter(dim_x, dim_z)
 
         ## ----- define the transmission matrix
@@ -1068,6 +1070,7 @@ class TrackCV(MCBaseTrack):
         ## ----- record velocity direction, velocity norm
         self.vel_dir = np.array((0, 0), dtype=np.float64)
         self.vel_norm = 0.0
+        self.last_vel_norm = 0.0
 
         ## ----- record the time(frames) not updated
         self.time_since_last_update = 0
@@ -1111,6 +1114,9 @@ class TrackCV(MCBaseTrack):
         """
         Estimate the track velocity direction with observations delta_t steps away
         """
+        ## @even update self.last_vel_norm
+        self.last_vel_norm = copy.deepcopy(self.vel_norm)
+
         if using_delta_t:
             if self.last_observation.sum() >= 0:  # if previous observation exist
                 previous_box_score = None
@@ -1124,7 +1130,8 @@ class TrackCV(MCBaseTrack):
                 if previous_box_score is None:
                     previous_box_score = self.last_observation
 
-                self.vel_dir = self.get_velocity_direction(previous_box_score, bbox_score)
+                # self.vel_dir = self.get_velocity_direction(previous_box_score, bbox_score)
+                self.vel_dir, self.vel_norm = self.get_vel(previous_box_score, bbox_score)
         else:
             """
             Using last observation to calculate vel_dir
@@ -1186,7 +1193,7 @@ class TrackCV(MCBaseTrack):
         """
         ## ----- Kalman filter update
         bbox = new_track._tlbr
-        new_bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], new_track.score])
+        # new_bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], new_track.score])
         z = convert_bbox_to_z(bbox)
         self.kf.correct(z)
 
@@ -1245,7 +1252,8 @@ class TrackCV(MCBaseTrack):
         @return: the kalman post state
         """
         self.kalman_state = np.squeeze(self.kf.statePost)
-        return self.kalman_state
+        state = self.kalman_state[:4]
+        return state  # return x,y,s,r
 
     def get_bbox(self):
         """
@@ -1253,8 +1261,8 @@ class TrackCV(MCBaseTrack):
         x1y1x2y2
         """
         self.get_state()
-        state = np.squeeze(convert_x_to_bbox(self.kalman_state))
-        self._tlbr = state[:4]  # x1y1x2y2
+        bbox_score = np.squeeze(convert_x_to_bbox(self.kalman_state))
+        self._tlbr = bbox_score[:4]  # x1y1x2y2
         return self._tlbr
 
     def reset_track_id(self):
@@ -2663,7 +2671,8 @@ class ByteTracker(object):
         self.max_age = self.buffer_size
         self.max_time_not_updated = 15
         self.vel_norm_thresh = 3.0
-        self.bbox_area_change_rate_thresh = 0.005  # 0.01
+        # self.bbox_area_change_rate_thresh = 0.005  # 0.01
+        self.vel_norm_change_thresh = 30.0
         self.min_hits = 3
         self.using_delta_t = False
 
@@ -2763,33 +2772,25 @@ class ByteTracker(object):
 
             ## ----- predict the tracked tracks
             for track in self.tracked_tracks:
-                track.predict()
+                if abs(track.vel_norm - track.last_vel_norm) < self.vel_norm_change_thresh:
+                    track.predict()
 
             ## ----- predict the moving lost tracks
             for track in self.lost_tracks_dict[cls_id]:
-                if track.last_kalman_state.sum() > 0.0 and track.kalman_state.sum() > 0.0:
-                    bbox_area_change_rate = abs(track.kalman_state[2] - track.last_kalman_state[2]) \
-                                            / track.last_kalman_state[2]
-
                 if track.vel_norm > self.vel_norm_thresh and \
-                        track.time_since_last_update <= self.max_time_not_updated:
-                    if track.last_kalman_state.sum() > 0.0 and track.kalman_state.sum() > 0.0:
-                        bbox_area_change_rate = abs(track.kalman_state[2] - track.last_kalman_state[2]) \
-                                                / track.last_kalman_state[2]
-                        if bbox_area_change_rate <= self.bbox_area_change_rate_thresh:
-                            track.predict()
-                    # else:
-                    #     track.predict()
+                        track.time_since_last_update <= self.max_time_not_updated and \
+                abs(track.vel_norm - track.last_vel_norm) < self.vel_norm_change_thresh:
+                    track.predict()
+
+                    # track.predict()
 
             # ## @debug
-            # if cls_id == 0:
-            #     print("Frame: {:d}".format(self.frame_id))
-            #     if self.frame_id > 129:
-            #         print("pause")
             # for track in self.tracked_tracks:  # 统计正常情况下的bbox
-            #     if cls_id == 0 and track.track_id == 1:
-            #         print("Tracked| vel_dir: {:.3f}, {:.3f} | vel_norm: {:.3f}"
-            #               .format(track.vel_dir[0], track.vel_dir[1], track.vel_norm))
+            #     if cls_id == 0 and track.track_id == 1 or track.track_id == 24:
+            #         print("Frame {:d} | cls_id: {:d} | trk_id: {:d} | "
+            #               "Tracked | vel_dir: {:.3f}, {:.3f} | vel_norm: {:.3f}"
+            #               .format(self.frame_id, cls_id, track.track_id,
+            #                       track.vel_dir[0], track.vel_dir[1], track.vel_norm))
             #
             #         print("last kalman state:\n", track.last_kalman_state)
             #         kal_state = track.get_state()
@@ -2797,17 +2798,19 @@ class ByteTracker(object):
             #         print("\n")
             #
             # for track in self.lost_tracks_dict[cls_id]:
-            #     if cls_id == 0 and track.track_id == 1:  # 统计被严重遮挡情况下的bbox
-            #         print("Lost | vel_dir: {:.3f}, {:.3f} | vel_norm: {:.3f}"
-            #               .format(track.vel_dir[0], track.vel_dir[1], track.vel_norm))
+            #     if cls_id == 0 and track.track_id == 1 or track.track_id == 24:  # 统计被严重遮挡情况下的bbox
+            #         print("Frame {:d} | cls_id: {:d} | trk_id: {:d} | "
+            #               "Lost | vel_dir: {:.3f}, {:.3f} | vel_norm: {:.3f}"
+            #               .format(self.frame_id, cls_id, track.track_id,
+            #                       track.vel_dir[0], track.vel_dir[1], track.vel_norm))
             #
             #         print("last kalman state:\n", track.last_kalman_state)
             #         kal_state = track.get_state()
             #         print("current kalman state:\n", kal_state)
             #         print("\n")
-            #     if track.vel_norm > self.vel_norm_thresh and \
-            #             track.time_since_last_update <= self.max_time_not_updated:
-            #         track.predict()
+                # if track.vel_norm > self.vel_norm_thresh and \
+                #         track.time_since_last_update <= self.max_time_not_updated:
+                #     track.predict()
             # ----------
 
             ## ---------- using vel_dir enhanced matching...
@@ -2911,6 +2914,10 @@ class ByteTracker(object):
                 track = unconfirmed_tracks_dict[cls_id][i_track]
                 track.mark_removed()
                 removed_tracks_dict[cls_id].append(track)
+
+                ## @debug:
+                if track.cls_id == 0 and track.track_id == 1:
+                    print("pause")
 
             """Step 4: Init new tracks"""
             for i_new in u_dets_left:  # current frame's unmatched detection
