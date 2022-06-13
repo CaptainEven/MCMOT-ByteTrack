@@ -23,7 +23,7 @@ def make_parser():
 
     parser.add_argument("--vid_path",
                         type=str,
-                        default="../videos/test_30.mp4",
+                        default="../videos/test_10.mp4",
                         help="The input video path.")
 
     parser.add_argument("--output_dir",
@@ -256,7 +256,7 @@ def track_onnx(opt):
         exit(-1)
 
     ## ----- Define net and read in weights
-    net = cv2.dnn.readNet(onnx_path)
+    net = cv2.dnn.readNetFromONNX(onnx_path)
 
     logger.info("Device: {:s}.".format(opt.dev))
     if opt.dev == "cuda":
@@ -368,7 +368,7 @@ def track_onnx(opt):
                                         id2cls=id2cls,
                                         frame_id=frame_id + 1,
                                         fps=1.0 / timer.average_time)
-            else:
+            else:  # do nothing
                 # timer.toc()
                 online_img = img_info['raw_img']
 

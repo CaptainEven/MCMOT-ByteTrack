@@ -136,7 +136,7 @@ class Trainer:
         The preparations before training
         :return:
         """
-        logger.info("args: {}".format(self.args))
+        # logger.info("args: {}".format(self.args))
         logger.info("exp value:\n{}".format(self.exp))
 
         ## ----- model related init

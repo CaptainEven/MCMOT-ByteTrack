@@ -3,6 +3,7 @@
 """
 from __future__ import print_function
 
+import numpy as np
 import torch
 from loguru import logger
 
@@ -16,7 +17,7 @@ def k_previous_obs(observations_dict, cur_age, k):
     @param k:
     """
     if len(observations_dict) == 0:
-        return [-1, -1, -1, -1, -1]
+        return np.array([-1, -1, -1, -1, -1], dtype=np.float64)
 
     ## ----- if found observation from k previous time steps
     for i in range(k):

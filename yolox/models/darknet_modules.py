@@ -1,15 +1,15 @@
 # encoding=utf-8
 
 import os
-import random
+# import random
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from pathlib import Path
-from torch.nn import init
-from torchvision.models import resnet
+# from torch.nn import init
+# from torchvision.models import resnet
 
 
 def load_darknet_weights(model, weights, cutoff=0):
@@ -130,8 +130,7 @@ class YOLOLayer(nn.Module):
         """
         ASFF = False  # https://arxiv.org/abs/1911.09516
         if ASFF:
-            i, n = self.inde
-            x, self.nl  # index in layers, number of layers
+            i, n = self.index, self.nl  # index in layers, number of layers
             pred = out[self.layers[i]]
             bs, _, ny, nx = pred.shape  # bs, 255, 13, 13
             if (self.nx, self.ny) != (nx, ny):

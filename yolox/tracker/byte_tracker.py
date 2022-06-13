@@ -1057,7 +1057,6 @@ class TrackCV(MCBaseTrack):
         self.track_len = 0  # means age?
 
         ## ---------- Added parameters for enhanced matching
-        # add vel_dir
         self.age = 0
         self.delta_t = delta_t
 
@@ -1068,7 +1067,7 @@ class TrackCV(MCBaseTrack):
         self.last_observation = np.array([-1, -1, -1, -1, -1], dtype=np.float64)
 
         ## ----- record velocity direction, velocity norm
-        self.vel_dir = np.array((0, 0), dtype=np.float64)
+        self.vel_dir = np.zeros(2, dtype=np.float64)
         self.vel_norm = 0.0
         self.last_vel_norm = 0.0
 
@@ -1141,7 +1140,7 @@ class TrackCV(MCBaseTrack):
                 # self.vel_dir = self.get_velocity_direction(self.last_observation, bbox_score)
                 self.vel_dir, self.vel_norm = self.get_vel(self.last_observation, bbox_score)
             else:
-                self.vel_dir = np.array([0.0, 0.0], dtype=np.float64)
+                self.vel_dir = np.zeros(2, dtype=np.float64)
                 self.vel_norm = 0.0
 
         ## ----- update last observations
@@ -1236,7 +1235,7 @@ class TrackCV(MCBaseTrack):
         @param bbox2
         """
         if (bbox2 == bbox1).all():
-            return np.array([0.0, 0.0], dtype=np.float64)
+            return np.zeros(2, dtype=np.float64)
 
         dx1, dy1 = (bbox1[0] + bbox1[2]) * 0.5, (bbox1[1] + bbox1[3]) * 0.5
         dx2, dy2 = (bbox2[0] + bbox2[2]) * 0.5, (bbox2[1] + bbox2[3]) * 0.5
@@ -2797,9 +2796,12 @@ class ByteTracker(object):
             for i in reversed(to_del):
                 self.tracks.pop(i)
 
-            velocities = np.array([trk.vel_dir  # velocity direction
-                                   if trk.vel_dir is not None else np.array((0, 0), dtype=np.float64)
-                                   for trk in self.tracks])
+            # velocities = np.array([trk.vel_dir for trk in self.tracks])
+            velocities = np.zeros((len(self.tracks), 2))
+            for i, track in enumerate(self.tracks):
+                if not isinstance(track.vel_dir, np.ndarray):
+                    track.vel_dir = np.zeros(2, dtype=np.float64)
+                    velocities[i] = track.vel_dir
             last_boxes = np.array([trk.last_observation for trk in self.tracks])
             k_observations = [k_previous_obs(trk.observations_dict, trk.age, self.delta_t)
                               for trk in self.tracks]
@@ -2917,6 +2919,7 @@ class ByteTracker(object):
             self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
                                                        self.tracked_tracks_dict[cls_id])
             self.lost_tracks_dict[cls_id].extend(lost_tracks_dict[cls_id])
+
             self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
                                                        self.removed_tracks_dict[cls_id])
 
