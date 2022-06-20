@@ -1,10 +1,10 @@
-python3 ./tools/train_det.py --ckpt ./YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar \
+python3 ./tools/train_det.py --ckpt ./pretrained/v5.46.weights \
                              --exp_file ./exps/example/mot/yolox_tiny_det_c5_dark.py \
                              --cfg ./cfg/yolox_darknet_tiny_bb46.cfg \
-                             --batch-size 32 \
+                             --batch-size 16 \
                              --cutoff 44 \
                              --debug 0 \
-                             --devices 3,4,6,7
+                             --devices 3,5
 
 
 ## /mnt/diskb/even/ByteTrack/YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar

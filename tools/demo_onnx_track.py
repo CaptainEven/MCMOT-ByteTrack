@@ -23,7 +23,7 @@ def make_parser():
 
     parser.add_argument("--vid_path",
                         type=str,
-                        default="../videos/test_10.mp4",
+                        default="../videos/test_13.mp4",
                         help="The input video path.")
 
     parser.add_argument("--output_dir",
@@ -97,24 +97,24 @@ def make_parser():
     return parser
 
 
-def pre_process(image, input_size, mean, std):
+def pre_process(image, net_size, mean, std):
     """
     :param image:
-    :param input_size:
+    :param net_size:
     :param std:
     """
     if len(image.shape) == 3:
-        padded_img = np.ones((input_size[0], input_size[1], 3)) * 114.0
+        padded_img = np.ones((net_size[0], net_size[1], 3)) * 114.0
     else:
-        padded_img = np.ones(input_size) * 114.0
+        padded_img = np.ones(net_size) * 114.0
 
     img = np.array(image)
 
     ## ----- Resize
-    r = min(input_size[0] / img.shape[0], input_size[1] / img.shape[1])
+    r = min(net_size[0] / img.shape[0], net_size[1] / img.shape[1])
     resized_img = cv2.resize(img,
                              (int(img.shape[1] * r), int(img.shape[0] * r)),
-                             interpolation=cv2.INTER_LINEAR, ).astype(np.float32)
+                             interpolation=cv2.INTER_LINEAR).astype(np.float32)
 
     ## ----- Padding
     padded_img[:int(img.shape[0] * r), :int(img.shape[1] * r)] = resized_img
@@ -144,11 +144,11 @@ def _pre_process(image, net_size, mean, std):
     image_info['raw_img'] = copy.deepcopy(image)
     image_info['width'] = image.shape[1]
     image_info['height'] = image.shape[0]
-    preprocessed_image, ratio = pre_process(image,
+    preprocessed_image, scale = pre_process(image,
                                             net_size,
                                             mean,
                                             std)
-    image_info['ratio'] = ratio
+    image_info['scale'] = scale
     return preprocessed_image, image_info
 
 
@@ -166,7 +166,8 @@ def post_process(outputs, img_size):
     w_sizes = [img_size[1] // stride for stride in strides]
 
     for h_size, w_size, stride in zip(h_sizes, w_sizes, strides):
-        xv, yv = np.meshgrid(np.arange(w_size), np.arange(h_size))
+        x_range, y_range = np.arange(w_size), np.arange(h_size)
+        xv, yv = np.meshgrid(x_range, y_range)
         grid = np.stack((xv, yv), 2).reshape(1, -1, 2)
         grids.append(grid)
         shape = grid.shape[:2]
@@ -174,18 +175,22 @@ def post_process(outputs, img_size):
 
     grids = np.concatenate(grids, 1)
     expanded_strides = np.concatenate(expanded_strides, 1)
+
+    ## ----- center_x, center_y
     outputs[..., :2] = (outputs[..., :2] + grids) * expanded_strides
+
+    ## ----- bbox_w, bbox_h
     outputs[..., 2:4] = np.exp(outputs[..., 2:4]) * expanded_strides
 
     return outputs
 
 
-def _post_process(result, net_size, scale, nms_th, score_th):
+def _post_process(output, net_size, scale, nms_th, score_th):
     """
-    :param result:
+    :param output:
     :param net_size: net_h, net_w
     """
-    predictions = post_process(result, net_size)
+    predictions = post_process(output, net_size)
 
     predictions = predictions[0]
     boxes = predictions[:, :4]
@@ -232,12 +237,13 @@ def inference(net,
     blob = cv2.dnn.blobFromImage(img)
     net.setInput(blob)
     outputs = net.forward()
+    # print(outputs.shape)  # (1, 7056, 10)
     ## -----
 
     ## ----- post process
-    dets = _post_process(result=outputs,
+    dets = _post_process(output=outputs,
                          net_size=net_size,
-                         scale=img_info['ratio'],
+                         scale=img_info['scale'],
                          nms_th=nms_thresh,
                          score_th=conf_thresh)
 
@@ -359,7 +365,7 @@ def track_onnx(opt):
                 dets = dets[np.where(dets[:, 4] > opt.conf)]
 
                 ## ---------- update the tracking results
-                tracks_dict = tracker.update_tracking(dets)
+                tracks_dict = tracker.update_tracks(dets)
                 ## ----------
 
                 timer.toc()
