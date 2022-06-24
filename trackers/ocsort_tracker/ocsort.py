@@ -43,13 +43,13 @@ def convert_bbox_to_z(bbox):
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
 
-    x = bbox[0] + w / 2.0  # center x
-    y = bbox[1] + h / 2.0  # center y
+    center_x = bbox[0] + w * 0.5  # center x
+    center_y = bbox[1] + h * 0.5  # center y
 
     s = w * h  # scale is just area
     r = w / float(h + 1e-6)
 
-    return np.array([x, y, s, r]).reshape((4, 1))
+    return np.array([center_x, center_y, s, r]).reshape((4, 1))
 
 
 def convert_x_to_bbox(x, score=None):

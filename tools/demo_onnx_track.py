@@ -11,7 +11,7 @@ from loguru import logger
 
 from yolox.tracker.byte_tracker import ByteTracker
 from yolox.tracking_utils.timer import Timer
-from yolox.utils.demo_utils import multiclass_nms
+from yolox.utils.demo_utils import multiclass_nms, multiclass_NMS
 from yolox.utils.visualize import draw_mcmot
 
 
@@ -61,7 +61,7 @@ def make_parser():
 
     parser.add_argument("--conf",
                         type=float,
-                        default=0.3,
+                        default=0.4,
                         help="")
 
     parser.add_argument("--match_thresh",
@@ -152,18 +152,18 @@ def _pre_process(image, net_size, mean, std):
     return preprocessed_image, image_info
 
 
-def post_process(outputs, img_size):
+def post_process(outputs, net_size):
     """
     :param outputs:
-    :param img_size:
+    :param net_size:
     """
     grids = []
     expanded_strides = []
 
     strides = [8, 16, 32]
 
-    h_sizes = [img_size[0] // stride for stride in strides]
-    w_sizes = [img_size[1] // stride for stride in strides]
+    h_sizes = [net_size[0] // stride for stride in strides]
+    w_sizes = [net_size[1] // stride for stride in strides]
 
     for h_size, w_size, stride in zip(h_sizes, w_sizes, strides):
         x_range, y_range = np.arange(w_size), np.arange(h_size)
@@ -185,6 +185,134 @@ def post_process(outputs, img_size):
     return outputs
 
 
+def gen_proposals_dict(outputs, net_size, scale, score_th):
+    """
+    :param outputs:
+    :param net_size:
+    :param scale:
+    :param score_th:
+    """
+    grids = []
+    expanded_strides = []
+
+    strides = [8, 16, 32]
+
+    h_sizes = [net_size[0] // stride for stride in strides]
+    w_sizes = [net_size[1] // stride for stride in strides]
+
+    for h_size, w_size, stride in zip(h_sizes, w_sizes, strides):
+        x_range, y_range = np.arange(w_size), np.arange(h_size)
+        xv, yv = np.meshgrid(x_range, y_range)
+        grid = np.stack((xv, yv), 2).reshape(1, -1, 2)
+        grids.append(grid)
+        shape = grid.shape[:2]
+        expanded_strides.append(np.full((*shape, 1), stride))
+
+    grids = np.concatenate(grids, 1)
+    expanded_strides = np.concatenate(expanded_strides, 1)
+
+    ## ----- center_x, center_y
+    outputs[..., :2] = (outputs[..., :2] + grids) * expanded_strides
+
+    ## ----- bbox_w, bbox_h
+    outputs[..., 2:4] = np.exp(outputs[..., 2:4]) * expanded_strides
+    predictions = outputs[0]
+
+    boxes = predictions[:, :4]  # 7056×10 -> 7056×4
+    scores = predictions[:, 4:5] * predictions[:, 5:]  # 7056×5
+
+    ## ---- turn boxes to bboxes
+    bboxes = np.ones_like(boxes)
+    bboxes[:, 0] = boxes[:, 0] - boxes[:, 2] * 0.5  # x_center to x1
+    bboxes[:, 1] = boxes[:, 1] - boxes[:, 3] * 0.5  # y_center to y1
+    bboxes[:, 2] = boxes[:, 0] + boxes[:, 2] * 0.5  # get x2
+    bboxes[:, 3] = boxes[:, 1] + boxes[:, 3] * 0.5  # get y2
+    bboxes /= scale  # scale back to image size
+
+    proposal_count = 0
+    bboxes_dict = defaultdict(list)
+    scores_dict = defaultdict(list)
+    for i, (bbox, score_arr) in enumerate(zip(bboxes, scores)):
+        for cls_id in range(predictions.shape[1] - 5):
+            score = score_arr[cls_id]
+            if score < score_th:
+                continue
+            bboxes_dict[cls_id].append(bbox)
+            scores_dict[cls_id].append(score)
+            proposal_count += 1
+
+    return bboxes_dict, scores_dict, proposal_count
+
+
+def generate_proposals(outputs, net_size, scale, score_th):
+    """
+    :param outputs:
+    :param net_size:
+    :param scale:
+    :param score_th:
+    """
+    grids = []
+    expanded_strides = []
+
+    strides = [8, 16, 32]
+
+    h_sizes = [net_size[0] // stride for stride in strides]
+    w_sizes = [net_size[1] // stride for stride in strides]
+
+    for h_size, w_size, stride in zip(h_sizes, w_sizes, strides):
+        x_range, y_range = np.arange(w_size), np.arange(h_size)
+        xv, yv = np.meshgrid(x_range, y_range)
+        grid = np.stack((xv, yv), 2).reshape(1, -1, 2)
+        grids.append(grid)
+        shape = grid.shape[:2]
+        expanded_strides.append(np.full((*shape, 1), stride))
+
+    grids = np.concatenate(grids, 1)
+    expanded_strides = np.concatenate(expanded_strides, 1)
+
+    ## ----- center_x, center_y
+    outputs[..., :2] = (outputs[..., :2] + grids) * expanded_strides
+
+    ## ----- bbox_w, bbox_h
+    outputs[..., 2:4] = np.exp(outputs[..., 2:4]) * expanded_strides
+    predictions = outputs[0]
+
+    boxes = predictions[:, :4]  # 7056×10 -> 7056×4
+    scores = predictions[:, 4:5] * predictions[:, 5:]
+
+    ## ---- turn boxes to bboxes
+    bboxes = np.ones_like(boxes)
+    bboxes[:, 0] = boxes[:, 0] - boxes[:, 2] * 0.5  # x_center to x1
+    bboxes[:, 1] = boxes[:, 1] - boxes[:, 3] * 0.5  # y_center to y1
+    bboxes[:, 2] = boxes[:, 0] + boxes[:, 2] * 0.5  # get x2
+    bboxes[:, 3] = boxes[:, 1] + boxes[:, 3] * 0.5  # get y2
+    bboxes /= scale  # scale back to image size
+
+    return bboxes, scores
+
+
+def post_processing(outputs, net_size, scale, nms_th, score_th):
+    """
+    :param outputs:
+    :param net_size:
+    :param scale:
+    :param nms_th:
+    :param score_th:
+    """
+    bboxes_dict, scores_dict, count = gen_proposals_dict(outputs,
+                                                         net_size,
+                                                         scale,
+                                                         score_th)
+
+    # print("Dets number before NMS: ", count)
+    dets = multiclass_NMS(bboxes_dict,
+                          scores_dict,
+                          nms_thr=nms_th)
+    # print("Dets number after NMS: ", len(dets))
+
+    return dets
+
+
 def _post_process(output, net_size, scale, nms_th, score_th):
     """
     :param output:
@@ -194,7 +322,7 @@ def _post_process(output, net_size, scale, nms_th, score_th):
 
     predictions = predictions[0]
     boxes = predictions[:, :4]
-    scores = predictions[:, 4:5] * predictions[:, 5:]
+    scores = predictions[:, 4:5] * predictions[:, 5:]  # cls_score * obj_score
     boxes_xyxy = np.ones_like(boxes)
     boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2] / 2.0
     boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3] / 2.0
@@ -202,10 +330,13 @@ def _post_process(output, net_size, scale, nms_th, score_th):
     boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3] / 2.0
     boxes_xyxy /= scale  # scale back to image size
 
+    # print("Dets number before NMS: ", len(boxes_xyxy))
     dets = multiclass_nms(boxes_xyxy,
                           scores,
                           nms_thr=nms_th,
-                          score_thr=score_th, )
+                          score_thr=score_th)
+    # print("Dets number after NMS: ", len(dets))
+
     return dets
 
 
@@ -214,7 +345,7 @@ def inference(net,
               net_size,
               mean=(0.485, 0.456, 0.406),
               std=(0.229, 0.224, 0.225),
-              conf_thresh=0.001,
+              conf_thresh=0.1,
               nms_thresh=0.65):
     """
     :param net:
@@ -243,9 +374,15 @@ def inference(net,
     ## ----- post process
     dets = _post_process(output=outputs,
                          net_size=net_size,
-                         scale=img_info['scale'],
+                         scale=img_info["scale"],
                          nms_th=nms_thresh,
                          score_th=conf_thresh)
+
+    # dets = post_processing(outputs,
+    #                        net_size,
+    #                        img_info["scale"],
+    #                        nms_thresh,
+    #                        conf_thresh)
 
     return dets, img_info
 

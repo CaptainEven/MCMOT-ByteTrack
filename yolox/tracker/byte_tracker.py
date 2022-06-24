@@ -1007,11 +1007,10 @@ class TrackCV(MCBaseTrack):
         # init state z
         self.kalman_state = np.zeros(dim_x, dtype=np.float64)
 
-        ## ----- init last Kalman state z
-        self.last_kalman_state = np.zeros(dim_x, dtype=np.float64)
-
         ## ----- build and initiate the Kalman filter
         self.dim_x, self.dim_z = dim_x, dim_z
+
+        ## ----- Define the OpenCV Kalman Filter
         self.kf = cv2.KalmanFilter(dim_x, dim_z)
 
         ## ----- define the transmission matrix
@@ -1031,19 +1030,18 @@ class TrackCV(MCBaseTrack):
 
         ## ----- define the P matrix, P_pre matrix and P_post matrix
         # give high uncertainty to the unobservable initial velocities
-        self.kf.errorCovPre = np.eye(dim_x, dtype=np.float64)
+        self.kf.errorCovPre = np.eye(dim_x, dtype=np.float64) * 10.0
         self.kf.errorCovPre[4:, 4:] *= 1000.0
-        self.kf.errorCovPre *= 10.0
+        # self.kf.errorCovPre *= 10.0
         self.kf.errorCovPost = self.kf.errorCovPre.copy()
 
         ## ----- define the Q matrix
         self.kf.processNoiseCov = np.eye(dim_x)
-        self.kf.processNoiseCov[-1, -1] *= 0.01
         self.kf.processNoiseCov[4:, 4:] *= 0.01
 
         ## ----- define the R matrix
         self.kf.measurementNoiseCov = np.eye(dim_z, dtype=np.float64)
-        self.kf.measurementNoiseCov[2:, 2:] *= 1.0  # 10.0
+        # self.kf.measurementNoiseCov[2:, 2:] *= 1.0  # 10.0
 
         ## ----- define the state matrix, statePre matrix, statePost matrix
         # center_x, center_y, s, derivatives of time
@@ -1054,7 +1052,7 @@ class TrackCV(MCBaseTrack):
         ## ----- init is_activated to be False
         self.is_activated = False
         self.score = score
-        self.track_len = 0  # means age?
+        # self.track_len = 0  # means age?
 
         ## ---------- Added parameters for enhanced matching
         self.age = 0
@@ -1064,7 +1062,8 @@ class TrackCV(MCBaseTrack):
         self.observations_dict = dict()  # key: age(int)
 
         ## ----- record the last observation: bbox
-        self.last_observation = np.array([-1, -1, -1, -1, -1], dtype=np.float64)
+        self.last_observation = np.array([-1, -1, -1, -1, -1],
+                                         dtype=np.float64)
 
         ## ----- record velocity direction, velocity norm
         self.vel_dir = np.zeros(2, dtype=np.float64)
@@ -1073,6 +1072,23 @@ class TrackCV(MCBaseTrack):
 
         ## ----- record the time(frames) not updated
         self.time_since_last_update = 0
+
+    def activate(self, frame_id):
+        """
+        Start a new track-let: the initial activation
+        :param frame_id:
+        :return:
+        """
+        # update track id for the object class
+        self.track_id = self.next_id(self.cls_id)
+        self.state = TrackState.Tracked
+
+        self.frame_id = frame_id
+        self.start_frame = frame_id
+
+        ## ----- only for the fist frame
+        if self.frame_id == 1:
+            self.is_activated = True
 
     def predict(self):
         """
@@ -1104,11 +1120,12 @@ class TrackCV(MCBaseTrack):
         :return:
         """
         self.frame_id = frame_id
-        self.track_len += 1
         self.score = new_track.score
+
         new_tlwh = new_track._tlwh
-        bbox = self.tlwh2tlbr(new_tlwh)
-        bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], self.score])
+        new_bbox = self.tlwh2tlbr(new_tlwh)
+        new_bbox_score = np.array([new_bbox[0], new_bbox[1], new_bbox[2], new_bbox[3],
+                                   self.score], dtype=np.float64)
 
         """
         Estimate the track velocity direction with observations delta_t steps away
@@ -1130,7 +1147,7 @@ class TrackCV(MCBaseTrack):
                     previous_box_score = self.last_observation
 
                 # self.vel_dir = self.get_velocity_direction(previous_box_score, bbox_score)
-                self.vel_dir, self.vel_norm = self.get_vel(previous_box_score, bbox_score)
+                self.vel_dir, self.vel_norm = self.get_vel(previous_box_score, new_bbox_score)
         else:
             """
             Using last observation to calculate vel_dir
@@ -1138,47 +1155,33 @@ class TrackCV(MCBaseTrack):
             """
             if self.last_observation.sum() >= 0:
                 # self.vel_dir = self.get_velocity_direction(self.last_observation, bbox_score)
-                self.vel_dir, self.vel_norm = self.get_vel(self.last_observation, bbox_score)
+                self.vel_dir, self.vel_norm = self.get_vel(self.last_observation, new_bbox_score)
             else:
                 self.vel_dir = np.zeros(2, dtype=np.float64)
                 self.vel_norm = 0.0
 
         ## ----- update last observations
-        self.last_observation = bbox_score
-        self.observations_dict[self.age] = self.last_observation
+        self.last_observation = new_bbox_score
+        # self.last_observation = np.array([self.tlbr[0],
+        #                                   self.tlbr[1],
+        #                                   self.tlbr[2],
+        #                                   self.tlbr[3],
+        #                                   self.score],
+        #                                  dtype=np.float64)
 
-        ## ----- update last Kalman state
-        self.last_kalman_state = np.squeeze(convert_bbox_to_z(bbox))
+        self.observations_dict[self.age] = self.last_observation
 
         ## ----- reset time_since_last_update
         self.time_since_last_update = 0
 
         ## ----- Update motion model: update Kalman filter
-        z = convert_bbox_to_z(bbox_score)
+        z = convert_bbox_to_z(new_bbox)
         self.kf.correct(z)
 
         ## ----- Update the states
         self.state = TrackState.Tracked
         self.is_activated = True
         ## -----
-
-    def activate(self, frame_id):
-        """
-        Start a new track-let: the initial activation
-        :param frame_id:
-        :return:
-        """
-        # update track id for the object class
-        self.track_id = self.next_id(self.cls_id)
-        self.track_len = 0  # init track len
-        self.state = TrackState.Tracked
-
-        self.frame_id = frame_id
-        self.start_frame = frame_id
-
-        ## ----- only for the fist frame
-        if self.frame_id == 1:
-            self.is_activated = True
 
     def re_activate(self,
                     new_track,
@@ -1191,13 +1194,11 @@ class TrackCV(MCBaseTrack):
         :return:
         """
         ## ----- Kalman filter update
-        bbox = new_track._tlbr
-        # new_bbox_score = np.array([bbox[0], bbox[1], bbox[2], bbox[3], new_track.score])
-        z = convert_bbox_to_z(bbox)
+        new_bbox = new_track._tlbr
+        z = convert_bbox_to_z(new_bbox)
         self.kf.correct(z)
 
         ## ----- update track-let states
-        self.track_len = 0
         self.frame_id = frame_id
         self.score = new_track.score
 
@@ -1205,6 +1206,8 @@ class TrackCV(MCBaseTrack):
         self.state = TrackState.Tracked
         self.is_activated = True
         ## -----
+
+        # self.update(new_track, frame_id)
 
         if new_id:  # update track id for the object class
             self.track_id = self.next_id(self.cls_id)
@@ -1237,11 +1240,11 @@ class TrackCV(MCBaseTrack):
         if (bbox2 == bbox1).all():
             return np.zeros(2, dtype=np.float64)
 
-        dx1, dy1 = (bbox1[0] + bbox1[2]) * 0.5, (bbox1[1] + bbox1[3]) * 0.5
-        dx2, dy2 = (bbox2[0] + bbox2[2]) * 0.5, (bbox2[1] + bbox2[3]) * 0.5
-        speed = np.array([dy2 - dy1, dx2 - dx1])  # dy, dx
+        cx1, cy1 = (bbox1[0] + bbox1[2]) * 0.5, (bbox1[1] + bbox1[3]) * 0.5
+        cx2, cy2 = (bbox2[0] + bbox2[2]) * 0.5, (bbox2[1] + bbox2[3]) * 0.5
+        speed = np.array([cy2 - cy1, cx2 - cx1])  # dy, dx
 
-        # vel_norm = np.sqrt((dy2 - dy1) ** 2 + (dx2 - dx1) ** 2) + 1e-6
+        # vel_norm = np.sqrt((cy2 - cy1) ** 2 + (cx2 - cx1) ** 2) + 1e-9
         vel_norm = float(np.linalg.norm(speed, ord=2))
         vel_dir = speed / (vel_norm + 1e-9)
         return vel_dir, vel_norm
@@ -2669,9 +2672,9 @@ class ByteTracker(object):
         self.delta_t = delta_t
         self.max_age = self.buffer_size
         self.max_time_not_updated = 15
-        self.vel_norm_thresh = 3.0
+        self.vel_norm_thresh = 5.0
         # self.bbox_area_change_rate_thresh = 0.005  # 0.01
-        self.vel_norm_change_thresh = 30.0
+        self.vel_norm_change_thresh = 20.0
         self.min_hits = 3
         self.using_delta_t = False
 
@@ -2777,7 +2780,7 @@ class ByteTracker(object):
             ## ----- predict the moving lost tracks
             for track in self.lost_tracks_dict[cls_id]:
                 if track.vel_norm > self.vel_norm_thresh and \
-                        track.time_since_last_update <= self.max_time_not_updated and \
+                        track.time_since_last_update < self.max_time_not_updated and \
                         abs(track.vel_norm - track.last_vel_norm) < self.vel_norm_change_thresh:
                     track.predict()
             # ----------

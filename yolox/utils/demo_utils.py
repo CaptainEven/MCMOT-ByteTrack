@@ -6,7 +6,7 @@ import numpy as np
 
 import os
 
-__all__ = ["mkdir", "nms", "multiclass_nms", "demo_postprocess"]
+__all__ = ["mkdir", "nms", "multiclass_nms", "multiclass_NMS", "demo_postprocess"]
 
 
 def mkdir(path):
@@ -15,7 +15,9 @@ def mkdir(path):
 
 
 def nms(boxes, scores, nms_thr):
-    """Single class NMS implemented in Numpy."""
+    """
+    Single class NMS implemented in Numpy.
+    """
     x1 = boxes[:, 0]
     y1 = boxes[:, 1]
     x2 = boxes[:, 2]
@@ -43,15 +45,36 @@ def nms(boxes, scores, nms_thr):
 
     return keep
 
+def multiclass_NMS(bboxes_dict, scores_dict, nms_thr):
+    """
+    Multiclass NMS implemented in Numpy
+    """
+    all_class_dets = []
+    for cls_id, bboxes in bboxes_dict.items():
+        bboxes = np.array(bboxes)
+        scores = np.array(scores_dict[cls_id])
+        keep = nms(bboxes, scores, nms_thr)
+        if len(keep) > 0:
+            cls_inds = np.ones((len(keep), 1)) * cls_id
+            dets = np.concatenate([bboxes[keep],
+                                   scores[keep, None],
+                                   cls_inds], 1)
+            all_class_dets.append(dets)
+
+    if len(all_class_dets) == 0:
+        return None
+
+    return np.concatenate(all_class_dets, 0)
+
 
 def multiclass_nms(boxes, scores, nms_thr, score_thr):
     """
     Multiclass NMS implemented in Numpy
     """
     final_dets = []
-    num_classes = scores.shape[1]
-    for cls_ind in range(num_classes):
-        cls_scores = scores[:, cls_ind]
+    num_class = scores.shape[1]
+    for cls_id in range(num_class):
+        cls_scores = scores[:, cls_id]
         valid_score_mask = cls_scores > score_thr
         if valid_score_mask.sum() == 0:
             continue
@@ -60,10 +83,10 @@ def multiclass_nms(boxes, scores, nms_thr, score_thr):
             valid_boxes = boxes[valid_score_mask]
             keep = nms(valid_boxes, valid_scores, nms_thr)
             if len(keep) > 0:
-                cls_inds = np.ones((len(keep), 1)) * cls_ind
-                dets = np.concatenate(
-                    [valid_boxes[keep], valid_scores[keep, None], cls_inds], 1
-                )
+                cls_inds = np.ones((len(keep), 1)) * cls_id
+                dets = np.concatenate([valid_boxes[keep],
+                                       valid_scores[keep, None],
+                                       cls_inds], 1)
                 final_dets.append(dets)
     if len(final_dets) == 0:
         return None
