@@ -12,6 +12,9 @@ from .losses import IOUloss
 from .network_blocks import BaseConv, DWConv
 
 
+## ----- Darknet Head with ReID branch
+
+
 # only for detection: not include ReID branch
 class DarknetHead(nn.Module):
     def __init__(self,
@@ -20,7 +23,7 @@ class DarknetHead(nn.Module):
                  strides=[8, 16, 32],
                  in_channels=[256, 512, 1024],
                  act="lrelu",
-                 depth_wise=False,):
+                 depth_wise=False, ):
         """
         compute loss in Head
         :param num_classes:
@@ -35,7 +38,9 @@ class DarknetHead(nn.Module):
 
         self.n_anchors = 1
         self.num_classes = num_classes
-        self.decode_in_inference = True  # for deploy, set to False
+
+        # for deploy, set to False
+        self.decode_in_inference = True
 
         self.cls_convs = nn.ModuleList()
         self.reg_convs = nn.ModuleList()
@@ -177,16 +182,14 @@ class DarknetHead(nn.Module):
 
         if self.training:
             ## ---------- compute losses in the head
-            return self.get_losses(
-                imgs,
-                x_shifts,
-                y_shifts,
-                expanded_strides,
-                targets,
-                torch.cat(outputs, 1),
-                origin_preds,
-                dtype=fpn_outs[0].dtype,
-            )
+            return self.get_losses(imgs,
+                                   x_shifts,
+                                   y_shifts,
+                                   expanded_strides,
+                                   targets,
+                                   torch.cat(outputs, 1),
+                                   origin_preds,
+                                   dtype=fpn_outs[0].dtype, )
         else:
             self.hw = [x.shape[-2:] for x in outputs]
 
@@ -275,17 +278,21 @@ class DarknetHead(nn.Module):
         cls_preds = outputs[:, :, 5:]  # [batch, n_anchors_all, n_cls]
 
         ## ----- calculate targets
-        mixup = labels.shape[2] > 5
-        if mixup:
+        mix_up = labels.shape[2] > 5
+        if mix_up:
             label_cut = labels[..., :5]
         else:
             label_cut = labels
-        nlabel = (label_cut.sum(dim=2) > 0).sum(dim=1)  # number of objects
+
+        # number of objects
+        valid_lb_inds = label_cut.sum(dim=2) > 0  # batch_size×50(True | False)
+        n_label = valid_lb_inds.sum(dim=1)  # batch_size×n_lb_valid
 
         total_num_anchors = outputs.shape[1]
         x_shifts = torch.cat(x_shifts, 1)  # [1, n_anchors_all]
         y_shifts = torch.cat(y_shifts, 1)  # [1, n_anchors_all]
         expanded_strides = torch.cat(expanded_strides, 1)
+
         if self.use_l1:
             origin_preds = torch.cat(origin_preds, 1)
 
@@ -300,7 +307,7 @@ class DarknetHead(nn.Module):
 
         ## ---------- processing each sample(image) of the batch
         for batch_idx in range(outputs.shape[0]):
-            num_gt = int(nlabel[batch_idx])
+            num_gt = int(n_label[batch_idx])
             num_gts += num_gt
             if num_gt == 0:
                 cls_target = outputs.new_zeros((0, self.num_classes))
@@ -370,6 +377,7 @@ class DarknetHead(nn.Module):
                     )
 
                 torch.cuda.empty_cache()
+
                 num_fg += num_fg_img
 
                 ## ---------- build targets by matched GT inds

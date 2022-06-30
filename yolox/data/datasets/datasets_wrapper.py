@@ -93,7 +93,7 @@ class Dataset(torchDataset):
             list: Tuple containing the current height, width
         """
         if hasattr(self, "_input_dim"):
-            return self._input_dim
+            return self._input_dim  # height, width
         return self.__input_dim
 
     @staticmethod

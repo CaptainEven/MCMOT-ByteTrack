@@ -8,11 +8,11 @@ The data augmentation procedures were interpreted from @weiliu89's SSD paper
 http://arxiv.org/abs/1512.02325
 """
 
-import math
-import random
-
 import cv2
+import math
 import numpy as np
+import random
+from loguru import logger
 
 from yolox.utils import xyxy2cxcywh
 
@@ -260,6 +260,15 @@ def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
     return padded_img, r
 
 
+## TODO: Patch transform to return q and q
+class PatchTransform():
+    def __init__(self):
+        pass
+
+    def __call__(self, patches, patch_size):
+        pass
+
+
 class TrainTransform:
     def __init__(self, p=0.5, rgb_means=None, std=None, max_labels=50):
         """
@@ -272,6 +281,7 @@ class TrainTransform:
         self.std = std
         self.p = p
         self.max_labels = max_labels
+        logger.info("max_labels: {:d}.".format(self.max_labels))
 
     def __call__(self, image, targets, input_dim):
         """
@@ -317,11 +327,12 @@ class TrainTransform:
             labels_t = labels_o
 
         labels_t = np.expand_dims(labels_t, 1)
-
         targets_t = np.hstack((labels_t, boxes_t))
+
         padded_labels = np.zeros((self.max_labels, 5))
         padded_labels[range(len(targets_t))[: self.max_labels]] = targets_t[: self.max_labels]
         padded_labels = np.ascontiguousarray(padded_labels, dtype=np.float32)
+
         image_t = np.ascontiguousarray(image_t, dtype=np.float32)
 
         return image_t, padded_labels

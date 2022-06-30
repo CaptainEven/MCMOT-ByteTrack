@@ -99,20 +99,10 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=4,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
+                        default=4,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
-    parser.add_argument("-nd",
-                        "--n_devices",
-                        type=int,
-                        default=1,  # number of devices(gpus)
-                        help="device for training")
-    parser.add_argument("-d",
-                        "--devices",
-                        type=str,
-                        default="2",
-                        help="The device(GPU) ids.")
-    ## ----------
 
+    ## ----------
     parser.add_argument("--local_rank",
                         default=0,
                         type=int,
@@ -154,6 +144,18 @@ def make_parser():
                         help="Modify config options using the command-line",
                         default=None,
                         nargs=argparse.REMAINDER, )
+
+    ## ----- set devices
+    parser.add_argument("-nd",
+                        "--n_devices",
+                        type=int,
+                        default=1,  # number of devices(gpus)
+                        help="device for training")
+    parser.add_argument("-d",
+                        "--devices",
+                        type=str,
+                        default="2",
+                        help="The device(GPU) ids.")
 
     return parser
 
@@ -197,7 +199,7 @@ if __name__ == "__main__":
     exp.merge(opt.opts)
 
     ## ----- modify number of workers
-    if opt.debug:
+    if opt.debug != 0:
         exp.data_num_workers = 0
 
     ## ----- Using cfg file from opt

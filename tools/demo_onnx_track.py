@@ -323,15 +323,16 @@ def _post_process(output, net_size, scale, nms_th, score_th):
     predictions = predictions[0]
     boxes = predictions[:, :4]
     scores = predictions[:, 4:5] * predictions[:, 5:]  # cls_score * obj_score
-    boxes_xyxy = np.ones_like(boxes)
-    boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2] / 2.0
-    boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3] / 2.0
-    boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2] / 2.0
-    boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3] / 2.0
-    boxes_xyxy /= scale  # scale back to image size
+
+    bboxes = np.ones_like(boxes)  # bbox: x1y1x2y2
+    bboxes[:, 0] = boxes[:, 0] - boxes[:, 2] * 0.5
+    bboxes[:, 1] = boxes[:, 1] - boxes[:, 3] * 0.5
+    bboxes[:, 2] = boxes[:, 0] + boxes[:, 2] * 0.5
+    bboxes[:, 3] = boxes[:, 1] + boxes[:, 3] * 0.5
+    bboxes /= scale  # scale back to image size
 
     # print("Dets number before NMS: ", len(boxes_xyxy))
-    dets = multiclass_nms(boxes_xyxy,
+    dets = multiclass_nms(bboxes,
                           scores,
                           nms_thr=nms_th,
                           score_thr=score_th)

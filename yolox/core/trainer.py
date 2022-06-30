@@ -103,7 +103,7 @@ class Trainer:
         iter_start_time = time.time()
 
         inps, targets = self.prefetcher.next()
-        inps = inps.to(self.data_type)
+        inps = inps.to(self.data_type)  # data_type: torch.float16
         targets = targets.to(self.data_type)
         targets.requires_grad = False
         data_end_time = time.time()
@@ -111,7 +111,6 @@ class Trainer:
         with torch.cuda.amp.autocast(enabled=self.amp_training):
             outputs = self.model.forward(inps, targets)
         loss = outputs["total_loss"]
-        # loss = outputs["mtl_loss"]
 
         self.optimizer.zero_grad()
         self.scaler.scale(loss).backward()

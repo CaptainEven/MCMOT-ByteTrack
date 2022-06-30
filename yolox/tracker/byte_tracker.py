@@ -1154,7 +1154,6 @@ class TrackCV(MCBaseTrack):
             vel_dir: a 2d vector
             """
             if self.last_observation.sum() >= 0:
-                # self.vel_dir = self.get_velocity_direction(self.last_observation, bbox_score)
                 self.vel_dir, self.vel_norm = self.get_vel(self.last_observation, new_bbox_score)
             else:
                 self.vel_dir = np.zeros(2, dtype=np.float64)
@@ -1162,12 +1161,60 @@ class TrackCV(MCBaseTrack):
 
         ## ----- update last observations
         self.last_observation = new_bbox_score
-        # self.last_observation = np.array([self.tlbr[0],
-        #                                   self.tlbr[1],
-        #                                   self.tlbr[2],
-        #                                   self.tlbr[3],
-        #                                   self.score],
-        #                                  dtype=np.float64)
+
+        self.observations_dict[self.age] = self.last_observation
+
+        ## ----- reset time_since_last_update
+        self.time_since_last_update = 0
+
+        ## ----- Update motion model: update Kalman filter
+        z = convert_bbox_to_z(new_bbox)
+        self.kf.correct(z)
+
+        ## ----- Update the states
+        self.state = TrackState.Tracked
+        self.is_activated = True
+        ## -----
+
+    def update_test(self, new_track, frame_id):
+        """
+        Update a matched track
+        :type new_track: STrack
+        :type frame_id: int
+        :return:
+        """
+        self.frame_id = frame_id
+        self.score = new_track.score
+
+        new_tlwh = new_track._tlwh
+        new_bbox = self.tlwh2tlbr(new_tlwh)
+        new_bbox_score = np.array([new_bbox[0], new_bbox[1], new_bbox[2], new_bbox[3],
+                                   self.score], dtype=np.float64)
+
+        """
+        Estimate the track velocity direction with observations delta_t steps away
+        """
+        ## update self.last_vel_norm
+        self.last_vel_norm = copy.deepcopy(self.vel_norm)
+
+        """
+        Using last observation to calculate vel_dir
+        vel_dir: a 2d vector
+        """
+        if self.last_observation.sum() >= 0:
+            self.vel_dir, self.vel_norm = self.get_vel(self.last_observation[:4], self.tlbr)
+        else:
+            self.vel_dir = np.zeros(2, dtype=np.float64)
+            self.vel_norm = 0.0
+
+        ## ----- update last observations
+        # self.last_observation = new_bbox_score
+        self.last_observation = np.array([self.tlbr[0],
+                                          self.tlbr[1],
+                                          self.tlbr[2],
+                                          self.tlbr[3],
+                                          self.score],
+                                         dtype=np.float64)
 
         self.observations_dict[self.age] = self.last_observation
 

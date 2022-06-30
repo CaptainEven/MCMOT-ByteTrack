@@ -230,7 +230,7 @@ class YOLOXHeadReID(nn.Module):
                 feature_output = self.reid_preds.forward(reid_feat)
 
             if self.training:
-                ## ----- concatenate different branche of outputs
+                ## ----- concatenate different branch of outputs
                 output = torch.cat([reg_output, obj_output, cls_output], 1)
 
                 ## ----- grading and reshaping

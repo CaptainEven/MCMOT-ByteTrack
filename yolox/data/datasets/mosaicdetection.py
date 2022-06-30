@@ -35,8 +35,9 @@ def get_mosaic_coordinate(mosaic_image, mosaic_index, xc, yc, w, h, input_h, inp
 
 
 class MosaicDetection(Dataset):
-    """Detection dataset wrapper that performs mixup for normal dataset."""
-
+    """
+    Detection dataset wrapper that performs mixup for normal dataset.
+    """
     def __init__(self, dataset, img_size, mosaic=True, preproc=None,
         degrees=10.0, translate=0.1, scale=(0.5, 1.5), mscale=(0.5, 1.5),
         shear=2.0, perspective=0.0, enable_mixup=True, *args):
@@ -114,6 +115,7 @@ class MosaicDetection(Dataset):
                 padw, padh = l_x1 - s_x1, l_y1 - s_y1
 
                 labels = _labels.copy()
+
                 # Normalized xywh to pixel xyxy format
                 if _labels.size > 0:
                     labels[:, 0] = scale * _labels[:, 0] + padw

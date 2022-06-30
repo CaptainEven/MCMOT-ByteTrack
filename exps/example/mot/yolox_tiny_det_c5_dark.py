@@ -29,13 +29,17 @@ class Exp(MyExp):
         self.width = 0.5
 
         ## ----- Define file list path(imgs and txts(labels) path)
-        self.train_f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
-        self.test_f_list_path = "/users/duanyou/c5/data_all/test3000.txt"
+        self.train_f_list_path = "/mnt/diskb/even/ByteTrack/datasets/train_all.txt"
+        self.test_f_list_path = "/mnt/diskb/even/ByteTrack/datasets/test3000.txt"
+        self.train_f_list_path = os.path.abspath(self.train_f_list_path)
+        self.test_f_list_path = os.path.abspath(self.test_f_list_path)
         if not os.path.isfile(self.train_f_list_path):
-            logger.error("invalid train file list path: {:s}".format(self.train_f_list_path))
+            logger.error("invalid train file list path: {:s}"
+                         .format(self.train_f_list_path))
             exit(-1)
         if not os.path.isfile(self.test_f_list_path):
-            logger.error("invalid test file list path: {:s}".format(self.test_f_list_path))
+            logger.error("invalid test file list path: {:s}"
+                         .format(self.test_f_list_path))
             exit(-1)
         ## -----
 
@@ -96,7 +100,7 @@ class Exp(MyExp):
                                width=self.width,
                                strides=[8, 16, 32],
                                in_channels=[256, 256, 512],
-                               act="lrelu",
+                               act="lrelu",  # leaky relu
                                depth_wise=False)  # 156 -> 96, 512 -> 192
             self.model = YOLOXDark(cfg_path=self.cfg_file_path,
                                    backbone=backbone,
@@ -120,6 +124,8 @@ class Exp(MyExp):
         :return:
         """
         from yolox.data import (
+            VOCDetSSL,
+            # AnnotationTransform,
             VOCDetection,
             TrainTransform,
             YoloBatchSampler,
@@ -142,14 +148,25 @@ class Exp(MyExp):
         #     ),
         # )
 
-        dataset = VOCDetection(data_dir=data_dir,
-                               f_list_path=self.train_f_list_path,
-                               img_size=(768, 448),
-                               preproc=TrainTransform(
-                                   rgb_means=(0.485, 0.456, 0.406),
-                                   std=(0.229, 0.224, 0.225),
-                                   max_labels=50,
-                               ), )
+        dataset = VOCDetSSL(data_dir=data_dir,
+                            f_list_path=self.train_f_list_path,
+                            img_size=(768, 448),
+                            preproc=TrainTransform(
+                                rgb_means=(0.485, 0.456, 0.406),
+                                std=(0.229, 0.224, 0.225),
+                                max_labels=50,
+                            ),
+                            max_patches=50,
+                            patch_size=(320, 320),)
+
+        # dataset = VOCDetection(data_dir=data_dir,
+        #                        f_list_path=self.train_f_list_path,
+        #                        img_size=(768, 448),
+        #                        preproc=TrainTransform(
+        #                            rgb_means=(0.485, 0.456, 0.406),
+        #                            std=(0.229, 0.224, 0.225),
+        #                            max_labels=50,
+        #                        ), )
 
         # dataset = MosaicDetection(
         #     dataset,

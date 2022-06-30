@@ -93,7 +93,7 @@ def make_parser():
                         help="batch size")
     parser.add_argument("-d",
                         "--devices",
-                        default=1,  # number of devices(gpus)
+                        default=1,
                         type=int,
                         help="device for training")
     ## ----------
@@ -168,24 +168,24 @@ def main(exp, args):
 
 
 if __name__ == "__main__":
-    args = make_parser().parse_args()
-    print("args:\n", args)
-    exp = get_exp(args.exp_file, args.name)
-    exp.merge(args.opts)
+    opt = make_parser().parse_args()
+    print("args:\n", opt)
+    exp = get_exp(opt.exp_file, opt.name)
+    exp.merge(opt.opts)
 
-    if args.debug:
+    if opt.debug != 0:
         exp.data_num_workers = 0
 
-    if not args.experiment_name:
-        args.experiment_name = exp.exp_name
+    if not opt.experiment_name:
+        opt.experiment_name = exp.exp_name
 
-    num_gpu = torch.cuda.device_count() if args.devices is None else args.devices
+    num_gpu = torch.cuda.device_count() if opt.devices is None else opt.devices
     assert num_gpu <= torch.cuda.device_count()
 
     launch(main,
            num_gpu,
-           args.num_machines,
-           args.machine_rank,
-           backend=args.dist_backend,
-           dist_url=args.dist_url,
-           args=(exp, args), )
+           opt.num_machines,
+           opt.machine_rank,
+           backend=opt.dist_backend,
+           dist_url=opt.dist_url,
+           args=(exp, opt), )

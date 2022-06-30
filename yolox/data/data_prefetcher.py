@@ -31,7 +31,7 @@ class DataPrefetcher:
         """
         :return:
         """
-        try:
+        try:  # return the items from dataset
             self.next_input, self.next_target, _, _ = next(self.loader)
         except StopIteration:
             self.next_input = None
@@ -55,7 +55,7 @@ class DataPrefetcher:
         if target is not None:
             target.record_stream(torch.cuda.current_stream())
 
-        self.preload()
+        self.preload()  # get input and target
         return input, target
 
     def _input_cuda_for_image(self):

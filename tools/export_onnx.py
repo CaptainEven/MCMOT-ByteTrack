@@ -106,7 +106,7 @@ def run():
     if "model" in ckpt:
         ckpt = ckpt["model"]
     net.load_state_dict(ckpt)
-    net.eval()
+    net.eval()  # switch to eval mode
 
     # net = replace_module(net, nn.SiLU, SiLU)
     net.head.decode_in_inference = False
