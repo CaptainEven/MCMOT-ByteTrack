@@ -11,7 +11,7 @@ from yolox.exp import Exp as MyExp
 
 ## ----- Decoupled backbone and head for C5(5 classes) detection
 class Exp(MyExp):
-    def __init__(self, n_workers=4, debug=False):
+    def __init__(self, n_workers=8, debug=False):
         """
         YOLOX Tiny
         :param n_workers:
