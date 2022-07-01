@@ -8,10 +8,12 @@ The data augmentation procedures were interpreted from @weiliu89's SSD paper
 http://arxiv.org/abs/1512.02325
 """
 
-import cv2
 import math
-import numpy as np
 import random
+
+import cv2
+import numpy as np
+import torchvision.transforms as transforms
 from loguru import logger
 
 from yolox.utils import xyxy2cxcywh
@@ -168,7 +170,7 @@ def random_perspective(img,
     return img, targets
 
 
-def _distort(image):
+def random_distort(image):
     """
     :param image:
     :return:
@@ -203,7 +205,7 @@ def _distort(image):
     return image
 
 
-def _mirror(image, boxes):
+def random_mirror(image, boxes):
     """
     :param image:
     :param boxes:
@@ -259,14 +261,63 @@ def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
 
     return padded_img, r
 
+from PIL import ImageFilter
+class GaussianBlur(object):
+    """
+    Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
+    """
+
+    def __init__(self, sigma=[0.1, 2.0]):
+        self.sigma = sigma
+
+    def __call__(self, x):
+        """
+        :param x:
+        """
+        sigma = random.uniform(self.sigma[0], self.sigma[1])
+        x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
+        return x
+
+
+class TwoCropsTransform:
+    """
+    Take two random crops of one image as the query and key.
+    """
+    def __init__(self, base_transform):
+        self.base_transform = base_transform
+
+    def __call__(self, x):
+        q = self.base_transform(x)
+        k = self.base_transform(x)
+        return [q, k]
+
 
 ## TODO: Patch transform to return q and q
 class PatchTransform():
-    def __init__(self):
-        pass
+    def __init__(self, patch_size=(320, 320)):
+        """
+        :param patch_size
+        """
+        self.augmentation = [
+            # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
+            transforms.RandomApply([
+                transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
+            ], p=0.8),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.RandomApply([GaussianBlur([0.1, 2.0])], p=0.5),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+        ]
+        self.transform = TwoCropsTransform(transforms.Compose(self.augmentation))
 
-    def __call__(self, patches, patch_size):
-        pass
+    def __call__(self, patch):
+        """
+        :param patch
+        :return a list of q and k
+        """
+        return self.transform(patch)
 
 
 class TrainTransform:
@@ -283,18 +334,18 @@ class TrainTransform:
         self.max_labels = max_labels
         logger.info("max_labels: {:d}.".format(self.max_labels))
 
-    def __call__(self, image, targets, input_dim):
+    def __call__(self, image, targets, net_dim):
         """
         :param image:
         :param targets:
-        :param input_dim:
+        :param net_dim: net_h, net_w
         :return:
         """
         boxes = targets[:, :4].copy()
         labels = targets[:, 4].copy()
         if len(boxes) == 0:
             targets = np.zeros((self.max_labels, 5), dtype=np.float32)
-            image, r_o = preproc(image, input_dim, self.means, self.std)
+            image, r_o = preproc(image, net_dim, self.means, self.std)
             image = np.ascontiguousarray(image, dtype=np.float32)
             return image, targets
 
@@ -307,10 +358,10 @@ class TrainTransform:
         # bbox_o: [xyxy] to [c_x,c_y,w,h]
         boxes_o = xyxy2cxcywh(boxes_o)
 
-        image_t = _distort(image)
-        image_t, boxes = _mirror(image_t, boxes)
+        image_t = random_distort(image)
+        image_t, boxes = random_mirror(image_t, boxes)
         height, width, _ = image_t.shape
-        image_t, r_ = preproc(image_t, input_dim, self.means, self.std)
+        image_t, r_ = preproc(image_t, net_dim, self.means, self.std)
 
         # boxes [xyxy] to [cx,cy,w,h]
         boxes = xyxy2cxcywh(boxes)
@@ -321,7 +372,7 @@ class TrainTransform:
         labels_t = labels[mask_b]
 
         if len(boxes_t) == 0:
-            image_t, r_o = preproc(image_o, input_dim, self.means, self.std)
+            image_t, r_o = preproc(image_o, net_dim, self.means, self.std)
             boxes_o *= r_o
             boxes_t = boxes_o
             labels_t = labels_o
@@ -379,8 +430,8 @@ class TrainTransformTrack:
         # bbox_o: [xyxy] to [c_x,c_y,w,h]
         boxes_o = xyxy2cxcywh(boxes_o)
 
-        image_t = _distort(image)
-        image_t, boxes = _mirror(image_t, boxes)
+        image_t = random_distort(image)
+        image_t, boxes = random_mirror(image_t, boxes)
         height, width, _ = image_t.shape
 
         ## ----- resize, pad, BGR2RGB, normalize

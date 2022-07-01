@@ -1,14 +1,8 @@
 # encoding=utf-8
 
 import os
-import random
-import shutil
 
-import cv2
 import numpy as np
-import torch
-from PIL import Image, ImageDraw, ImageFont
-from tqdm import tqdm
 
 
 def parse_darknet_cfg(path):
@@ -69,3 +63,40 @@ def parse_darknet_cfg(path):
     return m_defs
 
 
+def iou_batch(bboxes1, bboxes2):
+    """
+    From SORT: Computes IOU between two bboxes in the form [x1,y1,x2,y2]
+    """
+    bboxes2 = np.expand_dims(bboxes2, axis=0)
+    bboxes1 = np.expand_dims(bboxes1, axis=1)
+
+    xx1 = np.maximum(bboxes1[..., 0], bboxes2[..., 0])
+    yy1 = np.maximum(bboxes1[..., 1], bboxes2[..., 1])
+    xx2 = np.minimum(bboxes1[..., 2], bboxes2[..., 2])
+    yy2 = np.minimum(bboxes1[..., 3], bboxes2[..., 3])
+
+    w = np.maximum(0., xx2 - xx1)
+    h = np.maximum(0., yy2 - yy1)
+    wh = w * h
+    o = wh / ((bboxes1[..., 2] - bboxes1[..., 0]) * (bboxes1[..., 3] - bboxes1[..., 1])
+              + (bboxes2[..., 2] - bboxes2[..., 0]) * (bboxes2[..., 3] - bboxes2[..., 1]) - wh)
+
+    return o
+
+
+def filter_bbox_by_ious(bboxes_1, bboxes_2, iou_thresh):
+    """
+    filter bboxes_1 by ious with bboxes_2
+    :param bboxes_1:
+    :param bboxes_2:
+    """
+    ious = iou_batch(bboxes_1, bboxes_2)
+    mask2d = ious < iou_thresh
+    inds = np.where(np.sum(mask2d, axis=1) == bboxes_2.shape[0])
+    bboxes_1 = bboxes_1[inds]
+    return bboxes_1
+
+def filter_by_shape(bboxes, low_thresh=0.5, high_thresh=2.0):
+    """
+    filter the bboxes by aspect ratio
+    """

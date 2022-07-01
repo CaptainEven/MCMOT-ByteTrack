@@ -122,7 +122,7 @@ class Dataset(torchDataset):
         def wrapper(self, index):
             if not isinstance(index, int):
                 has_dim = True
-                self._input_dim = index[0]
+                self._input_dim = index[0]  # h, w
                 self.enable_mosaic = index[2]
                 index = index[1]
             else:

@@ -9,11 +9,16 @@ import xml.etree.ElementTree as ET
 
 import cv2
 import numpy as np
+import torch
+import torchvision.transforms as transforms
+from PIL import Image
 from loguru import logger
-from yolox.evaluators.voc_eval import voc_eval
 
+from yolox.evaluators.voc_eval import voc_eval
+from yolox.utils.myutils import filter_bbox_by_ious
 from .datasets_wrapper import Dataset
 from .voc_classes import C5_CLASSES
+from ..data_augment import PatchTransform
 
 
 class AnnotationTransform(object):
@@ -94,6 +99,8 @@ class VOCDetSSL(Dataset):
                  preproc=None,
                  target_transform=AnnotationTransform(),
                  max_patches=50,
+                 num_negatives=100,
+                 neg_pos_iou_thresh=0.1,
                  patch_size=(320, 320)):
         """
         :param data_dir:
@@ -110,7 +117,10 @@ class VOCDetSSL(Dataset):
         self.img_size = img_size
 
         ## ----- The patch size for training
-        self.patch_size = patch_size
+        self.patch_size = patch_size  # h, w
+        self.max_pos_patches = max_patches  # number of max patches
+        self.max_neg_patches = num_negatives
+        self.np_iou_thresh = neg_pos_iou_thresh
 
         self.preproc = preproc
         self.target_transform = target_transform
@@ -137,6 +147,15 @@ class VOCDetSSL(Dataset):
         logger.info("Total {:d} VOC detection samples to be trained."
                     .format(len(self.ids)))
 
+        self.pos_patch_transform = PatchTransform(patch_size=self.patch_size)
+        self.neg_patch_transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225], )
+            ]
+        )
+
     def __len__(self):
         """
         :return:
@@ -155,6 +174,120 @@ class VOCDetSSL(Dataset):
             target = self.target_transform(et_root)
 
         return target
+
+    def gen_negatives(self, img, pos_bboxs):
+        """
+        Sample negative proposals
+        :param img:
+        :param pos_bboxs:
+        """
+        if img is None:
+            print("[Err]: empty image, exit now.")
+            exit(-1)
+
+        H, W = img.shape[:2]
+
+        ## Get the max positive bbox
+        areas = (pos_bboxs[:, 2] - pos_bboxs[:, 0]) \
+                * (pos_bboxs[:, 3] - pos_bboxs[:, 1])
+        max_area_id = np.argmax(areas)
+        max_bbox_w = int((pos_bboxs[max_area_id][2] - pos_bboxs[max_area_id][0]) * 0.5)
+        max_bbox_h = int((pos_bboxs[max_area_id][3] - pos_bboxs[max_area_id][1]) * 0.5)
+
+        neg_patches = []
+        valid_neg_count = 0
+        sample_num = self.max_neg_patches * 5
+        sample_n_times = 1
+
+        neg_bboxes_final = np.empty((0, 4), dtype=np.int64)
+        while valid_neg_count < self.max_neg_patches:
+            ## ----- batch generating x1, y1, x2, y2
+            x1x2 = np.random.randint(0, W, size=(sample_num, 2))
+            y1y2 = np.random.randint(0, H, size=(sample_num, 2))
+
+            inds = np.where(x1x2[:, 1] > x1x2[:, 0])
+            x1x2 = x1x2[inds]
+
+            inds = np.where(y1y2[:, 1] > y1y2[:, 0])
+            y1y2 = y1y2[inds]
+
+            neg_bboxes = np.empty((0, 4), dtype=np.int64)
+
+            if x1x2.shape[0] >= y1y2.shape[0]:
+                neg_bboxes = np.concatenate((np.expand_dims(x1x2[:y1y2.shape[0], 0], axis=1),
+                                             np.expand_dims(y1y2[:, 0], axis=1),
+                                             np.expand_dims(x1x2[:y1y2.shape[0], 1], axis=1),
+                                             np.expand_dims(y1y2[:, 1], axis=1)), axis=1)
+            else:
+                neg_bboxes = np.concatenate((np.expand_dims(x1x2[:, 0], axis=1),
+                                             np.expand_dims(y1y2[:x1x2.shape[0], 0], axis=1),
+                                             np.expand_dims(x1x2[:, 1], axis=1),
+                                             np.expand_dims(y1y2[:x1x2.shape[0], 1], axis=1)), axis=1)
+
+            if sample_n_times == 1:
+                ## ----- filtering by IOU check
+                neg_bboxes = filter_bbox_by_ious(neg_bboxes, pos_bboxs, self.np_iou_thresh)
+
+                ## ----- filter by aspect ratio check
+                neg_bboxes = filter(lambda x: (x[2] - x[0]) /
+                                              (x[3] - x[1]) > 0.5 and
+                                              (x[2] - x[0])
+                                              / (x[3] - x[1]) < 2.0,
+                                    neg_bboxes)
+                neg_bboxes = filter(lambda x: (x[2] - x[0]) < max_bbox_w and
+                                              (x[3] - x[1]) < max_bbox_h and
+                                              (x[2] - x[0]) > 0.02 * W and
+                                              (x[3] - x[1]) > 0.02 * H,
+                                    neg_bboxes)
+                neg_bboxes = np.array(list(neg_bboxes))
+
+                ## --- first time, copy
+                neg_bboxes_final = neg_bboxes.copy()
+
+            else:
+                ## ----- filtering by IOU check
+                neg_bboxes = filter_bbox_by_ious(neg_bboxes, pos_bboxs, self.np_iou_thresh)
+
+                ## ----- filter by aspect ratio check
+                neg_bboxes = filter(lambda x: (x[2] - x[0]) /
+                                              (x[3] - x[1]) > 0.5 and
+                                              (x[2] - x[0])
+                                              / (x[3] - x[1]) < 2.0,
+                                    neg_bboxes)
+                neg_bboxes = filter(lambda x: (x[2] - x[0]) < max_bbox_w and
+                                              (x[3] - x[1]) < max_bbox_h and
+                                              (x[2] - x[0]) > 0.02 * W and
+                                              (x[3] - x[1]) > 0.02 * H,
+                                    neg_bboxes)
+                neg_bboxes = np.array(list(neg_bboxes))
+
+                ## --- not the first time, cat
+                if neg_bboxes_final.size > 0:
+                    if neg_bboxes.size > 0:
+                        neg_bboxes_final = np.concatenate([neg_bboxes_final, neg_bboxes], axis=0)
+                else:
+                    neg_bboxes_final = neg_bboxes.copy()
+
+            if neg_bboxes_final.shape[0] >= self.max_neg_patches:
+                # print("[Info]: negative samples got.")
+                neg_bboxes_final = neg_bboxes_final[:self.max_neg_patches]
+                break
+
+            sample_num -= 1  # sample_num decrease the next sampling
+            sample_n_times += 1
+
+        # ## ----- visualize
+        # cv2.imwrite("/mnt/diskd/tmp/orgin.jpg", img)
+        # for i, neg_bboxes in enumerate(neg_bboxes_final):
+        #     ## ----- Get a patch and visualize
+        #     x1, y1, x2, y2 = neg_bboxes
+        #     patch = img[y1:y2, x1:x2, :]
+        #
+        #     save_path = "/mnt/diskd/tmp/patch_{:d}.jpg".format(i + 1)
+        #     cv2.imwrite(save_path, patch)
+        #     print("{:s} saved.".format(save_path))
+
+        return neg_bboxes_final
 
     def pull_item(self, idx):
         """
@@ -175,20 +308,58 @@ class VOCDetSSL(Dataset):
         height, width, _ = img.shape
 
         ## ----- load label, target: x1,y1,x2,y2,cls_id
-        target = self.load_anno(idx)  # n_objs×5
+        targets = self.load_anno(idx)  # n_objs×5
         # print(target.shape)
 
-        ## ----- load patches for query and key
-        q = np.zeros()
-        for bbox_cls in target:
+        ## ---------- load patches for query and key
+        # ----- Get positive pairs of patches
+        q = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
+        k = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
+        n = torch.zeros((self.max_neg_patches, 3, self.patch_size[0], self.patch_size[1]))
+
+        ## ----- record positive bboxes
+        pos_bboxes = np.zeros((targets.shape[0], 4), dtype=np.float64)
+
+        for i, bbox_cls in enumerate(targets):
+            if i >= self.max_pos_patches:
+                break
+
             x1, y1, x2, y2, cls_id = bbox_cls
+
+            x1 = x1 if x1 >= 0 else 0
+            x1 = x1 if x1 < width else width - 1
+
+            y1 = y1 if y1 >= 0 else 0
+            y1 = y1 if y1 < height else height - 1
+
+            x2 = x2 if x2 >= 0 else 0
+            x2 = x2 if x2 < width else width - 1
+
+            y2 = y2 if y2 >= 0 else 0
+            y2 = y2 if y2 < height else height - 1
+
+            ## ----- Get patch
+            patch = img[int(y1):int(y2), int(x1):int(x2), :]
+            pos_bboxes[i] = np.array([x1, y1, x2, y2], dtype=np.float64)
+
+            ## ----- Resize
+            patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
+            q_item, k_item = self.pos_patch_transform(Image.fromarray(patch))
+            q[i] = q_item
+            k[i] = k_item
+
+        # img_hw = (height, width)
+
+        ## ----- Generate negative samples
+        neg_bboxes = self.gen_negatives(img, pos_bboxes)
+        for i, neg_bbox in enumerate(neg_bboxes):
+            x1, y1, x2, y2 = neg_bbox
             patch = img[int(y1):int(y2), int(x1):int(x2), :]
             patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
-            print(patch.shape)
+            n_item = self.neg_patch_transform(Image.fromarray(patch))
+            n[i] = n_item
 
-        img_hw = (height, width)
-
-        return img, target, img_hw, idx
+        return img, targets, q, k, n
 
     @Dataset.resize_getitem
     def __getitem__(self, idx):
@@ -196,12 +367,12 @@ class VOCDetSSL(Dataset):
         :param idx:
         :return:
         """
-        img, target, img_hw, img_id = self.pull_item(idx)
+        img, target, q, k = self.pull_item(idx)
 
         if self.preproc is not None:
             img, target = self.preproc(img, target, self.input_dim)
 
-        return img, target, img_hw, img_id
+        return img, target, q, k
 
     def evaluate_detections(self, all_boxes, output_dir=None):
         """
@@ -414,6 +585,7 @@ class VOCDetection(Dataset):
         dataset_name (string, optional): which dataset to load
             (default: 'VOC2007')
     """
+
     def __init__(self,
                  data_dir,
                  f_list_path,
