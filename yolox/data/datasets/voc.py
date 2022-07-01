@@ -184,6 +184,9 @@ class VOCDetSSL(Dataset):
         if img is None:
             print("[Err]: empty image, exit now.")
             exit(-1)
+        if pos_bboxs.size == 0:
+            print("[Warning]: empty positive bboxes, return empty pos bboxes.")
+            return np.empty((0, 4), dtype=np.int64)
 
         H, W = img.shape[:2]
 
@@ -367,12 +370,12 @@ class VOCDetSSL(Dataset):
         :param idx:
         :return:
         """
-        img, target, q, k = self.pull_item(idx)
+        img, target, q, k, n = self.pull_item(idx)
 
         if self.preproc is not None:
             img, target = self.preproc(img, target, self.input_dim)
 
-        return img, target, q, k
+        return img, target, q, k, n
 
     def evaluate_detections(self, all_boxes, output_dir=None):
         """
