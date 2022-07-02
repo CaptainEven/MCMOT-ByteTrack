@@ -19,6 +19,7 @@ from yolox.utils.myutils import filter_bbox_by_ious
 from .datasets_wrapper import Dataset
 from .voc_classes import C5_CLASSES
 from ..data_augment import PatchTransform
+from yolox.data.data_augment import GaussianBlur
 
 
 class AnnotationTransform(object):
@@ -147,12 +148,29 @@ class VOCDetSSL(Dataset):
         logger.info("Total {:d} VOC detection samples to be trained."
                     .format(len(self.ids)))
 
+        ## ----- Define the positive sample transformations
         self.pos_patch_transform = PatchTransform(patch_size=self.patch_size)
+
+        ## ----- Define the negative sample transformations
+        # self.neg_patch_transform = transforms.Compose(
+        #     [
+        #         transforms.ToTensor(),
+        #         transforms.Normalize(mean=[0.485, 0.456, 0.406],
+        #                              std=[0.229, 0.224, 0.225], )
+        #     ]
+        # )
+
         self.neg_patch_transform = transforms.Compose(
             [
+                transforms.RandomApply([
+                    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
+                ], p=0.8),
+                transforms.RandomGrayscale(p=0.2),
+                transforms.RandomApply([GaussianBlur([0.1, 2.0])], p=0.5),
+                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225], )
+                                     std=[0.229, 0.224, 0.225]),
             ]
         )
 

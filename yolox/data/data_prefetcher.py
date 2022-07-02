@@ -14,9 +14,10 @@ class DataPrefetcher:
     """
     DataPrefetcher is inspired by code of following file:
     https://github.com/NVIDIA/apex/blob/master/examples/imagenet/main_amp.py
-    It could speedup your pytorch dataloader. For more information, please check
+    It could speed-up your pytorch dataloader. For more information, please check
     https://github.com/NVIDIA/apex/issues/304#issuecomment-493562789.
     """
+
     def __init__(self, loader):
         """
         :param loader:
@@ -39,8 +40,10 @@ class DataPrefetcher:
             return
 
         with torch.cuda.stream(self.stream):
-            self.input_cuda()
+            self.input_cuda()  # put input to cuda
             self.next_target = self.next_target.cuda(non_blocking=True)
+
+            ## ----- TODO: put q, k, n to cuda
 
     def next(self):
         """

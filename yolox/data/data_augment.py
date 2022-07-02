@@ -292,7 +292,7 @@ class TwoCropsTransform:
         return [q, k]
 
 
-## TODO: Patch transform to return q and q
+## Patch transform to return q and q
 class PatchTransform():
     def __init__(self, patch_size=(320, 320)):
         """
