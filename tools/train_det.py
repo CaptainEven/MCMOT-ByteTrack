@@ -57,7 +57,7 @@ def make_parser():
                         "--exp_file",
                         default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
                         type=str,
-                        help="plz input your expriment description file")
+                        help="plz input your experiment description file")
 
     ## -----Darknet cfg file path
     parser.add_argument("--cfg",

@@ -219,9 +219,18 @@ class VOCDetSSL(Dataset):
         valid_neg_count = 0
         sample_num = self.max_neg_patches * 5
         sample_n_times = 1
+        rand_sample_negatives = False
 
         neg_bboxes_final = np.empty((0, 4), dtype=np.int64)
         while valid_neg_count < self.max_neg_patches:
+            if sample_num == 0:
+                print("[Warning]: can not get enough negative samples, do sample again.")
+                sample_num = self.max_neg_patches * 5
+                self.np_iou_thresh += 0.1
+                if self.np_iou_thresh >= 0.5:
+                    print("[Warning]: start random sampling for negative samples.")
+                    rand_sample_negatives = True
+
             ## ----- batch generating x1, y1, x2, y2
             x1x2 = np.random.randint(0, W, size=(sample_num, 2))
             y1y2 = np.random.randint(0, H, size=(sample_num, 2))
@@ -246,43 +255,45 @@ class VOCDetSSL(Dataset):
                                              np.expand_dims(y1y2[:x1x2.shape[0], 1], axis=1)), axis=1)
 
             if sample_n_times == 1:
-                ## ----- filtering by IOU check
-                neg_bboxes = filter_bbox_by_ious(neg_bboxes, pos_bboxs, self.np_iou_thresh)
+                if not rand_sample_negatives:
+                    ## ----- filtering by IOU check
+                    neg_bboxes = filter_bbox_by_ious(neg_bboxes, pos_bboxs, self.np_iou_thresh)
 
-                ## ----- filter by aspect ratio check
-                neg_bboxes = filter(lambda x: (x[2] - x[0]) /
-                                              (x[3] - x[1]) > 0.5 and
-                                              (x[2] - x[0])
-                                              / (x[3] - x[1]) < 2.0,
-                                    neg_bboxes)
-                neg_bboxes = filter(lambda x: (x[2] - x[0]) < max_bbox_w and
-                                              (x[3] - x[1]) < max_bbox_h and
-                                              (x[2] - x[0]) > 0.02 * W and
-                                              (x[3] - x[1]) > 0.02 * H,
-                                    neg_bboxes)
-                neg_bboxes = np.array(list(neg_bboxes))
+                    ## ----- filter by aspect ratio check
+                    neg_bboxes = filter(lambda x: (x[2] - x[0]) /
+                                                  (x[3] - x[1]) > 0.5 and
+                                                  (x[2] - x[0])
+                                                  / (x[3] - x[1]) < 2.0,
+                                        neg_bboxes)
+                    neg_bboxes = filter(lambda x: (x[2] - x[0]) < max_bbox_w and
+                                                  (x[3] - x[1]) < max_bbox_h and
+                                                  (x[2] - x[0]) > 0.01 * W and
+                                                  (x[3] - x[1]) > 0.01 * H,
+                                        neg_bboxes)
+                    neg_bboxes = np.array(list(neg_bboxes))
 
-                ## --- first time, copy
+                ## --- first time: copy
                 neg_bboxes_final = neg_bboxes.copy()
 
             else:
-                ## ----- filtering by IOU check
-                neg_bboxes = filter_bbox_by_ious(neg_bboxes, pos_bboxs, self.np_iou_thresh)
+                if not rand_sample_negatives:
+                    ## ----- filtering by IOU check
+                    neg_bboxes = filter_bbox_by_ious(neg_bboxes, pos_bboxs, self.np_iou_thresh)
 
-                ## ----- filter by aspect ratio check
-                neg_bboxes = filter(lambda x: (x[2] - x[0]) /
-                                              (x[3] - x[1]) > 0.5 and
-                                              (x[2] - x[0])
-                                              / (x[3] - x[1]) < 2.0,
-                                    neg_bboxes)
-                neg_bboxes = filter(lambda x: (x[2] - x[0]) < max_bbox_w and
-                                              (x[3] - x[1]) < max_bbox_h and
-                                              (x[2] - x[0]) > 0.02 * W and
-                                              (x[3] - x[1]) > 0.02 * H,
-                                    neg_bboxes)
-                neg_bboxes = np.array(list(neg_bboxes))
+                    ## ----- filter by aspect ratio check
+                    neg_bboxes = filter(lambda x: (x[2] - x[0]) /
+                                                  (x[3] - x[1]) > 0.5 and
+                                                  (x[2] - x[0])
+                                                  / (x[3] - x[1]) < 2.0,
+                                        neg_bboxes)
+                    neg_bboxes = filter(lambda x: (x[2] - x[0]) < max_bbox_w and
+                                                  (x[3] - x[1]) < max_bbox_h and
+                                                  (x[2] - x[0]) > 0.01 * W and
+                                                  (x[3] - x[1]) > 0.01 * H,
+                                        neg_bboxes)
+                    neg_bboxes = np.array(list(neg_bboxes))
 
-                ## --- not the first time, cat
+                ## --- not the first time: cat
                 if neg_bboxes_final.size > 0:
                     if neg_bboxes.size > 0:
                         neg_bboxes_final = np.concatenate([neg_bboxes_final, neg_bboxes], axis=0)
@@ -294,7 +305,7 @@ class VOCDetSSL(Dataset):
                 neg_bboxes_final = neg_bboxes_final[:self.max_neg_patches]
                 break
 
-            sample_num -= 1  # sample_num decrease the next sampling
+            sample_num -= 10  # sample_num decrease the next sampling
             sample_n_times += 1
 
         # ## ----- visualize

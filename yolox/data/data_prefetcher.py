@@ -33,17 +33,22 @@ class DataPrefetcher:
         :return:
         """
         try:  # return the items from dataset
-            self.next_input, self.next_target, q, k, n = next(self.loader)
+            self.next_input, self.next_target, \
+            self.next_q, self.next_k, self.next_n = next(self.loader)
         except StopIteration:
             self.next_input = None
             self.next_target = None
             return
 
         with torch.cuda.stream(self.stream):
-            self.input_cuda()  # put input to cuda
+            # self.input_cuda()  # put input to cuda
+            self.next_input = self.next_input.cuda(non_blocking=True)
             self.next_target = self.next_target.cuda(non_blocking=True)
 
             ## ----- TODO: put q, k, n to cuda
+            self.next_q = self.next_q.cuda(non_blocking=True)
+            self.next_k = self.next_k.cuda(non_blocking=True)
+            self.next_n = self.next_n.cuda(non_blocking=True)
 
     def next(self):
         """
@@ -53,12 +58,27 @@ class DataPrefetcher:
         input = self.next_input
         target = self.next_target
 
+        ## ----- get q,k,n
+        q = self.next_q
+        k = self.next_k
+        n = self.next_n
+
         if input is not None:
             self.record_stream(input)
+            # input.record_stream(torch.cuda.current_stream())
         if target is not None:
             target.record_stream(torch.cuda.current_stream())
 
-        self.preload()  # get input and target
+        if q is not None:
+            q.record_stream(torch.cuda.current_stream())
+        if k is not None:
+            k.record_stream(torch.cuda.current_stream())
+        if n is not None:
+            n.record_stream(torch.cuda.current_stream())
+
+        # get input and target
+        self.preload()
+
         return input, target
 
     def _input_cuda_for_image(self):
