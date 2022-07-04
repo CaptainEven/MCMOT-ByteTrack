@@ -79,8 +79,8 @@ class Exp(MyExp):
         :return:
         """
         from yolox.models.darknet_backbone import DarknetBackbone
-        from yolox.models.darknet_head import DarknetHead
-        from yolox.models.yolox_dark import YOLOXDark
+        from yolox.models.darknet_head import DarknetHeadSSL
+        from yolox.models.yolox_dark import YOLOXDarkSSL
 
         if getattr(self, "model", None) is None:
             self.cfg_file_path = os.path.abspath(self.cfg_file_path)
@@ -96,16 +96,16 @@ class Exp(MyExp):
                                        out_inds=[20, 26, 45],
                                        init_weights=True,
                                        use_momentum=True)
-            head = DarknetHead(num_classes=self.n_classes,
-                               width=self.width,
-                               strides=[8, 16, 32],
-                               in_channels=[256, 256, 512],
-                               act="lrelu",  # leaky relu
-                               depth_wise=False)  # 156 -> 96, 512 -> 192
-            self.model = YOLOXDark(cfg_path=self.cfg_file_path,
-                                   backbone=backbone,
-                                   head=head,
-                                   n_classes=self.n_classes)
+            head = DarknetHeadSSL(num_classes=self.n_classes,
+                                  width=self.width,
+                                  strides=[8, 16, 32],
+                                  in_channels=[256, 256, 512],
+                                  act="lrelu",  # leaky relu
+                                  depth_wise=False)  # 156 -> 96, 512 -> 192
+            self.model = YOLOXDarkSSL(cfg_path=self.cfg_file_path,
+                                      backbone=backbone,
+                                      head=head,
+                                      n_classes=self.n_classes)
 
         return self.model
 
@@ -124,7 +124,7 @@ class Exp(MyExp):
         :return:
         """
         from yolox.data import (
-            VOCDetection,
+            VOCDetSSL,
             TrainTransform,
             YoloBatchSampler,
             DataLoader,
@@ -146,14 +146,16 @@ class Exp(MyExp):
         #     ),
         # )
 
-        dataset = VOCDetection(data_dir=data_dir,
-                               f_list_path=self.train_f_list_path,
-                               img_size=(768, 448),
-                               preproc=TrainTransform(
-                                   rgb_means=(0.485, 0.456, 0.406),
-                                   std=(0.229, 0.224, 0.225),
-                                   max_labels=50,
-                               ), )
+        dataset = VOCDetSSL(data_dir=data_dir,
+                            f_list_path=self.train_f_list_path,
+                            img_size=(768, 448),
+                            preproc=TrainTransform(
+                                rgb_means=(0.485, 0.456, 0.406),
+                                std=(0.229, 0.224, 0.225),
+                                max_labels=50,
+                            ),
+                            max_patches=50,
+                            patch_size=(320, 320), )
 
         # dataset = MosaicDetection(
         #     dataset,

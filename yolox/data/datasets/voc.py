@@ -14,12 +14,12 @@ import torchvision.transforms as transforms
 from PIL import Image
 from loguru import logger
 
+from yolox.data.data_augment import GaussianBlur
 from yolox.evaluators.voc_eval import voc_eval
 from yolox.utils.myutils import filter_bbox_by_ious
 from .datasets_wrapper import Dataset
 from .voc_classes import C5_CLASSES
 from ..data_augment import PatchTransform
-from yolox.data.data_augment import GaussianBlur
 
 
 class AnnotationTransform(object):
@@ -193,6 +193,98 @@ class VOCDetSSL(Dataset):
 
         return target
 
+    def random_shape_crops(self, W, H, num=100):
+        """
+        :param W:
+        :param H:
+        :param num:
+        """
+        valid_count = 0
+        sample_num = num * 5
+        sample_count = 0
+
+        x1y1x2y2_final = np.empty((0, 4), dtype=np.int64)
+        while valid_count < num:
+            ## ----- batch generating x1, y1, x2, y2
+            x1x2 = np.random.randint(0, W, size=(sample_num, 2))
+            y1y2 = np.random.randint(0, H, size=(sample_num, 2))
+
+            inds = np.where(x1x2[:, 1] > x1x2[:, 0])
+            x1x2 = x1x2[inds]
+
+            inds = np.where(y1y2[:, 1] > y1y2[:, 0])
+            y1y2 = y1y2[inds]
+
+            x1y1x2y2 = np.empty((0, 4), dtype=np.int64)
+            if x1x2.shape[0] >= y1y2.shape[0]:
+                x1y1x2y2 = np.concatenate((np.expand_dims(x1x2[:y1y2.shape[0], 0], axis=1),
+                                           np.expand_dims(y1y2[:, 0], axis=1),
+                                           np.expand_dims(x1x2[:y1y2.shape[0], 1], axis=1),
+                                           np.expand_dims(y1y2[:, 1], axis=1)), axis=1)
+            else:
+                x1y1x2y2 = np.concatenate((np.expand_dims(x1x2[:, 0], axis=1),
+                                           np.expand_dims(y1y2[:x1x2.shape[0], 0], axis=1),
+                                           np.expand_dims(x1x2[:, 1], axis=1),
+                                           np.expand_dims(y1y2[:x1x2.shape[0], 1], axis=1)), axis=1)
+
+            if sample_count == 0:
+                x1y1x2y2_final = x1y1x2y2.copy()
+            else:
+                x1y1x2y2_final = np.concatenate([x1y1x2y2_final, x1y1x2y2], axis=1)
+
+            valid_count = x1y1x2y2_final.shape[0]
+            if valid_count >= num:
+                break
+
+        return x1y1x2y2_final[:num]
+
+    def random_crops(self, W, H, crop_size=(320, 320), num=100):
+        """
+        :param W: img width
+        :param H: img height
+        :param crop_size:
+        """
+        valid_count = 0
+        sample_num = num * 5
+        sample_count = 0
+
+        x1y1x2y2_final = np.empty((0, 4), dtype=np.int64)
+        while valid_count < num:
+            x1 = np.random.randint(0, W - crop_size[1], size=(sample_num))
+            y1 = np.random.randint(0, H - crop_size[0], size=(sample_num))
+
+            x2 = x1 + crop_size[1]
+            y2 = y1 + crop_size[0]
+
+            x2 = x2[x2 < W]
+            y2 = y2[y2 < H]
+
+            if x2.size > y2.size:
+                x1 = x1[:y2.size]
+                y1 = y1[:y2.size]
+                x2 = x2[:y2.size]
+            else:
+                x1 = x1[:x2.size]
+                y1 = y1[:x2.size]
+                y2 = y2[:x2.size]
+
+            x1 = np.expand_dims(x1, axis=1)
+            y1 = np.expand_dims(y1, axis=1)
+            x2 = np.expand_dims(x2, axis=1)
+            y2 = np.expand_dims(y2, axis=1)
+
+            x1y1x2y2 = np.concatenate([x1, y1, x2, y2], axis=1)
+            if sample_count == 0:
+                x1y1x2y2_final = x1y1x2y2.copy()
+            else:
+                x1y1x2y2_final = np.concatenate([x1y1x2y2_final, x1y1x2y2], axis=0)
+
+            valid_count = x1y1x2y2_final.shape[0]
+            if valid_count >= num:
+                break
+
+        return x1y1x2y2_final[:num]
+
     def gen_negatives(self, img, pos_bboxs):
         """
         Sample negative proposals
@@ -202,18 +294,25 @@ class VOCDetSSL(Dataset):
         if img is None:
             print("[Err]: empty image, exit now.")
             exit(-1)
-        if pos_bboxs.size == 0:
-            print("[Warning]: empty positive bboxes, return empty pos bboxes.")
-            return np.empty((0, 4), dtype=np.int64)
+        if pos_bboxs.size == 0:  # 不能返回empty negative和positive, 无法保证batch对齐
+            print("[Warning]: empty positive bboxes, return random negative bboxes.")
+            return self.random_crops(img.shape[1],
+                                     img.shape[0],
+                                     self.patch_size,
+                                     self.max_neg_patches)
 
         H, W = img.shape[:2]
 
-        ## Get the max positive bbox
-        areas = (pos_bboxs[:, 2] - pos_bboxs[:, 0]) \
-                * (pos_bboxs[:, 3] - pos_bboxs[:, 1])
-        max_area_id = np.argmax(areas)
-        max_bbox_w = int((pos_bboxs[max_area_id][2] - pos_bboxs[max_area_id][0]) * 0.5)
-        max_bbox_h = int((pos_bboxs[max_area_id][3] - pos_bboxs[max_area_id][1]) * 0.5)
+        ## ----- Get the max positive bbox
+        # areas = (pos_bboxs[:, 2] - pos_bboxs[:, 0]) \
+        #         * (pos_bboxs[:, 3] - pos_bboxs[:, 1])
+        # max_area_id = np.argmax(areas)
+        # max_bbox_w = int((pos_bboxs[max_area_id][2] - pos_bboxs[max_area_id][0]) * 0.5)
+        # max_bbox_h = int((pos_bboxs[max_area_id][3] - pos_bboxs[max_area_id][1]) * 0.5)
+        max_w_id = np.argmax(pos_bboxs[:, 2] - pos_bboxs[:, 0])  # x2 - x1
+        max_h_id = np.argmax(pos_bboxs[:, 3] - pos_bboxs[:, 1])  # y2 - y1
+        max_bbox_w = int((pos_bboxs[max_w_id][2] - pos_bboxs[max_w_id][0]) * 0.5)
+        max_bbox_h = int((pos_bboxs[max_w_id][3] - pos_bboxs[max_w_id][1]) * 0.5)
 
         neg_patches = []
         valid_neg_count = 0
@@ -231,28 +330,31 @@ class VOCDetSSL(Dataset):
                     print("[Warning]: start random sampling for negative samples.")
                     rand_sample_negatives = True
 
-            ## ----- batch generating x1, y1, x2, y2
-            x1x2 = np.random.randint(0, W, size=(sample_num, 2))
-            y1y2 = np.random.randint(0, H, size=(sample_num, 2))
+            if not rand_sample_negatives:
+                # x1x2 = np.random.randint(0, W, size=(sample_num, 2))
+                # y1y2 = np.random.randint(0, H, size=(sample_num, 2))
+                #
+                # inds = np.where(x1x2[:, 1] > x1x2[:, 0])
+                # x1x2 = x1x2[inds]
+                #
+                # inds = np.where(y1y2[:, 1] > y1y2[:, 0])
+                # y1y2 = y1y2[inds]
+                #
+                # neg_bboxes = np.empty((0, 4), dtype=np.int64)
+                # if x1x2.shape[0] >= y1y2.shape[0]:
+                #     neg_bboxes = np.concatenate((np.expand_dims(x1x2[:y1y2.shape[0], 0], axis=1),
+                #                                  np.expand_dims(y1y2[:, 0], axis=1),
+                #                                  np.expand_dims(x1x2[:y1y2.shape[0], 1], axis=1),
+                #                                  np.expand_dims(y1y2[:, 1], axis=1)), axis=1)
+                # else:
+                #     neg_bboxes = np.concatenate((np.expand_dims(x1x2[:, 0], axis=1),
+                #                                  np.expand_dims(y1y2[:x1x2.shape[0], 0], axis=1),
+                #                                  np.expand_dims(x1x2[:, 1], axis=1),
+                #                                   np.expand_dims(y1y2[:x1x2.shape[0], 1], axis=1)), axis=1)
 
-            inds = np.where(x1x2[:, 1] > x1x2[:, 0])
-            x1x2 = x1x2[inds]
-
-            inds = np.where(y1y2[:, 1] > y1y2[:, 0])
-            y1y2 = y1y2[inds]
-
-            neg_bboxes = np.empty((0, 4), dtype=np.int64)
-
-            if x1x2.shape[0] >= y1y2.shape[0]:
-                neg_bboxes = np.concatenate((np.expand_dims(x1x2[:y1y2.shape[0], 0], axis=1),
-                                             np.expand_dims(y1y2[:, 0], axis=1),
-                                             np.expand_dims(x1x2[:y1y2.shape[0], 1], axis=1),
-                                             np.expand_dims(y1y2[:, 1], axis=1)), axis=1)
+                neg_bboxes = self.random_shape_crops(W, H, self.max_neg_patches * 5)
             else:
-                neg_bboxes = np.concatenate((np.expand_dims(x1x2[:, 0], axis=1),
-                                             np.expand_dims(y1y2[:x1x2.shape[0], 0], axis=1),
-                                             np.expand_dims(x1x2[:, 1], axis=1),
-                                             np.expand_dims(y1y2[:x1x2.shape[0], 1], axis=1)), axis=1)
+                neg_bboxes = self.random_crops(W, H, self.patch_size, self.max_neg_patches)
 
             if sample_n_times == 1:
                 if not rand_sample_negatives:
@@ -267,8 +369,8 @@ class VOCDetSSL(Dataset):
                                         neg_bboxes)
                     neg_bboxes = filter(lambda x: (x[2] - x[0]) < max_bbox_w and
                                                   (x[3] - x[1]) < max_bbox_h and
-                                                  (x[2] - x[0]) > 0.01 * W and
-                                                  (x[3] - x[1]) > 0.01 * H,
+                                                  (x[2] - x[0]) > 0.02 * W and
+                                                  (x[3] - x[1]) > 0.02 * H,
                                         neg_bboxes)
                     neg_bboxes = np.array(list(neg_bboxes))
 
@@ -288,8 +390,8 @@ class VOCDetSSL(Dataset):
                                         neg_bboxes)
                     neg_bboxes = filter(lambda x: (x[2] - x[0]) < max_bbox_w and
                                                   (x[3] - x[1]) < max_bbox_h and
-                                                  (x[2] - x[0]) > 0.01 * W and
-                                                  (x[3] - x[1]) > 0.01 * H,
+                                                  (x[2] - x[0]) > 0.02 * W and
+                                                  (x[3] - x[1]) > 0.02 * H,
                                         neg_bboxes)
                     neg_bboxes = np.array(list(neg_bboxes))
 
@@ -300,7 +402,8 @@ class VOCDetSSL(Dataset):
                 else:
                     neg_bboxes_final = neg_bboxes.copy()
 
-            if neg_bboxes_final.shape[0] >= self.max_neg_patches:
+            valid_neg_count = neg_bboxes_final.shape[0]
+            if valid_neg_count >= self.max_neg_patches:
                 # print("[Info]: negative samples got.")
                 neg_bboxes_final = neg_bboxes_final[:self.max_neg_patches]
                 break
@@ -319,6 +422,7 @@ class VOCDetSSL(Dataset):
         #     cv2.imwrite(save_path, patch)
         #     print("{:s} saved.".format(save_path))
 
+        self.np_iou_thresh = 0.1  # reset the IOU threshold
         return neg_bboxes_final
 
     def pull_item(self, idx):
@@ -343,15 +447,18 @@ class VOCDetSSL(Dataset):
         targets = self.load_anno(idx)  # n_objs×5
         # print(target.shape)
 
-        ## ---------- load patches for query and key
-        # ----- Get positive pairs of patches
-        q = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
-        k = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
-        n = torch.zeros((self.max_neg_patches, 3, self.patch_size[0], self.patch_size[1]))
+        ## ----- Get positive bboxes
+        pos_bboxes = np.empty((0, 4), dtype=np.int64)
+        if targets.shape[0] == 0 or targets.size == 0:
+            pos_bboxes = self.random_crops(img.shape[1],
+                                           img.shape[0],
+                                           self.patch_size,
+                                           self.max_pos_patches)
+        else:
+            pos_bboxes = np.zeros((targets.shape[0], 4), dtype=np.float64)
 
         ## ----- record positive bboxes
-        pos_bboxes = np.zeros((targets.shape[0], 4), dtype=np.float64)
-
+        pos_patches = []
         for i, bbox_cls in enumerate(targets):
             if i >= self.max_pos_patches:
                 break
@@ -372,8 +479,15 @@ class VOCDetSSL(Dataset):
 
             ## ----- Get patch
             patch = img[int(y1):int(y2), int(x1):int(x2), :]
+            pos_patches.append(patch)
             pos_bboxes[i] = np.array([x1, y1, x2, y2], dtype=np.float64)
 
+        ## ---------- load patches for query and key
+        # ----- Get positive pairs of patches
+        q = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
+        k = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
+        n = torch.zeros((self.max_neg_patches, 3, self.patch_size[0], self.patch_size[1]))
+        for patch in pos_patches:
             ## ----- Resize
             patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
             q_item, k_item = self.pos_patch_transform(Image.fromarray(patch))

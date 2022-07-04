@@ -12,6 +12,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
 
 from yolox.data import DataPrefetcher
+from yolox.models.darknet_modules import load_darknet_weights
 from yolox.utils import (
     MeterBuffer,
     ModelEMA,
@@ -26,7 +27,6 @@ from yolox.utils import (
     setup_logger,
     synchronize
 )
-from yolox.models.darknet_modules import load_darknet_weights
 
 
 class Trainer:
@@ -102,14 +102,14 @@ class Trainer:
         """
         iter_start_time = time.time()
 
-        inps, targets = self.prefetcher.next()
+        inps, targets, q, k, n = self.prefetcher.next()
         inps = inps.to(self.data_type)  # data_type: torch.float16
         targets = targets.to(self.data_type)
         targets.requires_grad = False
         data_end_time = time.time()
 
         with torch.cuda.amp.autocast(enabled=self.amp_training):
-            outputs = self.model.forward(inps, targets)
+            outputs = self.model.forward(inps, targets, q, k, n)
         loss = outputs["total_loss"]
 
         self.optimizer.zero_grad()

@@ -45,7 +45,7 @@ class DataPrefetcher:
             self.next_input = self.next_input.cuda(non_blocking=True)
             self.next_target = self.next_target.cuda(non_blocking=True)
 
-            ## ----- TODO: put q, k, n to cuda
+            ## ----- put q, k, n to cuda
             self.next_q = self.next_q.cuda(non_blocking=True)
             self.next_k = self.next_k.cuda(non_blocking=True)
             self.next_n = self.next_n.cuda(non_blocking=True)
@@ -79,7 +79,7 @@ class DataPrefetcher:
         # get input and target
         self.preload()
 
-        return input, target
+        return input, target, q, k, n
 
     def _input_cuda_for_image(self):
         self.next_input = self.next_input.cuda(non_blocking=True)

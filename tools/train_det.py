@@ -55,7 +55,7 @@ def make_parser():
     ## ---------- experiment file path, eg: ../exps/example/mot/yolox_tiny_det.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
+                        default="../exps/example/mot/yolox_det_c5_dark_ssl.py",
                         type=str,
                         help="plz input your experiment description file")
 
