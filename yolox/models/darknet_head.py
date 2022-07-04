@@ -50,7 +50,7 @@ class DarknetHeadSSL(nn.Module):
         self.stems = nn.ModuleList()
 
         Conv = DWConv if depth_wise else BaseConv
-        for i in range(len(in_channels)):
+        for i in range(len(in_channels)):  # default: 3 scales: 1/8, 1/16, 1/32
             self.stems.append(BaseConv(in_channels=int(in_channels[i] * width),
                                        out_channels=int(256 * width),
                                        ksize=1,
@@ -79,6 +79,18 @@ class DarknetHeadSSL(nn.Module):
                                                        stride=1,
                                                        act=act, ), ]))
 
+            if i == 0:
+                self.reid_convs = nn.Sequential(*[Conv(in_channels=int(256 * width),
+                                                       out_channels=int(256 * width),
+                                                       ksize=3,
+                                                       stride=1,
+                                                       act=act, ),
+                                                  Conv(in_channels=int(256 * width),
+                                                       out_channels=int(256 * width),
+                                                       ksize=3,
+                                                       stride=1,
+                                                       act=act, ), ])
+
             ## ---------- Predictions
             self.cls_preds.append(nn.Conv2d(in_channels=int(256 * width),
                                             out_channels=self.n_anchors * self.num_classes,
@@ -97,10 +109,19 @@ class DarknetHeadSSL(nn.Module):
                                             stride=1,
                                             padding=0, ))
 
+            if i == 0:  # output 128 dim vector: GAP + 1×1_conv
+                self.reid_preds = nn.Sequential(*[nn.AdaptiveAvgPool2d(1),
+                                                  nn.Conv2d(in_channels=int(256 * width),
+                                                            out_channels=128,
+                                                            kernel_size=1,
+                                                            stride=1,
+                                                            padding=0),
+                                                  ])
+
         ## ----- loss function definition
         self.use_l1 = False
         self.l1_loss = nn.L1Loss(reduction="none")
-        self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
+        self.bce_log_loss = nn.BCEWithLogitsLoss(reduction="none")
         self.iou_loss = IOUloss(reduction="none")
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(in_channels)
@@ -121,9 +142,13 @@ class DarknetHeadSSL(nn.Module):
             b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
             conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
+        conv = self.reid_preds
+        b = conv.bias.view(self.n_anchors, -1)
+        b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
+        conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
+
     def forward(self, fpn_outs,
-                targets=None, imgs=None,
-                q=None, k=None, n=None):
+                targets=None, imgs=None, ):
         """
         :param fpn_outs:
         :param targets:
@@ -412,8 +437,8 @@ class DarknetHeadSSL(nn.Module):
 
         num_fg = max(num_fg, 1)
         loss_iou = (self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)).sum() / num_fg
-        loss_obj = (self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)).sum() / num_fg
-        loss_cls = (self.bcewithlog_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum() \
+        loss_obj = (self.bce_log_loss(obj_preds.view(-1, 1), obj_targets)).sum() / num_fg
+        loss_cls = (self.bce_log_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum() \
                    / num_fg
         if self.use_l1:
             loss_l1 = (
@@ -425,14 +450,12 @@ class DarknetHeadSSL(nn.Module):
         reg_weight = 5.0
         loss = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1
 
-        return (
-            loss,
-            reg_weight * loss_iou,
-            loss_obj,
-            loss_cls,
-            loss_l1,
-            num_fg / max(num_gts, 1),
-        )
+        return (loss,
+                reg_weight * loss_iou,
+                loss_obj,
+                loss_cls,
+                loss_l1,
+                num_fg / max(num_gts, 1),)
 
     def get_l1_target(self, l1_target, gt, stride, x_shifts, y_shifts, eps=1e-8):
         """
