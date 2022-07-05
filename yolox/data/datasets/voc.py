@@ -99,10 +99,10 @@ class VOCDetSSL(Dataset):
                  img_size=(768, 448),
                  preproc=None,
                  target_transform=AnnotationTransform(),
-                 max_patches=50,
-                 num_negatives=100,
+                 max_patches=30,
+                 num_negatives=30,
                  neg_pos_iou_thresh=0.1,
-                 patch_size=(320, 320)):
+                 patch_size=(224, 224)):
         """
         :param data_dir:
         :param img_size:
@@ -295,7 +295,7 @@ class VOCDetSSL(Dataset):
             print("[Err]: empty image, exit now.")
             exit(-1)
         if pos_bboxs.size == 0:  # 不能返回empty negative和positive, 无法保证batch对齐
-            print("[Warning]: empty positive bboxes, return random negative bboxes.")
+            # print("[Warning]: empty positive bboxes, return random negative bboxes.")
             return self.random_crops(img.shape[1],
                                      img.shape[0],
                                      self.patch_size,
@@ -323,11 +323,11 @@ class VOCDetSSL(Dataset):
         neg_bboxes_final = np.empty((0, 4), dtype=np.int64)
         while valid_neg_count < self.max_neg_patches:
             if sample_num == 0:
-                print("[Warning]: can not get enough negative samples, do sample again.")
+                # print("[Warning]: can not get enough negative samples, do sample again.")
                 sample_num = self.max_neg_patches * 5
                 self.np_iou_thresh += 0.1
                 if self.np_iou_thresh >= 0.5:
-                    print("[Warning]: start random sampling for negative samples.")
+                    # print("[Warning]: start random sampling for negative samples.")
                     rand_sample_negatives = True
 
             if not rand_sample_negatives:
@@ -489,7 +489,12 @@ class VOCDetSSL(Dataset):
         n = torch.zeros((self.max_neg_patches, 3, self.patch_size[0], self.patch_size[1]))
         for patch in pos_patches:
             ## ----- Resize
-            patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
+            if patch is None:
+                continue
+            try:
+                patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
+            except Exception as e:
+                print(e)
             q_item, k_item = self.pos_patch_transform(Image.fromarray(patch))
             q[i] = q_item
             k[i] = k_item

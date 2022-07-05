@@ -126,6 +126,7 @@ class DarknetHeadSSL(nn.Module):
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(in_channels)
         self.expanded_strides = [None] * len(in_channels)
+        self.softmax_loss = nn.CrossEntropyLoss()
 
     def initialize_biases(self, prior_prob):
         """

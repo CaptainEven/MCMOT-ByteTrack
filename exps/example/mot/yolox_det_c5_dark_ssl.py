@@ -29,8 +29,8 @@ class Exp(MyExp):
         self.width = 0.5
 
         ## ----- Define file list path(imgs and txts(labels) path)
-        self.train_f_list_path = "../datasets/train_all.txt"
-        self.test_f_list_path = "../datasets/test3000.txt"
+        self.train_f_list_path = "/mnt/diskb/even/ByteTrack/datasets/train_all.txt"
+        self.test_f_list_path = "/mnt/diskb/even/ByteTrack/datasets/test3000.txt"
         self.train_f_list_path = os.path.abspath(self.train_f_list_path)
         self.test_f_list_path = os.path.abspath(self.test_f_list_path)
         if not os.path.isfile(self.train_f_list_path):
@@ -155,7 +155,7 @@ class Exp(MyExp):
                                 max_labels=50,
                             ),
                             max_patches=50,
-                            patch_size=(320, 320), )
+                            patch_size=(224, 224), )
 
         # dataset = MosaicDetection(
         #     dataset,

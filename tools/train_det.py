@@ -95,13 +95,6 @@ def make_parser():
                         type=str,
                         help="url used to set up distributed training")
 
-    ## ---------- batch size and device id
-    parser.add_argument("-b",
-                        "--batch-size",
-                        type=int,
-                        default=4,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
-                        help="batch size")
-
     ## ----------
     parser.add_argument("--local_rank",
                         default=0,
@@ -145,16 +138,24 @@ def make_parser():
                         default=None,
                         nargs=argparse.REMAINDER, )
 
+    ## ---------- batch size and device id
+    parser.add_argument("-b",
+                        "--batch-size",
+                        type=int,
+                        default=3,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
+                        help="batch size")
+
     ## ----- set devices
     parser.add_argument("-nd",
                         "--n_devices",
                         type=int,
                         default=1,  # number of devices(gpus)
                         help="device for training")
+
     parser.add_argument("-d",
                         "--devices",
                         type=str,
-                        default="7",
+                        default="2",
                         help="The device(GPU) ids.")
 
     return parser
