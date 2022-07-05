@@ -117,8 +117,9 @@ class YOLOXDarkSSL(nn.Module):
                 # labels: positive key indicators
                 labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
                 l_ssl = self.head.softmax_loss(logits, labels)
-                ssl_loss = ssl_loss + l_ssl
-            loss = loss + ssl_loss
+                ssl_loss += l_ssl
+            ssl_loss /= num_gt
+            loss += ssl_loss
 
             outputs = {
                 "total_loss": loss,

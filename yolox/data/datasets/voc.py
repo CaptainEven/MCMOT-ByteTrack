@@ -449,38 +449,45 @@ class VOCDetSSL(Dataset):
 
         ## ----- Get positive bboxes
         pos_bboxes = np.empty((0, 4), dtype=np.int64)
-        if targets.shape[0] == 0 or targets.size == 0:
+        pos_patches = []
+
+        if targets.size == 0:
             pos_bboxes = self.random_crops(img.shape[1],
                                            img.shape[0],
                                            self.patch_size,
                                            self.max_pos_patches)
+            for i, bbox in enumerate(pos_bboxes):
+                x1, y1, x2, y2 = bbox
+
+                ## ----- Get patch
+                patch = img[int(y1):int(y2), int(x1):int(x2), :]
+                pos_patches.append(patch)
         else:
             pos_bboxes = np.zeros((targets.shape[0], 4), dtype=np.float64)
 
-        ## ----- record positive bboxes
-        pos_patches = []
-        for i, bbox_cls in enumerate(targets):
-            if i >= self.max_pos_patches:
-                break
+            ## ----- record positive bboxes
+            for i, bbox_cls in enumerate(targets):
+                if i >= self.max_pos_patches:
+                    break
 
-            x1, y1, x2, y2, cls_id = bbox_cls
+                x1, y1, x2, y2, cls_id = bbox_cls
 
-            x1 = x1 if x1 >= 0 else 0
-            x1 = x1 if x1 < width else width - 1
+                x1 = x1 if x1 >= 0 else 0
+                x1 = x1 if x1 < width else width - 1
 
-            y1 = y1 if y1 >= 0 else 0
-            y1 = y1 if y1 < height else height - 1
+                y1 = y1 if y1 >= 0 else 0
+                y1 = y1 if y1 < height else height - 1
 
-            x2 = x2 if x2 >= 0 else 0
-            x2 = x2 if x2 < width else width - 1
+                x2 = x2 if x2 >= 0 else 0
+                x2 = x2 if x2 < width else width - 1
 
-            y2 = y2 if y2 >= 0 else 0
-            y2 = y2 if y2 < height else height - 1
+                y2 = y2 if y2 >= 0 else 0
+                y2 = y2 if y2 < height else height - 1
 
-            ## ----- Get patch
-            patch = img[int(y1):int(y2), int(x1):int(x2), :]
-            pos_patches.append(patch)
-            pos_bboxes[i] = np.array([x1, y1, x2, y2], dtype=np.float64)
+                ## ----- Get patch
+                patch = img[int(y1):int(y2), int(x1):int(x2), :]
+                pos_patches.append(patch)
+                pos_bboxes[i] = np.array([x1, y1, x2, y2], dtype=np.float64)
 
         ## ---------- load patches for query and key
         # ----- Get positive pairs of patches
@@ -489,7 +496,7 @@ class VOCDetSSL(Dataset):
         n = torch.zeros((self.max_neg_patches, 3, self.patch_size[0], self.patch_size[1]))
         for patch in pos_patches:
             ## ----- Resize
-            if patch is None:
+            if patch.size == 0:
                 continue
             try:
                 patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
