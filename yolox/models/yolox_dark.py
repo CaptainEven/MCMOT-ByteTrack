@@ -57,7 +57,7 @@ class YOLOXDarkSSL(nn.Module):
             loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = \
                 self.head.forward(fpn_outs, targets, inps)
 
-            ## ---------- TODO: Calculate SSL loss
+            ## ---------- Calculate SSL loss
             # ----- reshape the q,k,n
             q = q.reshape(q.shape[0]*q.shape[1], q.shape[2], q.shape[3], q.shape[4])
             k = k.reshape(k.shape[0]*k.shape[1], k.shape[2], k.shape[3], k.shape[4])
