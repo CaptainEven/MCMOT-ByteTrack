@@ -126,7 +126,9 @@ class MeterBuffer(defaultdict):
         """
         if values is None:
             values = {}
+
         values.update(kwargs)
+
         for k, v in values.items():
             if isinstance(v, torch.Tensor):
                 v = v.detach()

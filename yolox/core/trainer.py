@@ -128,6 +128,7 @@ class Trainer:
         self.meter.update(iter_time=iter_end_time - iter_start_time,
                           data_time=data_end_time - iter_start_time,
                           lr=lr,
+                          num_objs=outputs["num_fg"],
                           **outputs, )
 
     def before_train(self):
