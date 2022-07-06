@@ -108,6 +108,7 @@ class VOCDetSSL(Dataset):
         :param img_size:
         :param preproc:
         :param target_transform:
+        :param patch_size: h, w
         """
         super().__init__(img_size)
 
@@ -451,7 +452,7 @@ class VOCDetSSL(Dataset):
         pos_bboxes = np.empty((0, 4), dtype=np.int64)
         pos_patches = []
 
-        if targets.size == 0:
+        if targets.size == 0:  # empty objs
             pos_bboxes = self.random_crops(img.shape[1],
                                            img.shape[0],
                                            self.patch_size,
@@ -494,17 +495,22 @@ class VOCDetSSL(Dataset):
         q = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
         k = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
         n = torch.zeros((self.max_neg_patches, 3, self.patch_size[0], self.patch_size[1]))
-        for patch in pos_patches:
+        for i, patch in enumerate(pos_patches):
             ## ----- Resize
-            if patch.size == 0:
+            if patch.size == 0:  # empty positive patch
                 continue
+
             try:
                 patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
             except Exception as e:
                 print(e)
-            q_item, k_item = self.pos_patch_transform(Image.fromarray(patch))
-            q[i] = q_item
-            k[i] = k_item
+            try:
+                q_item, k_item = self.pos_patch_transform(Image.fromarray(patch))
+                q[i] = q_item
+                k[i] = k_item
+            except Exception as e:
+                print(e)
+                print(img_path, q_item, k_item)
 
         # img_hw = (height, width)
 
