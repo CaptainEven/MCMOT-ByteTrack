@@ -367,6 +367,7 @@ class TrainTransform:
         boxes = xyxy2cxcywh(boxes)
         boxes *= r_
 
+        ## ----- minimum bbox threshold
         mask_b = np.minimum(boxes[:, 2], boxes[:, 3]) > 8
         boxes_t = boxes[mask_b]
         labels_t = labels[mask_b]
