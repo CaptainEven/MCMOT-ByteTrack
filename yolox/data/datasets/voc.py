@@ -332,27 +332,6 @@ class VOCDetSSL(Dataset):
                     rand_sample_negatives = True
 
             if not rand_sample_negatives:
-                # x1x2 = np.random.randint(0, W, size=(sample_num, 2))
-                # y1y2 = np.random.randint(0, H, size=(sample_num, 2))
-                #
-                # inds = np.where(x1x2[:, 1] > x1x2[:, 0])
-                # x1x2 = x1x2[inds]
-                #
-                # inds = np.where(y1y2[:, 1] > y1y2[:, 0])
-                # y1y2 = y1y2[inds]
-                #
-                # neg_bboxes = np.empty((0, 4), dtype=np.int64)
-                # if x1x2.shape[0] >= y1y2.shape[0]:
-                #     neg_bboxes = np.concatenate((np.expand_dims(x1x2[:y1y2.shape[0], 0], axis=1),
-                #                                  np.expand_dims(y1y2[:, 0], axis=1),
-                #                                  np.expand_dims(x1x2[:y1y2.shape[0], 1], axis=1),
-                #                                  np.expand_dims(y1y2[:, 1], axis=1)), axis=1)
-                # else:
-                #     neg_bboxes = np.concatenate((np.expand_dims(x1x2[:, 0], axis=1),
-                #                                  np.expand_dims(y1y2[:x1x2.shape[0], 0], axis=1),
-                #                                  np.expand_dims(x1x2[:, 1], axis=1),
-                #                                   np.expand_dims(y1y2[:x1x2.shape[0], 1], axis=1)), axis=1)
-
                 neg_bboxes = self.random_shape_crops(W, H, self.max_neg_patches * 5)
             else:
                 neg_bboxes = self.random_crops(W, H, self.patch_size, self.max_neg_patches)
