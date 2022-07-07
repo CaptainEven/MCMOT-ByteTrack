@@ -423,6 +423,9 @@ class VOCDetSSL(Dataset):
 
         self.np_iou_thresh = 0.1  # reset the IOU threshold
 
+        if neg_bboxes_final.shape[0] < self.max_neg_patches:
+            neg_bboxes_final = self.random_crops(W, H, self.patch_size, self.max_neg_patches)
+
         return neg_bboxes_final
 
     def pull_item(self, idx):
