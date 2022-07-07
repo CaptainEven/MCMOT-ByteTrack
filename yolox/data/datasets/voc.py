@@ -99,7 +99,7 @@ class VOCDetSSL(Dataset):
                  img_size=(768, 448),
                  preproc=None,
                  target_transform=AnnotationTransform(),
-                 max_patches=30,
+                 max_patches=50,
                  num_negatives=30,
                  neg_pos_iou_thresh=0.1,
                  patch_size=(224, 224)):
