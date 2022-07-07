@@ -9,13 +9,6 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="jaya@10.8.3.1:22">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
     </serverData>
     <option name="myAutoUpload" value="ALWAYS" />
   </component>

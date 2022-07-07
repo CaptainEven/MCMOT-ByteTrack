@@ -239,11 +239,17 @@ class VOCDetSSL(Dataset):
 
         return x1y1x2y2_final[:num]
 
-    def random_crops(self, W, H, crop_size=(320, 320), num=100):
+    def random_crops(self,
+                     W, H,
+                     crop_size=(320, 320),
+                     num=100,
+                     max_sample_times=30):
         """
         :param W: img width
         :param H: img height
         :param crop_size:
+        :param num:
+        :param max_sample_times:
         """
         valid_count = 0
         sample_num = num * 5
@@ -251,6 +257,9 @@ class VOCDetSSL(Dataset):
 
         x1y1x2y2_final = np.empty((0, 4), dtype=np.int64)
         while valid_count < num:
+            if sample_count > max_sample_times:
+                break
+
             x1 = np.random.randint(0, W - crop_size[1], size=(sample_num))
             y1 = np.random.randint(0, H - crop_size[0], size=(sample_num))
 
@@ -284,13 +293,20 @@ class VOCDetSSL(Dataset):
             if valid_count >= num:
                 break
 
-        return x1y1x2y2_final[:num]
+        if x1y1x2y2_final.shape[0] > num:
+            return x1y1x2y2_final[:num]
+        else:
+            return x1y1x2y2_final
 
-    def gen_negatives(self, img, pos_bboxs):
+    def gen_negatives(self,
+                      img,
+                      pos_bboxs,
+                      max_sample_times=30):
         """
         Sample negative proposals
         :param img:
         :param pos_bboxs:
+        :param max_sample_times:
         """
         if img is None:
             print("[Err]: empty image, exit now.")
@@ -323,6 +339,9 @@ class VOCDetSSL(Dataset):
 
         neg_bboxes_final = np.empty((0, 4), dtype=np.int64)
         while valid_neg_count < self.max_neg_patches:
+            if sample_n_times > max_sample_times:
+                break
+
             if sample_num == 0:
                 # print("[Warning]: can not get enough negative samples, do sample again.")
                 sample_num = self.max_neg_patches * 5
@@ -403,6 +422,7 @@ class VOCDetSSL(Dataset):
         #     print("{:s} saved.".format(save_path))
 
         self.np_iou_thresh = 0.1  # reset the IOU threshold
+
         return neg_bboxes_final
 
     def pull_item(self, idx):
