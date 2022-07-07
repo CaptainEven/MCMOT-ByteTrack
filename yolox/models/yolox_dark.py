@@ -60,12 +60,10 @@ class YOLOXDarkSSL(nn.Module):
             ## ---------- Calculate SSL loss
             # ---number of objects
             valid_lb_inds = targets.sum(dim=2) > 0  # batch_size×50(True | False)
-            n_objs = valid_lb_inds.sum(dim=1)  # batch_size×n_lb_valid
-            # print(n_objs)
+            num_gts = valid_lb_inds.sum(dim=1)  # batch_size×n_lb_valid
 
-            ssl_contrastive_loss = 0.0
-            ssl_sm_loss = 0.0
-            for batch_idx, num_gt in enumerate(n_objs):
+            ssl_loss = 0.0
+            for batch_idx, num_gt in enumerate(num_gts):
                 num_gt = int(num_gt)
                 if num_gt == 0:
                     continue
@@ -96,20 +94,19 @@ class YOLOXDarkSSL(nn.Module):
 
                 # ---------- SSL loss calculation
                 ## ---------- processing each sample(image) of the batch
-                q_vectors = q_vectors[:num_gt]
+                q_vectors = q_vectors[:num_gt]  # num_gt×128
                 k_vectors = k_vectors[:num_gt]
-                # print(q_vectors.shape)  # 17×128
 
                 ## ----- Calculate similarity matrix loss
                 sm_output = torch.mm(q_vectors, k_vectors.T)
                 sm_diff = sm_output - torch.eye(num_gt).cuda()
                 sm_diff = torch.pow(sm_diff, 2)
                 l_ssl_sm = sm_diff.sum()
-                ssl_sm_loss += l_ssl_sm / (num_gt * num_gt)
+                ssl_loss += l_ssl_sm / (num_gt * num_gt)
 
                 ## --- compute logits
                 # Einstein sum is more intuitive
-                # dot product, positive logits: Nx1
+                # dot product, positive logits: nx1
                 l_pos = torch.einsum('nc,nc->n', [q_vectors, k_vectors]).unsqueeze(-1)
 
                 # negative logits: NxK
@@ -124,11 +121,9 @@ class YOLOXDarkSSL(nn.Module):
                 # labels: positive key indicators
                 labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
                 l_ssl_contrast = self.head.softmax_loss(logits, labels)
+                ssl_loss += l_ssl_contrast / num_gt
 
-                ssl_contrastive_loss += l_ssl_contrast / num_gt
-
-            loss += ssl_sm_loss
-            loss += ssl_contrastive_loss
+            loss += ssl_loss
 
             outputs = {
                 "total_loss": loss,
@@ -136,7 +131,7 @@ class YOLOXDarkSSL(nn.Module):
                 "l1_loss": l1_loss,
                 "conf_loss": conf_loss,
                 "cls_loss": cls_loss,
-                "ssl_loss": ssl_contrastive_loss,
+                "ssl_loss": ssl_loss,
                 "num_fg": num_fg,
             }
         else:
