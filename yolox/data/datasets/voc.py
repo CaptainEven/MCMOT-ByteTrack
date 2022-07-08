@@ -102,7 +102,8 @@ class VOCDetSSL(Dataset):
                  max_patches=50,
                  num_negatives=30,
                  neg_pos_iou_thresh=0.1,
-                 patch_size=(224, 224)):
+                 patch_size=(224, 224),
+                 max_sample_times=15):
         """
         :param data_dir:
         :param img_size:
@@ -126,6 +127,8 @@ class VOCDetSSL(Dataset):
 
         self.preproc = preproc
         self.target_transform = target_transform
+
+        self.max_sample_times = max_sample_times
 
         # self._annopath = os.path.join("%s", "Annotations", "%s.xml")
         # self._imgpath = os.path.join("%s", "JPEGImages", "%s.jpg")
@@ -316,7 +319,8 @@ class VOCDetSSL(Dataset):
             return self.random_crops(img.shape[1],
                                      img.shape[0],
                                      self.patch_size,
-                                     self.max_neg_patches)
+                                     self.max_neg_patches,
+                                     self.max_sample_times)
 
         H, W = img.shape[:2]
 
@@ -353,7 +357,11 @@ class VOCDetSSL(Dataset):
             if not rand_sample_negatives:
                 neg_bboxes = self.random_shape_crops(W, H, self.max_neg_patches * 5)
             else:
-                neg_bboxes = self.random_crops(W, H, self.patch_size, self.max_neg_patches)
+                neg_bboxes = self.random_crops(W,
+                                               H,
+                                               self.patch_size,
+                                               self.max_neg_patches,
+                                               self.max_sample_times)
 
             if sample_n_times == 1:
                 if not rand_sample_negatives:
@@ -425,7 +433,11 @@ class VOCDetSSL(Dataset):
         self.np_iou_thresh = 0.1
 
         if neg_bboxes_final.shape[0] < self.max_neg_patches:
-            neg_bboxes_final = self.random_crops(W, H, self.patch_size, self.max_neg_patches)
+            neg_bboxes_final = self.random_crops(W,
+                                                 H,
+                                                 self.patch_size,
+                                                 self.max_neg_patches,
+                                                 self.max_sample_times)
 
         return neg_bboxes_final
 
@@ -459,7 +471,8 @@ class VOCDetSSL(Dataset):
             pos_bboxes = self.random_crops(img.shape[1],
                                            img.shape[0],
                                            self.patch_size,
-                                           self.max_pos_patches)
+                                           self.max_pos_patches,
+                                           self.max_sample_times)
             for i, bbox in enumerate(pos_bboxes):
                 x1, y1, x2, y2 = bbox
 
@@ -518,7 +531,7 @@ class VOCDetSSL(Dataset):
         # img_hw = (height, width)
 
         ## ----- Generate negative samples
-        neg_bboxes = self.gen_negatives(img, pos_bboxes)
+        neg_bboxes = self.gen_negatives(img, pos_bboxes, self.max_sample_times)
         for i, neg_bbox in enumerate(neg_bboxes):
             x1, y1, x2, y2 = neg_bbox
             patch = img[int(y1):int(y2), int(x1):int(x2), :]
