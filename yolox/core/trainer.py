@@ -251,18 +251,17 @@ class Trainer:
             eta_seconds = self.meter["iter_time"].global_avg * left_iters
             eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
 
-            progress_str = "epoch: {}/{}, iter: {}/{}".format(self.epoch + 1,
+            progress_str = "epoch: {}/{} | iter: {}/{}".format(self.epoch + 1,
                                                               self.max_epoch,
                                                               self.iter + 1,
                                                               self.max_iter)
             loss_meter = self.meter.get_filtered_meter("loss")
-            loss_str = ", ".join(["{}: {:.3f}".format(k, v.latest)
+            loss_str = " | ".join(["{}: {:.3f}".format(k, v.latest)
                                   for k, v in loss_meter.items()])
 
             time_meter = self.meter.get_filtered_meter("time")
-            time_str = ", ".join(
-                ["{}: {:.3f}s".format(k, v.avg) for k, v in time_meter.items()]
-            )
+            time_str = ", ".join(["{}: {:.3f}s".format(k, v.avg)
+                                  for k, v in time_meter.items()])
 
             # logger.info("{}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}"
             #             .format(progress_str,
