@@ -499,11 +499,11 @@ class VOCDetSSL(Dataset):
             pos_bboxes = np.zeros((targets.shape[0], 4), dtype=np.float64)
 
             ## ----- record positive bboxes
-            for i, bbox_cls in enumerate(targets):
+            for i, bbox_clsid in enumerate(targets):
                 if i >= self.max_pos_patches:
                     break
 
-                x1, y1, x2, y2, cls_id = bbox_cls
+                x1, y1, x2, y2, cls_id = bbox_clsid
 
                 x1 = x1 if x1 >= 0 else 0
                 x1 = x1 if x1 < width else width - 1
