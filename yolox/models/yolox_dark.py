@@ -63,6 +63,7 @@ class YOLOXDarkSSL(nn.Module):
             num_gts = valid_lb_inds.sum(dim=1)  # batch_size×n_lb_valid
 
             ssl_loss = 0.0
+            tri_loss = 0.0
             for batch_idx, num_gt in enumerate(num_gts):
                 num_gt = int(num_gt)
                 if num_gt == 0:
@@ -97,12 +98,34 @@ class YOLOXDarkSSL(nn.Module):
                 q_vectors = q_vectors[:num_gt]  # num_gt×128
                 k_vectors = k_vectors[:num_gt]
 
-                ## ----- Calculate similarity matrix loss
-                sm_output = torch.mm(q_vectors, k_vectors.T)
-                sm_diff = sm_output - torch.eye(num_gt).cuda()
-                sm_diff = torch.pow(sm_diff, 2)
-                l_ssl_sm = sm_diff.sum()
-                ssl_loss += l_ssl_sm / (num_gt * num_gt)
+                # ## ----- Calculate similarity matrix loss
+                # sm_output = torch.mm(q_vectors, k_vectors.T)
+                # sm_diff = sm_output - torch.eye(num_gt).cuda()
+                # sm_diff = torch.pow(sm_diff, 2)
+                # l_ssl_sm = sm_diff.sum()
+                # ssl_loss += l_ssl_sm / (num_gt * num_gt)
+
+                ## ----- Calculate Triplet loss
+                tri_cnt = 0
+                for i in range(q_vectors.shape[0]):
+                    anc = q_vectors[i]
+                    pos = k_vectors[i]
+                    for j in range(k_vectors.shape[0]):
+                        if j != i:
+                            neg = k_vectors[j]
+                            tri_loss += self.head.triplet_loss.forward(anc, pos, neg)
+                            tri_cnt += 1
+                for i in range(k_vectors.shape[0]):
+                    anc = k_vectors[i]
+                    pos = q_vectors[i]
+                    for j in range(q_vectors.shape[0]):
+                        if j != i:
+                            neg = q_vectors[j]
+                            tri_loss += self.head.triplet_loss.forward(anc, pos, neg)
+                            tri_cnt += 1
+
+                if tri_cnt > 0:
+                    ssl_loss += tri_loss / tri_cnt
 
                 ## --- compute logits
                 # Einstein sum is more intuitive

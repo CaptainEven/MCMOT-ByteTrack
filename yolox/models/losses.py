@@ -242,9 +242,13 @@ class TripletLoss(nn.Module):
         :param pos:
         :param neg:
         """
-        pos_dist = torch.mm(anc, pos.T)
-        neg_dist = torch.mm(anc, neg.T)
-        loss = torch.max(pos_dist - neg_dist + self.margin, 0.0)
+        # anc = torch.
+        pos_dist = torch.dot(anc, pos)
+        neg_dist = torch.dot(anc, neg)
+        loss = pos_dist - neg_dist + self.margin
 
-        return loss
+        if loss > 0.0:
+            return loss
+        else:
+            return 0.0
 
