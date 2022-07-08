@@ -246,7 +246,6 @@ class TripletLoss(nn.Module):
         pos_dist = torch.dot(anc, pos)
         neg_dist = torch.dot(anc, neg)
         loss = pos_dist - neg_dist + self.margin
-
         if loss > 0.0:
             return loss
         else:
