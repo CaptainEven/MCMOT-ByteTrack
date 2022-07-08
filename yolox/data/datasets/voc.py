@@ -103,7 +103,7 @@ class VOCDetSSL(Dataset):
                  num_negatives=30,
                  neg_pos_iou_thresh=0.1,
                  patch_size=(224, 224),
-                 max_sample_times=15):
+                 max_sample_times=10):
         """
         :param data_dir:
         :param img_size:
@@ -197,18 +197,22 @@ class VOCDetSSL(Dataset):
 
         return target
 
-    def random_shape_crops(self, W, H, num=100):
+    def random_shape_crops(self, W, H, num=100, max_sample_times=10):
         """
         :param W:
         :param H:
         :param num:
+        :param max_sample_times:
         """
         valid_count = 0
         sample_num = num * 5
-        sample_count = 0
+        sample_n_times = 0
 
         x1y1x2y2_final = np.empty((0, 4), dtype=np.int64)
         while valid_count < num:
+            if sample_n_times > max_sample_times:
+                break
+
             ## ----- batch generating x1, y1, x2, y2
             x1x2 = np.random.randint(0, W, size=(sample_num, 2))
             y1y2 = np.random.randint(0, H, size=(sample_num, 2))
@@ -231,7 +235,7 @@ class VOCDetSSL(Dataset):
                                            np.expand_dims(x1x2[:, 1], axis=1),
                                            np.expand_dims(y1y2[:x1x2.shape[0], 1], axis=1)), axis=1)
 
-            if sample_count == 0:
+            if sample_n_times == 0:
                 x1y1x2y2_final = x1y1x2y2.copy()
             else:
                 x1y1x2y2_final = np.concatenate([x1y1x2y2_final, x1y1x2y2], axis=1)
@@ -240,7 +244,10 @@ class VOCDetSSL(Dataset):
             if valid_count >= num:
                 break
 
-        return x1y1x2y2_final[:num]
+        if x1y1x2y2_final.shape[0] >= num:
+            return x1y1x2y2_final[:num]
+        else:
+            return x1y1x2y2_final
 
     def random_crops(self,
                      W, H,
@@ -256,11 +263,11 @@ class VOCDetSSL(Dataset):
         """
         valid_count = 0
         sample_num = num * 5
-        sample_count = 0
+        sample_n_times = 0
 
         x1y1x2y2_final = np.empty((0, 4), dtype=np.int64)
         while valid_count < num:
-            if sample_count > max_sample_times:
+            if sample_n_times > max_sample_times:
                 break
 
             x1 = np.random.randint(0, W - crop_size[1], size=(sample_num))
@@ -287,7 +294,7 @@ class VOCDetSSL(Dataset):
             y2 = np.expand_dims(y2, axis=1)
 
             x1y1x2y2 = np.concatenate([x1, y1, x2, y2], axis=1)
-            if sample_count == 0:
+            if sample_n_times == 0:
                 x1y1x2y2_final = x1y1x2y2.copy()
             else:
                 x1y1x2y2_final = np.concatenate([x1y1x2y2_final, x1y1x2y2], axis=0)
@@ -296,7 +303,7 @@ class VOCDetSSL(Dataset):
             if valid_count >= num:
                 break
 
-        if x1y1x2y2_final.shape[0] > num:
+        if x1y1x2y2_final.shape[0] >= num:
             return x1y1x2y2_final[:num]
         else:
             return x1y1x2y2_final
@@ -355,7 +362,10 @@ class VOCDetSSL(Dataset):
                     rand_sample_negatives = True
 
             if not rand_sample_negatives:
-                neg_bboxes = self.random_shape_crops(W, H, self.max_neg_patches * 5)
+                neg_bboxes = self.random_shape_crops(W,
+                                                     H,
+                                                     self.max_neg_patches * 5,
+                                                     self.max_sample_times)
             else:
                 neg_bboxes = self.random_crops(W,
                                                H,
@@ -433,11 +443,12 @@ class VOCDetSSL(Dataset):
         self.np_iou_thresh = 0.1
 
         if neg_bboxes_final.shape[0] < self.max_neg_patches:
-            neg_bboxes_final = self.random_crops(W,
-                                                 H,
-                                                 self.patch_size,
-                                                 self.max_neg_patches,
-                                                 self.max_sample_times)
+            more_neg_bboxes = self.random_crops(W,
+                                                H,
+                                                self.patch_size,
+                                                self.max_neg_patches,
+                                                self.max_neg_patches - neg_bboxes_final.shape[0])
+            neg_bboxes_final = np.concatenate([neg_bboxes_final, more_neg_bboxes], axis=0)
 
         return neg_bboxes_final
 
