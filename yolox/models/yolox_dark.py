@@ -105,7 +105,7 @@ class YOLOXDarkSSL(nn.Module):
                 l_ssl_sm = sm_diff.sum()
                 ssl_loss += l_ssl_sm / (num_gt * num_gt)
 
-                ## ----- TODO: Calculate similarity loss
+                ## ----- TODO: Calculate scale-consistency feature(尺度特征) loss
                 ## of feature map and patch feature vector difference
 
                 ## ----- Calculate Triplet loss
