@@ -264,13 +264,22 @@ class Trainer:
                 ["{}: {:.3f}s".format(k, v.avg) for k, v in time_meter.items()]
             )
 
-            logger.info("{}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}"
-                        .format(progress_str,
-                                gpu_mem_usage(),
-                                time_str,
-                                loss_str,
-                                self.meter["lr"].latest, )
-                        + (", size: {:d}, {}".format(self.input_size[0], eta_str)))
+            # logger.info("{}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}"
+            #             .format(progress_str,
+            #                     gpu_mem_usage(),
+            #                     time_str,
+            #                     loss_str,
+            #                     self.meter["lr"].latest, )
+            #             + (", size: {:d}, {}".format(self.input_size[0], eta_str)))
+
+            print("{}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}"
+                  .format(progress_str,
+                          gpu_mem_usage(),
+                          time_str,
+                          loss_str,
+                          self.meter["lr"].latest, )
+                  + (", size: {:d}, {}".format(self.input_size[0], eta_str)))
+
             self.meter.clear_meters()
 
         ## ----- @even: save ckpt during an epoch

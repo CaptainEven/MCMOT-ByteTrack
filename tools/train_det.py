@@ -142,7 +142,7 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=3,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
+                        default=4,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
 
     ## ----- set devices
