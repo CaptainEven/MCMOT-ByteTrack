@@ -103,7 +103,7 @@ class VOCDetSSL(Dataset):
                  num_negatives=30,
                  neg_pos_iou_thresh=0.1,
                  patch_size=(224, 224),
-                 max_sample_times=10):
+                 max_sample_times=8):
         """
         :param data_dir:
         :param img_size:
@@ -415,7 +415,8 @@ class VOCDetSSL(Dataset):
                 ## --- not the first time: cat
                 if neg_bboxes_final.size > 0:
                     if neg_bboxes.size > 0:
-                        neg_bboxes_final = np.concatenate([neg_bboxes_final, neg_bboxes], axis=0)
+                        neg_bboxes_final = np.concatenate([neg_bboxes_final, neg_bboxes],
+                                                          axis=0)
                 else:
                     neg_bboxes_final = neg_bboxes.copy()
 
@@ -451,7 +452,8 @@ class VOCDetSSL(Dataset):
             if neg_bboxes_final.size == 0:
                 neg_bboxes_final = more_neg_bboxes.copy()
             else:
-                neg_bboxes_final = np.concatenate([neg_bboxes_final, more_neg_bboxes], axis=0)
+                neg_bboxes_final = np.concatenate([neg_bboxes_final, more_neg_bboxes],
+                                                  axis=0)
 
         return neg_bboxes_final
 
