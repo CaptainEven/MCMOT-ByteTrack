@@ -421,7 +421,8 @@ class VOCDetSSL(Dataset):
         #     cv2.imwrite(save_path, patch)
         #     print("{:s} saved.".format(save_path))
 
-        self.np_iou_thresh = 0.1  # reset the IOU threshold
+        ## ----- reset the IOU threshold
+        self.np_iou_thresh = 0.1
 
         if neg_bboxes_final.shape[0] < self.max_neg_patches:
             neg_bboxes_final = self.random_crops(W, H, self.patch_size, self.max_neg_patches)

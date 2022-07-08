@@ -71,8 +71,7 @@ class Exp(MyExp):
 
         self.n_classes = 5
         self.cfg_file_path = "../cfg/yolox_darknet_tiny_bb46.cfg"
-        # self.backbone_weights = "./pretrained/v5.45.weights"
-        # self.cutoff = 45  # the layer to cutoff
+        self.max_labels = 30
 
     def get_model(self):
         """
@@ -134,45 +133,16 @@ class Exp(MyExp):
         if data_dir is None:
             data_dir = os.path.join(get_yolox_datadir(), "mix_det")
 
-        # dataset = MOTDataset(
-        #     data_dir=data_dir,
-        #     json_file=self.train_ann,
-        #     name=name,
-        #     img_size=self.input_size,
-        #     preproc=TrainTransform(
-        #         rgb_means=(0.485, 0.456, 0.406),
-        #         std=(0.229, 0.224, 0.225),
-        #         max_labels=500,
-        #     ),
-        # )
-
         dataset = VOCDetSSL(data_dir=data_dir,
                             f_list_path=self.train_f_list_path,
                             img_size=(768, 448),
                             preproc=TrainTransform(
                                 rgb_means=(0.485, 0.456, 0.406),
                                 std=(0.229, 0.224, 0.225),
-                                max_labels=50,
+                                max_labels=self.max_labels,
                             ),
-                            max_patches=50,
+                            max_patches=self.max_labels,
                             patch_size=(224, 224), )
-
-        # dataset = MosaicDetection(
-        #     dataset,
-        #     mosaic=not no_aug,
-        #     img_size=self.input_size,
-        #     preproc=TrainTransform(
-        #         rgb_means=(0.485, 0.456, 0.406),
-        #         std=(0.229, 0.224, 0.225),
-        #         max_labels=1000,
-        #     ),
-        #     degrees=self.degrees,
-        #     translate=self.translate,
-        #     scale=self.scale,
-        #     shear=self.shear,
-        #     perspective=self.perspective,
-        #     enable_mixup=self.enable_mixup,
-        # )
 
         self.dataset = dataset
 

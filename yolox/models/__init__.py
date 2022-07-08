@@ -1,7 +1,7 @@
 # encoding=utf-8
 
 from .darknet import CSPDarknet, Darknet
-from .losses import IOUloss
+from .losses import IOUloss, TripletLoss
 from .yolo_fpn import YOLOFPN
 from .yolo_head import YOLOXHead
 from .yolo_head_reid import YOLOXHeadReID

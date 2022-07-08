@@ -227,3 +227,24 @@ class UncertaintyLoss(nn.Module):
             losses[f"sigma/{task}_weightage"] = 1 / (2 * self.sigma[idx].pow(2))
 
         return loss
+
+
+class TripletLoss(nn.Module):
+    def __init__(self, margin=0.2):
+        super(TripletLoss, self).__init__()
+        self.margin = margin
+
+    def forward(self, anc, pos, neg):
+        """
+        assume anc, pos and neg are L2 normalized vector: 1×n
+        1×n dot n×1
+        :param anc:
+        :param pos:
+        :param neg:
+        """
+        pos_dist = torch.mm(anc, pos.T)
+        neg_dist = torch.mm(anc, neg.T)
+        loss = torch.max(pos_dist - neg_dist + self.margin, 0.0)
+
+        return loss
+
