@@ -236,7 +236,7 @@ class TripletLoss(nn.Module):
 
     def forward(self, anc, pos, neg):
         """
-        assume anc, pos and neg are L2 normalized vector: 1×n
+        assume anc, pos and neg are L2 normalized feature vector: 1×n
         1×n dot n×1
         :param anc:
         :param pos:
