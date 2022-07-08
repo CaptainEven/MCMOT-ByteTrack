@@ -446,8 +446,8 @@ class VOCDetSSL(Dataset):
             more_neg_bboxes = self.random_crops(W,
                                                 H,
                                                 self.patch_size,
-                                                self.max_neg_patches,
-                                                self.max_neg_patches - neg_bboxes_final.shape[0])
+                                                self.max_neg_patches - neg_bboxes_final.shape[0],
+                                                self.max_sample_times)
             neg_bboxes_final = np.concatenate([neg_bboxes_final, more_neg_bboxes], axis=0)
 
         return neg_bboxes_final
