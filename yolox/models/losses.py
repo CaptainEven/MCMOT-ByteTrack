@@ -238,9 +238,9 @@ class TripletLoss(nn.Module):
         """
         assume anc, pos and neg are L2 normalized feature vector: 1×n
         1×n dot n×1
-        :param anc:
-        :param pos:
-        :param neg:
+        :param anc: anchor
+        :param pos: positive
+        :param neg: negative
         """
         # anc = torch.
         pos_dist = torch.dot(anc, pos)

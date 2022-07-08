@@ -141,7 +141,7 @@ class YOLOXDarkSSL(nn.Module):
                 if cyc_cnt > 0:
                     ssl_loss += cycle_loss / cyc_cnt
 
-                ## --- compute logits
+                ## ----- Calculate contrastive loss
                 # Einstein sum is more intuitive
                 # dot product, positive logits: nx1
                 l_pos = torch.einsum('nc,nc->n', [q_vectors, k_vectors]).unsqueeze(-1)
