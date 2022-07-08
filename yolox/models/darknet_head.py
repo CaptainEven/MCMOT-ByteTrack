@@ -128,7 +128,7 @@ class DarknetHeadSSL(nn.Module):
         self.grids = [torch.zeros(1)] * len(in_channels)
         self.expanded_strides = [None] * len(in_channels)
         self.softmax_loss = nn.CrossEntropyLoss()
-        self.triplet_loss = TripletLoss(margin=0.4)
+        self.triplet_loss = TripletLoss(margin=0.2)
 
     def initialize_biases(self, prior_prob):
         """
@@ -170,7 +170,10 @@ class DarknetHeadSSL(nn.Module):
         ## ---------- processing 3 scales: 1/8, 1/16, 1/32
         for i, (cls_conv, reg_conv, stride_this_level, x) \
                 in enumerate(zip(self.cls_convs, self.reg_convs, self.strides, fpn_outs)):
+
+            ## ----- stem forward
             x = self.stems[i].forward(x)
+
             cls_x = x
             reg_x = x
 
@@ -184,6 +187,10 @@ class DarknetHeadSSL(nn.Module):
 
             ## ----- object-ness output
             obj_output = self.obj_preds[i](reg_feat)
+
+            if i == 0:
+                reid_x = x
+                feat_output = self.reid_convs(reid_x)
 
             if self.training:
                 ## ----- concatenate different branch of outputs
@@ -212,7 +219,7 @@ class DarknetHeadSSL(nn.Module):
 
         if self.training:
             ## ---------- compute losses in the head
-            return self.get_losses(imgs,
+            losses = self.get_losses(imgs,
                                    x_shifts,
                                    y_shifts,
                                    expanded_strides,
@@ -220,6 +227,7 @@ class DarknetHeadSSL(nn.Module):
                                    torch.cat(outputs, 1),
                                    origin_preds,
                                    dtype=fpn_outs[0].dtype, )
+            return losses, feat_output
         else:
             self.hw = [x.shape[-2:] for x in outputs]
 

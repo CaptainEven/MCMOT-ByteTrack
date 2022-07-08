@@ -103,7 +103,7 @@ class VOCDetSSL(Dataset):
                  num_negatives=30,
                  neg_pos_iou_thresh=0.1,
                  patch_size=(224, 224),
-                 max_sample_times=8):
+                 max_sample_times=5):
         """
         :param data_dir:
         :param img_size:
@@ -426,7 +426,7 @@ class VOCDetSSL(Dataset):
                 neg_bboxes_final = neg_bboxes_final[:self.max_neg_patches]
                 break
 
-            sample_num -= 10  # sample_num decrease the next sampling
+            # sample_num -= 10  # sample_num decrease the next sampling
             sample_n_times += 1
 
         # ## ----- visualize

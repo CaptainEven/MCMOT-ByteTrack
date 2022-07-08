@@ -54,8 +54,8 @@ class YOLOXDarkSSL(nn.Module):
             assert targets is not None
             assert not (q is None or k is None or n is None)
 
-            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = \
-                self.head.forward(fpn_outs, targets, inps)
+            losses, feat_map = self.head.forward(fpn_outs, targets, inps)
+            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = losses
 
             ## ---------- Calculate SSL loss
             # ---number of objects
@@ -108,7 +108,7 @@ class YOLOXDarkSSL(nn.Module):
                 ## ----- TODO: Calculate scale-consistency feature(尺度特征) loss
                 ## of feature map and patch feature vector difference
 
-                ## ----- Calculate Triplet loss
+                ## ----- Calculate Triplet loss: hard to be optimized?
                 tri_cnt = 0
                 for i in range(q_vectors.shape[0]):
                     anc = q_vectors[i]

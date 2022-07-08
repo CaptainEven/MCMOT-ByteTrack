@@ -250,4 +250,3 @@ class TripletLoss(nn.Module):
             return loss
         else:
             return 0.0
-
