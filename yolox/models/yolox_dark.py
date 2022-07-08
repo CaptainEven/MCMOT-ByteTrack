@@ -98,12 +98,12 @@ class YOLOXDarkSSL(nn.Module):
                 q_vectors = q_vectors[:num_gt]  # num_gt×128
                 k_vectors = k_vectors[:num_gt]
 
-                # ## ----- Calculate similarity matrix loss
-                # sm_output = torch.mm(q_vectors, k_vectors.T)
-                # sm_diff = sm_output - torch.eye(num_gt).cuda()
-                # sm_diff = torch.pow(sm_diff, 2)
-                # l_ssl_sm = sm_diff.sum()
-                # ssl_loss += l_ssl_sm / (num_gt * num_gt)
+                ## ----- Calculate similarity matrix loss
+                sm_output = torch.mm(q_vectors, k_vectors.T)
+                sm_diff = sm_output - torch.eye(num_gt).cuda()
+                sm_diff = torch.pow(sm_diff, 2)
+                l_ssl_sm = sm_diff.sum()
+                ssl_loss += l_ssl_sm / (num_gt * num_gt)
 
                 ## ----- Calculate Triplet loss
                 tri_cnt = 0
@@ -126,6 +126,20 @@ class YOLOXDarkSSL(nn.Module):
 
                 if tri_cnt > 0:
                     ssl_loss += tri_loss / tri_cnt
+
+                ## ----- calculate Cycle loss
+                cycle_loss = 0.0
+                cyc_cnt = 0
+                for i in range(q_vectors.shape[0]):
+                    for j in range(k_vectors.shape[0]):
+                        if j != i:
+                            sim_qi_kj = torch.dot(q_vectors[i], k_vectors[j])
+                            sim_qj_ki = torch.dot(k_vectors[i], q_vectors[j])
+                            cycle_loss += abs(sim_qi_kj - sim_qj_ki)
+                            cyc_cnt += 1
+
+                if cyc_cnt > 0:
+                    ssl_loss += cycle_loss / cyc_cnt
 
                 ## --- compute logits
                 # Einstein sum is more intuitive
