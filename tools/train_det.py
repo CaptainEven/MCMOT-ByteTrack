@@ -70,13 +70,13 @@ def make_parser():
     # ../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/v5.46.weights",  # None
+                        default="../YOLOX_outputs/yolox_det_c5_dark_ssl/latest_ckpt.pth.tar",  # None
                         type=str,
                         help="checkpoint file")
 
     parser.add_argument("--cutoff",
                         type=int,
-                        default=44,
+                        default=0,
                         help="")
     ## ----------
 

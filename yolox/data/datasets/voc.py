@@ -448,7 +448,10 @@ class VOCDetSSL(Dataset):
                                                 self.patch_size,
                                                 self.max_neg_patches - neg_bboxes_final.shape[0],
                                                 self.max_sample_times)
-            neg_bboxes_final = np.concatenate([neg_bboxes_final, more_neg_bboxes], axis=0)
+            if neg_bboxes_final.size == 0:
+                neg_bboxes_final = more_neg_bboxes.copy()
+            else:
+                neg_bboxes_final = np.concatenate([neg_bboxes_final, more_neg_bboxes], axis=0)
 
         return neg_bboxes_final
 
