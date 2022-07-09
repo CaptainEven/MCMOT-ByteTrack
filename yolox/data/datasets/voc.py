@@ -8,8 +8,11 @@ import os.path
 import xml.etree.ElementTree as ET
 
 import cv2
-cv2.ocl.setUseOpenCL(False)   #设置opencv不使用多进程运行，但这句命令只在本作用域有效。
-cv2.setNumThreads(0)  #设置opencv不使用多进程运行，但这句命令只在本作用域有效
+
+## ----- opencv Threads setting
+cv2.ocl.setUseOpenCL(False)
+cv2.setNumThreads(0)
+
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -469,8 +472,9 @@ class VOCDetSSL(Dataset):
         Return:
             img, target
         """
-        cv2.ocl.setUseOpenCL(False)  # 设置opencv不使用多进程运行，但这句命令只在本作用域有效。
-        cv2.setNumThreads(0)  # 设置opencv不使用多进程运行，但这句命令只在本作用域有效。
+        ## ----- opencv Threads setting
+        cv2.ocl.setUseOpenCL(False)
+        cv2.setNumThreads(0)
 
         ## ----- load image
         img_id = self.ids[idx]
