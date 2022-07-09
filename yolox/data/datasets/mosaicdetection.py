@@ -96,7 +96,7 @@ class MosaicDetection(Dataset):
             for i_mosaic, index in enumerate(indices):
                 img, _labels, _, _ = self._dataset.pull_item(index)
                 h0, w0 = img.shape[:2]  # orig hw
-                scale = min(1. * input_h / h0, 1. * input_w / w0)
+                scale = min(1.0 * input_h / h0, 1.0 * input_w / w0)
                 img = cv2.resize(img,
                                  (int(w0 * scale), int(h0 * scale)),
                                  interpolation=cv2.INTER_LINEAR)

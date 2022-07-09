@@ -250,15 +250,15 @@ class DarknetHeadSSL(nn.Module):
 
         batch_size = output.shape[0]
         n_ch = 5 + self.num_classes
-        hsize, wsize = output.shape[-2:]
+        h_size, w_size = output.shape[-2:]
         if grid.shape[2:4] != output.shape[2:4]:
-            yv, xv = torch.meshgrid([torch.arange(hsize), torch.arange(wsize)])
-            grid = torch.stack((xv, yv), 2).view(1, 1, hsize, wsize, 2).type(dtype)
+            yv, xv = torch.meshgrid([torch.arange(h_size), torch.arange(w_size)])
+            grid = torch.stack((xv, yv), 2).view(1, 1, h_size, w_size, 2).type(dtype)
             self.grids[k] = grid
 
-        output = output.view(batch_size, self.n_anchors, n_ch, hsize, wsize)
+        output = output.view(batch_size, self.n_anchors, n_ch, h_size, w_size)
         output = output.permute(0, 1, 3, 4, 2).reshape(
-            batch_size, self.n_anchors * hsize * wsize, -1
+            batch_size, self.n_anchors * h_size * w_size, -1
         )  ## --- reshape here
 
         grid = grid.view(1, -1, 2)

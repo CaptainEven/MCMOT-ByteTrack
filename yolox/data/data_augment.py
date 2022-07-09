@@ -175,7 +175,6 @@ def random_distort(image):
     :param image:
     :return:
     """
-
     def _convert(image, alpha=1, beta=0):
         tmp = image.astype(float) * alpha + beta
         tmp[tmp < 0] = 0
@@ -219,24 +218,24 @@ def random_mirror(image, boxes):
     return image, boxes
 
 
-def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
+def preproc(image, net_size, mean, std, swap=(2, 0, 1)):
     """
     :param image:
-    :param input_size: (H, W)
+    :param net_size: (H, W)
     :param mean:
     :param std:
     :param swap:
     :return:
     """
     if len(image.shape) == 3:
-        padded_img = np.ones((input_size[0], input_size[1], 3)) * 114.0
+        padded_img = np.ones((net_size[0], net_size[1], 3)) * 114.0
     else:
-        padded_img = np.ones(input_size) * 114.0
+        padded_img = np.ones(net_size) * 114.0
 
     img = np.array(image)
 
     ## ----- Resize
-    r = min(input_size[0] / img.shape[0], input_size[1] / img.shape[1])
+    r = min(net_size[0] / img.shape[0], net_size[1] / img.shape[1])
     resized_img = cv2.resize(img,
                              (int(img.shape[1] * r), int(img.shape[0] * r)),
                              interpolation=cv2.INTER_LINEAR).astype(np.float32)

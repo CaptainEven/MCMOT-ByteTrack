@@ -108,6 +108,9 @@ class YOLOXDarkSSL(nn.Module):
                 ## ----- TODO: Calculate scale-consistency feature
                 # (尺度一致性特征) loss
                 ## of feature map and patch feature vector difference
+                # print(feat_map.shape)
+                # for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
+                #     cls_id, cx, cy, w, h = targets[batch_idx][i]
 
                 ## ----- Calculate Triplet loss: hard to be optimized?
                 tri_cnt = 0

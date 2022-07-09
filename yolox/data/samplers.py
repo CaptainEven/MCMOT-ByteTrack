@@ -35,13 +35,14 @@ class YoloBatchSampler(torchBatchSampler):
         :return:
         """
         self.__set_input_dim()
+
         for batch in super().__iter__():
             yield [(self.input_dim, idx, self.mosaic) for idx in batch]
             self.__set_input_dim()
 
     def __set_input_dim(self):
         """
-        This function randomly changes the the input dimension of the dataset. 
+        This function randomly changes the input dimension of the dataset.
         :return:
         """
         if self.new_input_dim is not None:
