@@ -469,6 +469,9 @@ class VOCDetSSL(Dataset):
         Return:
             img, target
         """
+        cv2.ocl.setUseOpenCL(False)  # 设置opencv不使用多进程运行，但这句命令只在本作用域有效。
+        cv2.setNumThreads(0)  # 设置opencv不使用多进程运行，但这句命令只在本作用域有效。
+
         ## ----- load image
         img_id = self.ids[idx]
         img_path = self._imgpath % img_id
