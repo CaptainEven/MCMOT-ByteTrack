@@ -55,7 +55,7 @@ def make_parser():
     ## ---------- experiment file path, eg: ../exps/example/mot/yolox_tiny_det.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
+                        default="../exps/example/mot/yolox_det_c5_dark_ssl.py",
                         type=str,
                         help="plz input your expriment description file")
 
@@ -68,9 +68,10 @@ def make_parser():
     ## ---------- checkpoint file path
     ## latest_ckpt.pth.tar, yolox_tiny_32.8.pth ../pretrained/v5.46.weights
     # ../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar
+    # None
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/v5.46.weights",  # None
+                        default="../YOLOX_outputs/yolox_det_c5_dark_ssl/latest_ckpt.pth.tar",
                         type=str,
                         help="checkpoint file")
 
@@ -101,16 +102,7 @@ def make_parser():
                         type=int,
                         default=4,  # 4, 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
-    parser.add_argument("-nd",
-                        "--n_devices",
-                        type=int,
-                        default=1,  # number of devices(gpus)
-                        help="device for training")
-    parser.add_argument("-d",
-                        "--devices",
-                        type=str,
-                        default="2",
-                        help="The device(GPU) ids.")
+
     ## ----------
 
     parser.add_argument("--local_rank",
@@ -150,10 +142,27 @@ def make_parser():
                         default=False,  # False
                         action="store_true",
                         help="occupy GPU memory first for training.")
+
     parser.add_argument("opts",
                         help="Modify config options using the command-line",
                         default=None,
                         nargs=argparse.REMAINDER, )
+
+    parser.add_argument("--n_workers",
+                        type=int,
+                        default=2,
+                        help="")
+
+    parser.add_argument("-nd",
+                        "--n_devices",
+                        type=int,
+                        default=1,  # number of devices(gpus)
+                        help="device for training")
+    parser.add_argument("-d",
+                        "--devices",
+                        type=str,
+                        default="7",
+                        help="The device(GPU) ids.")
 
     return parser
 
@@ -199,6 +208,9 @@ if __name__ == "__main__":
     ## ----- modify number of workers
     if opt.debug:
         exp.data_num_workers = 0
+    else:
+        exp.data_num_workers = opt.n_workers
+    logger.info("number of workers: {:d}".format(exp.data_num_workers))
 
     ## ----- Using cfg file from opt
     if hasattr(exp, "cfg_file_path"):

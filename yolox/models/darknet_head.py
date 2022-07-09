@@ -77,6 +77,18 @@ class DarknetHead(nn.Module):
                                                        stride=1,
                                                        act=act, ), ]))
 
+            if i == 0:
+                self.reid_convs = nn.Sequential(*[Conv(in_channels=int(256 * width),
+                                                       out_channels=int(256 * width),
+                                                       ksize=3,
+                                                       stride=1,
+                                                       act=act, ),
+                                                  Conv(in_channels=int(256 * width),
+                                                       out_channels=int(256 * width),
+                                                       ksize=3,
+                                                       stride=1,
+                                                       act=act, ), ])
+
             ## ---------- Predictions
             self.cls_preds.append(nn.Conv2d(in_channels=int(256 * width),
                                             out_channels=self.n_anchors * self.num_classes,
@@ -94,6 +106,15 @@ class DarknetHead(nn.Module):
                                             kernel_size=1,
                                             stride=1,
                                             padding=0, ))
+
+            if i == 0:  # output 128 dim vector: GAP + 1×1_conv
+                self.reid_preds = nn.Sequential(*[nn.AdaptiveAvgPool2d(1),
+                                                  nn.Conv2d(in_channels=int(256 * width),
+                                                            out_channels=128,
+                                                            kernel_size=1,
+                                                            stride=1,
+                                                            padding=0),
+                                                  ])
 
         ## ----- loss function definition
         self.use_l1 = False
