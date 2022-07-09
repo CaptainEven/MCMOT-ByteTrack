@@ -97,7 +97,6 @@ class VOCDetSSL(Dataset):
         dataset_name (string, optional): which dataset to load
             (default: 'VOC2007')
     """
-
     def __init__(self,
                  data_dir,
                  f_list_path,
@@ -541,17 +540,10 @@ class VOCDetSSL(Dataset):
             if patch.size == 0:  # empty positive patch
                 continue
 
-            try:
-                patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
-            except Exception as e:
-                print(e)
-            try:
-                q_item, k_item = self.pos_patch_transform(Image.fromarray(patch))
-                q[i] = q_item
-                k[i] = k_item
-            except Exception as e:
-                print(e)
-                print(img_path, q_item, k_item)
+            patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
+            q_item, k_item = self.pos_patch_transform(Image.fromarray(patch))
+            q[i] = q_item
+            k[i] = k_item
 
         # img_hw = (height, width)
 
