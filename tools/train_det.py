@@ -145,6 +145,11 @@ def make_parser():
                         default=4,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
 
+    parser.add_argument("--n_workers",
+                        type=int,
+                        default=0,
+                        help="")
+
     ## ----- set devices
     parser.add_argument("-nd",
                         "--n_devices",
@@ -155,7 +160,7 @@ def make_parser():
     parser.add_argument("-d",
                         "--devices",
                         type=str,
-                        default="7",
+                        default="6",
                         help="The device(GPU) ids.")
 
     return parser
@@ -202,6 +207,9 @@ if __name__ == "__main__":
     ## ----- modify number of workers
     if opt.debug != 0:
         exp.data_num_workers = 0
+    else:
+        exp.data_num_workers = opt.n_workers
+    logger.info("number of workers: {:d}".format(exp.data_num_workers))
 
     ## ----- Using cfg file from opt
     if hasattr(exp, "cfg_file_path"):

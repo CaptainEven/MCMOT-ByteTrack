@@ -4,6 +4,7 @@ python3 ./tools/train_det.py --ckpt /mnt/diskb/even/ByteTrack/YOLOX_outputs/yolo
                              --batch-size 18 \
                              --cutoff 44 \
                              --debug 0 \
+                             --n_workers 4 \
                              --devices 0,4,6,7
 
 
