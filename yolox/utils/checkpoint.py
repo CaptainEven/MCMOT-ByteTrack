@@ -19,7 +19,8 @@ def load_ckpt(model, ckpt):
 
     for key_model, v in model_state_dict.items():
         if key_model not in ckpt:
-            logger.warning("{} is not in the ckpt. Please double check and see if this is desired."
+            logger.warning("{} is not in the ckpt. "
+                           "Please double check and see if this is desired."
                            .format(key_model))
             continue
 

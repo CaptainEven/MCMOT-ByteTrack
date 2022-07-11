@@ -112,7 +112,7 @@ class DarknetHeadSSL(nn.Module):
 
             if i == 0:  # output 128 dim vector: GAP + 1×1_conv
                 self.reid_preds = nn.Sequential(*[nn.AdaptiveAvgPool2d(1),
-                                                  nn.Conv2d(in_channels=int(256 * width),
+                                                  nn.Conv2d(in_channels=128,
                                                             out_channels=128,
                                                             kernel_size=1,
                                                             stride=1,

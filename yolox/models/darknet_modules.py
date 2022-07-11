@@ -80,6 +80,64 @@ def load_darknet_weights(model, weights, cutoff=0):
             ptr += nw
 
 
+def save_darknet_weights(net, path='model.weights', cutoff=-1):
+    """
+    :param net:
+    :param path:
+    :param cutoff:
+    :return:
+    """
+    # Converts a PyTorch model to Darket format (*.pt to *.weights)
+    # Note: Does not work if model.fuse() is applied
+    with open(path, 'wb') as f:
+        # Write Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
+        multi_gpu = type(net) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
+        print("[Info]: multi-gpu: ", multi_gpu)
+        if multi_gpu:
+            net.module.version.tofile(f)  # (int32) version Info: major, minor, revision
+            net.module.seen.tofile(f)  # (int64) number of images seen during training
+
+            # Iterate through layers
+            # for i, (m_def, module) in enumerate(zip(self.module.module_defs[:cutoff], self.module.module_list[:cutoff])):
+            for i, (m_def, module) in enumerate(zip(net.module.module_defs, net.module.module_list)):
+
+                if m_def['type'] == 'convolutional' or m_def['type'] == 'deconvolutional':
+                    conv_layer = module[0]
+                    # If batch norm, load bn first
+                    if m_def['batch_normalize']:
+                        bn_layer = module[1]
+                        bn_layer.bias.data.cpu().numpy().tofile(f)
+                        bn_layer.weight.data.cpu().numpy().tofile(f)
+                        bn_layer.running_mean.data.cpu().numpy().tofile(f)
+                        bn_layer.running_var.data.cpu().numpy().tofile(f)
+                    # Load conv bias
+                    else:
+                        conv_layer.bias.data.cpu().numpy().tofile(f)
+                    # Load conv weights
+                    conv_layer.weight.data.cpu().numpy().tofile(f)
+        else:
+            net.version.tofile(f)  # (int32) version Info: major, minor, revision
+            net.seen.tofile(f)  # (int64) number of images seen during training
+
+            # Iterate through layers
+            # for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+            for i, (m_def, module) in enumerate(zip(net.module_defs, net.module_list)):
+                if m_def['type'] == 'convolutional' or m_def['type'] == 'deconvolutional':
+                    conv_layer = module[0]
+                    # If batch norm, load bn first
+                    if m_def['batch_normalize']:
+                        bn_layer = module[1]
+                        bn_layer.bias.data.cpu().numpy().tofile(f)
+                        bn_layer.weight.data.cpu().numpy().tofile(f)
+                        bn_layer.running_mean.data.cpu().numpy().tofile(f)
+                        bn_layer.running_var.data.cpu().numpy().tofile(f)
+                    # Save conv bias
+                    else:
+                        conv_layer.bias.data.cpu().numpy().tofile(f)
+                    # Save conv weights
+                    conv_layer.weight.data.cpu().numpy().tofile(f)
+
+
 class YOLOLayer(nn.Module):
     def __init__(self, anchors, nc, img_size, yolo_idx, layers, stride):
         """

@@ -27,6 +27,7 @@ from yolox.utils import (
     setup_logger,
     synchronize
 )
+from yolox.models.darknet_modules import save_darknet_weights
 
 
 class Trainer:
@@ -291,6 +292,7 @@ class Trainer:
         if self.exp.save_ckpt_batch_interval != 0 \
                 and (self.iter + 1) % self.exp.save_ckpt_batch_interval == 0:
             self.save_ckpt(ckpt_name="ssl")
+            # self.save_weights(ckpt_name="ssl")
 
         # random resizing after an iteration
         if self.exp.random_size is not None and (self.progress_in_iter + 1) % 10 == 0:
@@ -380,7 +382,6 @@ class Trainer:
         """
         if self.rank == 0:
             save_model = self.ema_model.ema if self.use_model_ema else self.model
-
             logger.info("Save weights to {}".format(self.dir_path))
             ckpt_state = {
                 "start_epoch": self.epoch + 1,
@@ -388,6 +389,16 @@ class Trainer:
                 "optimizer": self.optimizer.state_dict(),
             }
             save_checkpoint(ckpt_state, update_best_ckpt, self.dir_path, ckpt_name, )
+
+    # def save_weights(self, ckpt_name):
+    #     """
+    #     :param ckpt_name:
+    #     """
+    #     save_weights_path = os.path.join(self.dir_path, ckpt_name + ".weights")
+    #     save_weights_path = os.path.abspath(save_weights_path)
+    #     net = self.ema_model.ema if self.use_model_ema else self.model
+    #     save_darknet_weights(net, path=save_weights_path, cutoff=-1)
+    #     print("[Info]: {:s} saved.".format(save_weights_path))
 
 
 class Trainer_det:  # line 115. loss = outputs["total_loss"]

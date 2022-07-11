@@ -4,7 +4,7 @@
 
 import torch
 import torch.nn as nn
-
+import numpy as np
 from yolox.models.darknet_backbone import DarknetBackbone
 from yolox.models.darknet_head import DarknetHeadSSL
 
@@ -41,6 +41,11 @@ class YOLOXDarkSSL(nn.Module):
 
         # temperature
         self.T = T
+
+        ## ----- version info
+        self.__name__ = "Darknet"
+        self.version = np.array([1, 0, 0], dtype=np.int32)
+        self.seen = np.array([0], dtype=np.int64)
 
     def forward(self, inps, targets=None, q=None, k=None, n=None):
         """
@@ -108,8 +113,8 @@ class YOLOXDarkSSL(nn.Module):
                 l_ssl_sm = sm_diff.sum()
                 ssl_loss += l_ssl_sm / (num_gt * num_gt)
 
-                # ## ----- TODO: Calculate scale-consistency feature
-                # # (尺度一致性特征) loss
+                # ## ----- Calculate scale-consistency feature difference loss
+                # # (尺度一致性特征差异) loss
                 # ## of feature map and patch feature vector difference
                 # print(feat_map.shape)
                 # map_h, map_w = feat_map.shape[2], feat_map.shape[3]
