@@ -153,12 +153,12 @@ def xyxy2xywh(bboxes):
 
 def xyxy2cxcywh(bboxes):
     """
-    :param bboxes:
+    :param bboxes: x1y1x2y2
     :return:
     """
-    bboxes[:, 2] = bboxes[:, 2] - bboxes[:, 0]
-    bboxes[:, 3] = bboxes[:, 3] - bboxes[:, 1]
-    bboxes[:, 0] = bboxes[:, 0] + bboxes[:, 2] * 0.5
-    bboxes[:, 1] = bboxes[:, 1] + bboxes[:, 3] * 0.5
+    bboxes[:, 2] = bboxes[:, 2] - bboxes[:, 0]  # w = x2 - x1
+    bboxes[:, 3] = bboxes[:, 3] - bboxes[:, 1]  # h = y2 - y1
+    bboxes[:, 0] = bboxes[:, 0] + bboxes[:, 2] * 0.5  # center_x
+    bboxes[:, 1] = bboxes[:, 1] + bboxes[:, 3] * 0.5  # center_y
 
     return bboxes

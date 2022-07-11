@@ -234,9 +234,10 @@ class DarknetHeadSSL(nn.Module):
             # [batch, n_anchors_all, 85]
             outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
             if self.decode_in_inference:
-                return self.decode_outputs(outputs, dtype=fpn_outs[0].type())
+                decoded_outputs = self.decode_outputs(outputs, dtype=fpn_outs[0].type())
+                return decoded_outputs, feat_output
             else:
-                return outputs
+                return outputs, feat_output
 
     def get_output_and_grid(self, output, k, stride, dtype):
         """
@@ -452,9 +453,8 @@ class DarknetHeadSSL(nn.Module):
         loss_cls = (self.bce_log_loss(cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets)).sum() \
                    / num_fg
         if self.use_l1:
-            loss_l1 = (
-                          self.l1_loss(origin_preds.view(-1, 4)[fg_masks], l1_targets)
-                      ).sum() / num_fg
+            loss_l1 = (self.l1_loss(origin_preds.view(-1, 4)[fg_masks],
+                                    l1_targets)).sum() / num_fg
         else:
             loss_l1 = 0.0
 

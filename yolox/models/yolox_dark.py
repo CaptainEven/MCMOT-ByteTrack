@@ -39,7 +39,8 @@ class YOLOXDarkSSL(nn.Module):
         self.backbone = backbone
         self.head = head
 
-        self.T = T  # temperature
+        # temperature
+        self.T = T
 
     def forward(self, inps, targets=None, q=None, k=None, n=None):
         """

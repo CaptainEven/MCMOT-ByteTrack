@@ -171,7 +171,9 @@ class Trainer:
             occupy_mem(self.local_rank)
 
         if self.is_distributed:
-            model = DDP(model, device_ids=[self.local_rank], broadcast_buffers=False)
+            model = DDP(model,
+                        device_ids=[self.local_rank],
+                        broadcast_buffers=False)
 
         if self.use_model_ema:
             self.ema_model = ModelEMA(model, 0.9998)
@@ -225,7 +227,7 @@ class Trainer:
         if self.use_model_ema:
             self.ema_model.update_attr(self.model)
 
-        self.save_ckpt(ckpt_name="latest")
+        self.save_ckpt(ckpt_name="ssl")
 
         if self.exp.eval_interval != 0:
             if (self.epoch + 1) % self.exp.eval_interval == 0:
@@ -288,9 +290,9 @@ class Trainer:
         ## ----- @even: save ckpt during an epoch
         if self.exp.save_ckpt_batch_interval != 0 \
                 and (self.iter + 1) % self.exp.save_ckpt_batch_interval == 0:
-            self.save_ckpt(ckpt_name="latest")
+            self.save_ckpt(ckpt_name="ssl")
 
-        # random resizing
+        # random resizing after an iteration
         if self.exp.random_size is not None and (self.progress_in_iter + 1) % 10 == 0:
             self.input_size = self.exp.random_resize(self.train_loader,
                                                      self.epoch,

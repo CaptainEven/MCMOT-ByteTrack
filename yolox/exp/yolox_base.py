@@ -156,6 +156,7 @@ class Exp(BaseExp):
 
         return train_loader
 
+    ## randomly resize the input image for the ntwork
     def random_resize(self, data_loader, epoch, rank, is_distributed):
         """
         :param data_loader:
@@ -166,7 +167,7 @@ class Exp(BaseExp):
         """
         tensor = torch.LongTensor(2).cuda()
 
-        if rank == 0:
+        if rank == 0:  # make sure to be integer divided by 32
             size_factor = self.input_size[1] * 1.0 / self.input_size[0]
             size = random.randint(*self.random_size)
             size = (int(32 * size), 32 * int(size * size_factor))
@@ -177,9 +178,10 @@ class Exp(BaseExp):
             dist.barrier()
             dist.broadcast(tensor, 0)
 
-        input_size = data_loader.change_input_dim(
-            multiple=(tensor[0].item(), tensor[1].item()), random_range=None
-        )
+        input_size = data_loader.change_input_dim(multiple=(tensor[0].item(),
+                                                            tensor[1].item()),
+                                                  random_range=None)
+
         return input_size
 
     def get_optimizer(self, batch_size):

@@ -48,16 +48,16 @@ class AnnotationTransform(object):
         self.class_to_ind = class_to_ind or dict(zip(C5_CLASSES, range(len(C5_CLASSES))))
         self.keep_difficult = keep_difficult
 
-    def __call__(self, target):
+    def __call__(self, xml_root):
         """
         Arguments:
-            target (annotation) : the target annotation to be made usable
+            xml_root (annotation) : the target annotation to be made usable
                 will be an ET.Element
         Returns:
             a list containing lists of bounding boxes  [bbox coords, class name]
         """
         res = np.empty((0, 5))
-        for obj in target.find("markNode").iter("object"):
+        for obj in xml_root.find("markNode").iter("object"):
             # difficult = int(obj.find("difficult").text) == 1
             # if not self.keep_difficult and difficult:
             #     continue
@@ -195,9 +195,9 @@ class VOCDetSSL(Dataset):
         """
         img_id = self.ids[index]
         label_f_path = self._annopath % img_id
-        et_root = ET.parse(label_f_path).getroot()
+        xml_root = ET.parse(label_f_path).getroot()
         if self.target_transform is not None:
-            target = self.target_transform(et_root)
+            target = self.target_transform(xml_root)
 
         return target
 
@@ -511,6 +511,7 @@ class VOCDetSSL(Dataset):
                 if i >= self.max_pos_patches:
                     break
 
+                ## -----x1y1x2y2 in original image coordinate
                 x1, y1, x2, y2, cls_id = bbox_clsid
 
                 x1 = x1 if x1 >= 0 else 0

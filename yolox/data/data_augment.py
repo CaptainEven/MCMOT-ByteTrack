@@ -337,7 +337,7 @@ class TrainTransform:
         """
         :param image:
         :param targets:
-        :param net_dim: net_h, net_w
+        :param net_dim: input net size: net_h, net_w
         :return:
         """
         boxes = targets[:, :4].copy()

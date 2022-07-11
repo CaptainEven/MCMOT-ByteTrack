@@ -121,9 +121,9 @@ class DataLoader(torchDataLoader):
     def close_mosaic(self):
         self.batch_sampler.mosaic = False
 
+    ## ----- change image input size for the network
     def change_input_dim(self, multiple=32, random_range=(10, 19)):
         """This function will compute a new size and update it on the next mini_batch.
-
         Args:
             multiple (int or tuple, optional): values to multiply the randomly generated range by.
                 Default **32**
