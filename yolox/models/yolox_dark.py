@@ -59,6 +59,8 @@ class YOLOXDarkSSL(nn.Module):
             loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = losses
 
             ## ---------- Calculate SSL loss
+            net_h, net_w = inps.shape[2], inps.shape[3]
+
             # ---number of objects
             valid_lb_inds = targets.sum(dim=2) > 0  # batch_size×50(True | False)
             num_gts = valid_lb_inds.sum(dim=1)  # batch_size×n_lb_valid
@@ -106,12 +108,20 @@ class YOLOXDarkSSL(nn.Module):
                 l_ssl_sm = sm_diff.sum()
                 ssl_loss += l_ssl_sm / (num_gt * num_gt)
 
-                ## ----- TODO: Calculate scale-consistency feature
-                # (尺度一致性特征) loss
-                ## of feature map and patch feature vector difference
+                # ## ----- TODO: Calculate scale-consistency feature
+                # # (尺度一致性特征) loss
+                # ## of feature map and patch feature vector difference
                 # print(feat_map.shape)
+                # map_h, map_w = feat_map.shape[2], feat_map.shape[3]
                 # for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
-                #     cls_id, cx, cy, w, h = targets[batch_idx][i]
+                #     cls_id, cx, cy, w, h = targets[batch_idx][i]  # in net_size
+                #
+                #     ## ----- get center_x, center_y in feature map
+                #     center_x = int(cx / net_w * map_w)
+                #     center_y = int(cy / net_h * map_h)
+                #
+                #     feature_vector = feat_map[batch_idx, :, center_y, center_x]
+                #     print(feature_vector.shape)
 
                 ## ----- Calculate Triplet loss: hard to be optimized?
                 tri_cnt = 0

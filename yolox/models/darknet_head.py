@@ -87,7 +87,7 @@ class DarknetHeadSSL(nn.Module):
                                                        stride=1,
                                                        act=act, ),
                                                   Conv(in_channels=int(256 * width),
-                                                       out_channels=int(256 * width),
+                                                       out_channels=128,
                                                        ksize=3,
                                                        stride=1,
                                                        act=act, ), ])
