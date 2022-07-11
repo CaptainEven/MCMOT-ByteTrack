@@ -1,7 +1,6 @@
 # encoding=utf-8
 
 import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -20,7 +19,7 @@ class DarknetHead(nn.Module):
                  strides=[8, 16, 32],
                  in_channels=[256, 512, 1024],
                  act="lrelu",
-                 depth_wise=False,):
+                 depth_wise=False, ):
         """
         compute loss in Head
         :param num_classes:
@@ -84,7 +83,7 @@ class DarknetHead(nn.Module):
                                                        stride=1,
                                                        act=act, ),
                                                   Conv(in_channels=int(256 * width),
-                                                       out_channels=int(256 * width),
+                                                       out_channels=128,
                                                        ksize=3,
                                                        stride=1,
                                                        act=act, ), ])
@@ -171,6 +170,10 @@ class DarknetHead(nn.Module):
             ## ----- object-ness output
             obj_output = self.obj_preds[k](reg_feat)
 
+            if k == 0:
+                reid_x = x
+                feat_output = self.reid_convs(reid_x)
+
             if self.training:
                 ## ----- concatenate different branch of outputs
                 output = torch.cat([reg_output, obj_output, cls_output], 1)
@@ -198,7 +201,7 @@ class DarknetHead(nn.Module):
 
         if self.training:
             ## ---------- compute losses in the head
-            return self.get_losses(
+            losses = self.get_losses(
                 imgs,
                 x_shifts,
                 y_shifts,
@@ -208,15 +211,17 @@ class DarknetHead(nn.Module):
                 origin_preds,
                 dtype=fpn_outs[0].dtype,
             )
+            return losses, feat_output
         else:
             self.hw = [x.shape[-2:] for x in outputs]
 
             # [batch, n_anchors_all, 85]
             outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
             if self.decode_in_inference:
-                return self.decode_outputs(outputs, dtype=fpn_outs[0].type())
+                decoded_outputs = self.decode_outputs(outputs, dtype=fpn_outs[0].type())
+                return decoded_outputs, feat_output
             else:
-                return outputs
+                return outputs, feat_output
 
     def get_output_and_grid(self, output, k, stride, dtype):
         """

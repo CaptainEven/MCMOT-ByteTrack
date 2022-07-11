@@ -49,8 +49,9 @@ class YOLOXDark(nn.Module):
         if self.training:
             assert targets is not None
 
-            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = \
-                self.head.forward(fpn_outs, targets, x)
+            losses, feat_map = self.head.forward(fpn_outs, targets, x)
+            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = losses
+
             outputs = {
                 "total_loss": loss,
                 "iou_loss": iou_loss,
@@ -60,6 +61,6 @@ class YOLOXDark(nn.Module):
                 "num_fg": num_fg,
             }
         else:
-            outputs = self.head.forward(fpn_outs)
+            outputs, feat_map = self.head.forward(fpn_outs)
 
         return outputs
