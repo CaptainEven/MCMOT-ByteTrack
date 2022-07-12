@@ -117,14 +117,15 @@ class YOLOXDarkSSL(nn.Module):
                 ## ----- Calculate scale-consistency feature difference loss
                 # (尺度一致性特征差异) loss
                 ## of feature map and patch feature vector difference
-                # print(feat_map.shape)
                 map_h, map_w = feat_map.shape[2], feat_map.shape[3]
                 for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
                     cls_id, cx, cy, w, h = targets[batch_idx][i]  # in net_size
 
                     ## ----- get center_x, center_y in feature map
-                    center_x = int(cx / net_w * map_w)
-                    center_y = int(cy / net_h * map_h)
+                    center_x = int(cx / net_w * map_w + 0.5)
+                    center_y = int(cy / net_h * map_h + 0.5)
+                    center_x = center_x if center_x < map_w else map_w - 1
+                    center_y = center_y if center_y < map_h else map_h - 1
 
                     feature_vector = feat_map[batch_idx, :, center_y, center_x]
                     feature_vector = nn.functional.normalize(feature_vector.view(1, -1))
