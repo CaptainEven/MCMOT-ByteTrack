@@ -114,8 +114,8 @@ class YOLOXDarkSSL(nn.Module):
                 l_ssl_sm = sm_diff.sum()
                 ssl_loss += l_ssl_sm / (num_gt * num_gt)
 
-                ## ----- Calculate scale-consistency feature difference loss
-                # (尺度一致性特征差异) loss
+                ## ----- Calculate feature scale-consistency loss
+                # (尺度一致性特征差异损失函数)
                 ## of feature map and patch feature vector difference
                 map_h, map_w = feat_map.shape[2], feat_map.shape[3]
                 for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
