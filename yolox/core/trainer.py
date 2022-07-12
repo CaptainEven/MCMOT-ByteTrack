@@ -635,9 +635,8 @@ class Trainer_det:  # line 115. loss = outputs["total_loss"]
                                   for k, v in loss_meter.items()])
 
             time_meter = self.meter.get_filtered_meter("time")
-            time_str = ", ".join(
-                ["{}: {:.2f}s".format(k, v.avg) for k, v in time_meter.items()]
-            )
+            time_str = ", ".join(["{}: {:.2f}s"
+                                 .format(k, v.avg) for k, v in time_meter.items()])
 
             logger.info("{}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}"
                         .format(progress_str,
