@@ -72,6 +72,7 @@ class YOLOXDarkSSL(nn.Module):
 
             ssl_loss = 0.0
             tri_loss = 0.0
+            sc_loss = 0.0
             for batch_idx, num_gt in enumerate(num_gts):
                 num_gt = int(num_gt)
                 if num_gt == 0:
@@ -113,20 +114,27 @@ class YOLOXDarkSSL(nn.Module):
                 l_ssl_sm = sm_diff.sum()
                 ssl_loss += l_ssl_sm / (num_gt * num_gt)
 
-                # ## ----- Calculate scale-consistency feature difference loss
-                # # (尺度一致性特征差异) loss
-                # ## of feature map and patch feature vector difference
+                ## ----- Calculate scale-consistency feature difference loss
+                # (尺度一致性特征差异) loss
+                ## of feature map and patch feature vector difference
                 # print(feat_map.shape)
-                # map_h, map_w = feat_map.shape[2], feat_map.shape[3]
-                # for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
-                #     cls_id, cx, cy, w, h = targets[batch_idx][i]  # in net_size
-                #
-                #     ## ----- get center_x, center_y in feature map
-                #     center_x = int(cx / net_w * map_w)
-                #     center_y = int(cy / net_h * map_h)
-                #
-                #     feature_vector = feat_map[batch_idx, :, center_y, center_x]
-                #     print(feature_vector.shape)
+                map_h, map_w = feat_map.shape[2], feat_map.shape[3]
+                for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
+                    cls_id, cx, cy, w, h = targets[batch_idx][i]  # in net_size
+
+                    ## ----- get center_x, center_y in feature map
+                    center_x = int(cx / net_w * map_w)
+                    center_y = int(cy / net_h * map_h)
+
+                    feature_vector = feat_map[batch_idx, :, center_y, center_x]
+                    feature_vector = nn.functional.normalize(feature_vector.view(1, -1))
+                    feature_vector = torch.squeeze(feature_vector)
+
+                    sc_loss += 1.0 - torch.dot(q_vector, feature_vector)
+                    sc_loss += 1.0 - torch.dot(k_vector, feature_vector)
+
+                if targets.shape[0] > 0:
+                    ssl_loss += sc_loss / targets.shape[0]
 
                 ## ----- Calculate Triplet loss: hard to be optimized?
                 tri_cnt = 0

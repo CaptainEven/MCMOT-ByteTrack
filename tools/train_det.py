@@ -70,7 +70,7 @@ def make_parser():
     # ../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_det_c5_dark_ssl/ckpt.pth.tar",  # None
+                        default="../YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ckpt.pth.tar",  # None
                         type=str,
                         help="checkpoint file")
 
@@ -160,7 +160,7 @@ def make_parser():
     parser.add_argument("-d",
                         "--devices",
                         type=str,
-                        default="5",
+                        default="7",
                         help="The device(GPU) ids.")
 
     return parser
