@@ -631,12 +631,12 @@ class Trainer_det:  # line 115. loss = outputs["total_loss"]
                                                               self.iter + 1,
                                                               self.max_iter)
             loss_meter = self.meter.get_filtered_meter("loss")
-            loss_str = ", ".join(["{}: {:.3f}".format(k, v.latest)
+            loss_str = ", ".join(["{}: {:.2f}".format(k, v.latest)
                                   for k, v in loss_meter.items()])
 
             time_meter = self.meter.get_filtered_meter("time")
             time_str = ", ".join(
-                ["{}: {:.3f}s".format(k, v.avg) for k, v in time_meter.items()]
+                ["{}: {:.2f}s".format(k, v.avg) for k, v in time_meter.items()]
             )
 
             logger.info("{}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}"
