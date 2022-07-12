@@ -61,12 +61,12 @@ class YOLOXDarkSSL(nn.Module):
             assert not (q is None or k is None or n is None)
 
             ## ----- Get object detection losses and feature map
-            losses, feat_map = self.head.forward(fpn_outs, targets, inps)
+            losses, feature_map = self.head.forward(fpn_outs, targets, inps)
             loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = losses
 
             ## ----- Get size
             net_h, net_w = inps.shape[2], inps.shape[3]
-            map_h, map_w = feat_map.shape[2], feat_map.shape[3]
+            map_h, map_w = feature_map.shape[2], feature_map.shape[3]
 
             ## ----- Get number of objects(ground truth)
             valid_lb_inds = targets.sum(dim=2) > 0  # batch_size×50(True | False)
@@ -128,7 +128,7 @@ class YOLOXDarkSSL(nn.Module):
                     center_x = center_x if center_x < map_w else map_w - 1
                     center_y = center_y if center_y < map_h else map_h - 1
 
-                    feature_vector = feat_map[batch_idx, :, center_y, center_x]
+                    feature_vector = feature_map[batch_idx, :, center_y, center_x]
                     feature_vector = nn.functional.normalize(feature_vector.view(1, -1), dim=1)
                     feature_vector = torch.squeeze(feature_vector)
 
