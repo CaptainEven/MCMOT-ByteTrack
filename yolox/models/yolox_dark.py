@@ -128,7 +128,7 @@ class YOLOXDarkSSL(nn.Module):
                     center_y = center_y if center_y < map_h else map_h - 1
 
                     feature_vector = feat_map[batch_idx, :, center_y, center_x]
-                    feature_vector = nn.functional.normalize(feature_vector.view(1, -1))
+                    feature_vector = nn.functional.normalize(feature_vector.view(1, -1), dim=1)
                     feature_vector = torch.squeeze(feature_vector)
 
                     sc_loss += 1.0 - torch.dot(q_vector, feature_vector)
