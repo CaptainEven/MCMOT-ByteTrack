@@ -60,24 +60,26 @@ class YOLOXDarkSSL(nn.Module):
             assert targets is not None
             assert not (q is None or k is None or n is None)
 
+            ## ----- Get object detection losses and feature map
             losses, feat_map = self.head.forward(fpn_outs, targets, inps)
             loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = losses
 
-            ## ---------- Calculate SSL loss
+            ## ----- Get size
             net_h, net_w = inps.shape[2], inps.shape[3]
+            map_h, map_w = feat_map.shape[2], feat_map.shape[3]
 
-            # ---number of objects
+            ## ----- Get number of objects(ground truth)
             valid_lb_inds = targets.sum(dim=2) > 0  # batch_size×50(True | False)
             num_gts = valid_lb_inds.sum(dim=1)  # batch_size×n_lb_valid
 
+            ## ---------- Calculate SSL loss of the batch
             ssl_loss = 0.0
-            tri_loss = 0.0
-            sc_loss = 0.0
             for batch_idx, num_gt in enumerate(num_gts):
                 num_gt = int(num_gt)
                 if num_gt == 0:
                     continue
 
+                ## ----- Get feature vectors of the image
                 q_vectors = q[batch_idx]
                 k_vectors = k[batch_idx]
                 n_vectors = n[batch_idx]
@@ -111,13 +113,12 @@ class YOLOXDarkSSL(nn.Module):
                 sm_output = torch.mm(q_vectors, k_vectors.T)
                 sm_diff = sm_output - torch.eye(num_gt).cuda()
                 sm_diff = torch.pow(sm_diff, 2)
-                l_ssl_sm = sm_diff.sum()
-                ssl_loss += l_ssl_sm / (num_gt * num_gt)
+                ssl_loss += sm_diff.sum() / (num_gt * num_gt)
 
                 ## ----- Calculate feature scale-consistency loss
-                # (尺度一致性特征差异损失函数)
                 ## of feature map and patch feature vector difference
-                map_h, map_w = feat_map.shape[2], feat_map.shape[3]
+                ## (尺度一致性特征损失函数)
+                scale_consistent_loss = 0.0
                 for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
                     cls_id, cx, cy, w, h = targets[batch_idx][i]  # in net_size
 
@@ -131,14 +132,15 @@ class YOLOXDarkSSL(nn.Module):
                     feature_vector = nn.functional.normalize(feature_vector.view(1, -1), dim=1)
                     feature_vector = torch.squeeze(feature_vector)
 
-                    sc_loss += 1.0 - torch.dot(q_vector, feature_vector)
-                    sc_loss += 1.0 - torch.dot(k_vector, feature_vector)
+                    scale_consistent_loss += 1.0 - torch.dot(q_vector, feature_vector)
+                    scale_consistent_loss += 1.0 - torch.dot(k_vector, feature_vector)
 
                 if targets.shape[0] > 0:
-                    ssl_loss += sc_loss / targets.shape[0]
+                    ssl_loss += scale_consistent_loss / targets.shape[0]
 
                 ## ----- Calculate Triplet loss: hard to be optimized?
                 tri_cnt = 0
+                tri_loss = 0.0
                 for i in range(q_vectors.shape[0]):
                     anc = q_vectors[i]
                     pos = k_vectors[i]
@@ -160,8 +162,8 @@ class YOLOXDarkSSL(nn.Module):
                     ssl_loss += tri_loss / tri_cnt
 
                 ## ----- calculate Cycle loss
-                cycle_loss = 0.0
                 cyc_cnt = 0
+                cycle_loss = 0.0
                 for i in range(q_vectors.shape[0]):
                     for j in range(k_vectors.shape[0]):
                         if j != i:
