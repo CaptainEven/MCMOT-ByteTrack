@@ -161,7 +161,7 @@ class YOLOXDarkSSL(nn.Module):
                 if tri_cnt > 0:
                     ssl_loss += tri_loss / tri_cnt
 
-                ## ----- calculate Cycle loss
+                ## ----- calculate Cycle consistency loss
                 cyc_cnt = 0
                 cycle_loss = 0.0
                 for i in range(q_vectors.shape[0]):
