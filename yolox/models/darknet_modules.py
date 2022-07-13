@@ -287,9 +287,9 @@ class WeightedFeatureFusion(nn.Module):  # weighted sum of 2 or more layers http
             na = a.shape[1]  # feature channels
 
             # Adjust channels
-            if nx == na:  # same shape
+            if torch.equal(nx, na):  # same shape
                 x = x + a
-            elif nx > na:  # slice input
+            elif torch.gt(nx, na):  # nx > na, slice input
                 x[:, :na] = x[:, :na] + a  # or a = nn.ZeroPad2d((0, 0, 0, 0, 0, dc))(a); x = x + a
             else:  # slice feature
                 x = x + a[:, :nx]

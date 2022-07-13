@@ -20,9 +20,9 @@ def make_parser():
                         default="images",
                         type=str,
                         help="input node name of onnx model")
-    parser.add_argument("--output",
-                        default="output",
-                        type=str,
+    parser.add_argument("--output_names",
+                        type=list,
+                        default=["output", "feature_map"],
                         help="output node name of onnx model")
     parser.add_argument("-o",
                         "--opset",
@@ -107,18 +107,21 @@ def run():
     if "model" in ckpt:
         ckpt = ckpt["model"]
     net.load_state_dict(ckpt)
+    logger.info("{:s} loaded.".format(ckpt_path))
+
     net.eval()  # switch to eval mode
 
     # net = replace_module(net, nn.SiLU, SiLU)
     net.head.decode_in_inference = False
     logger.info("loading checkpoint done.")
 
+    ## ----- Set input: N×C×H×W
     dummy_input = torch.randn(1, 3, exp.test_size[0], exp.test_size[1])
     torch.onnx._export(net,
                        dummy_input,
                        opt.output_onnx_path,
                        input_names=[opt.input],
-                       output_names=[opt.output],
+                       output_names=opt.output_names,
                        opset_version=opt.opset, )
     logger.info("generated onnx model named {}".format(opt.output_onnx_path))
 

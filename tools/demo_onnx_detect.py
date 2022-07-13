@@ -243,6 +243,7 @@ def detect_onnx(opt):
 
     ## ----- Define net and read in weights
     net = cv2.dnn.readNet(onnx_path)
+    logger.info("{:s} loaded.".format(onnx_path))
 
     logger.info("Device: {:s}.".format(opt.dev))
     if opt.dev == "cuda":
@@ -278,17 +279,17 @@ def detect_onnx(opt):
                                      fps,
                                      (int(width), int(height)))
 
+        vid_save_path = ""
+        if opt.time_type == "latest":
+            vid_save_path = opt.output_dir + "/detect_onnx.mp4"
+        elif opt.time_type == "current":
+            pass
+
     cap = cv2.VideoCapture(video_path)
     width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
     height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
     fps = cap.get(cv2.CAP_PROP_FPS)
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
-
-    vid_save_path = ""
-    if opt.time_type == "latest":
-        vid_save_path = opt.output_dir + "/detect_onnx.mp4"
-    elif opt.time_type == "current":
-        pass
 
     ## ----- class name to class id and class id to class name
     id2cls = defaultdict(str)
@@ -365,7 +366,8 @@ def detect_onnx(opt):
         ## ----- update frame id
         frame_id += 1
 
-    logger.info("{:s} saved.".format(vid_save_path))
+    if opt.mode == "save":
+        logger.info("{:s} saved.".format(vid_save_path))
 
 
 def run():
