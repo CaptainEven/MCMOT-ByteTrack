@@ -55,7 +55,7 @@ def post_process(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
         if not image_pred.size(0):
             continue
 
-        # Get score and class with highest confidence
+        # Get score and class with high-est confidence
         class_conf, class_pred = torch.max(image_pred[:, 5: 5 + num_classes], 1, keepdim=True)
 
         conf_mask = (image_pred[:, 4] * class_conf.squeeze() >= conf_thre).squeeze()

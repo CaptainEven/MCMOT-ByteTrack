@@ -12,13 +12,7 @@ import torch
 import torch.nn.functional as F
 from loguru import logger
 from yolox.utils.demo_utils import multiclass_nms, cos_sim, box_iou
-
-sys.path.append(os.path.abspath("../my_models"))
-from my_models.models import Darknet
-from my_models.models import load_darknet_weights
-
-sys.path.append(os.path.abspath("../mAPEvaluate"))
-from mAPEvaluate.cmp_det_label_sf import box_iou as box_iou
+from yolox.utils import fuse_model, get_model_info, post_process
 from tqdm import tqdm
 
 
@@ -542,10 +536,26 @@ class FeatureMatcher(object):
         img_info["width"] = width
         img_info["raw_img"] = img
 
-        img, ratio = preproc(img, self.test_size, self.mean, self.std)
+        img, ratio = self.preproc(img, self.test_size, self.mean, self.std)
         img_info["ratio"] = ratio
         img = torch.from_numpy(img).unsqueeze(0)
         img = img.float()
+
+        if self.device == "gpu":
+            img = img.cuda()
+            if self.fp16:
+                img = img.half()  # to FP16
+
+        with torch.no_grad():
+            timer.tic()
+
+            ## ----- forward, return a tuple
+            outputs, feature_map = self.model.forward(img)
+            ## -----
+
+            outputs = post_process(outputs, self.num_classes, self.conf_thresh, self.nms_thresh)
+
+        return outputs, feature_map, img_info
 
     def run_a_seq(self,
                   video_path,
@@ -589,7 +599,7 @@ class FeatureMatcher(object):
 
             if ret_val:
                 with torch.no_grad():
-                    outputs, img_info = self.inference(frame)
+                    outputs, feature_map, img_info = self.inference(frame)
                     dets = outputs[0]
                     dets = dets.cpu().numpy()
                     dets = dets[np.where(dets[:, 4] > opt.conf)]
