@@ -35,7 +35,7 @@ def make_parser():
                         help="use onnxsim or not")
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
+                        default="../exps/example/mot/yolox_det_c5_dark_ssl.py",
                         type=str,
                         help="expriment description file", )
 
@@ -51,11 +51,11 @@ def make_parser():
     parser.add_argument("-n",
                         "--name",
                         type=str,
-                        default=None,
+                        default="ssl",
                         help="model name")
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar",
+                        default="../YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ckpt.pth.tar",
                         type=str,
                         help="ckpt path")
     parser.add_argument("opts",
@@ -78,13 +78,14 @@ def run():
     exp.merge(opt.opts)
 
     ## ----- Using cfg file from opt
-    if hasattr(exp, "cfg_file_path"):
-        exp.cfg_file_path = os.path.abspath(opt.cfg)
+    # if hasattr(exp, "cfg_file_path"):
+    #     exp.cfg_file_path = os.path.abspath(opt.cfg)
+    #
+    #     cfg_name = os.path.split(opt.cfg)[-1]
+    #     if "." in cfg_name:
+    #         cfg_name = cfg_name.split(".")[0]
 
-        cfg_name = os.path.split(opt.cfg)[-1]
-        if "." in cfg_name:
-            cfg_name = cfg_name.split(".")[0]
-            opt.output_onnx_path = os.path.abspath("../" + cfg_name + ".onnx")
+    opt.output_onnx_path = os.path.abspath("../" + opt.name + ".onnx")
 
     if not opt.experiment_name:
         opt.experiment_name = exp.exp_name

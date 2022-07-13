@@ -40,13 +40,14 @@ def make_parser():
     ## ----- exp file, eg: yolox_x_ablation.py
     parser.add_argument("-f",
                         "--exp_file",
-                        default="../exps/example/mot/yolox_tiny_det_c5_dark.py",
+                        default="../exps/example/mot/yolox_det_c5_dark_ssl.py",
                         type=str,
                         help="pls input your experiment description file")
 
+    ## yolox_darknet_tiny_bb46.onnx
     parser.add_argument("--onnx_path",
                         type=str,
-                        default="../yolox_darknet_tiny_bb46.onnx",
+                        default="../ssl.onnx",
                         help="")
 
     parser.add_argument("--conf",
@@ -59,15 +60,15 @@ def make_parser():
                         default="latest",
                         help="latest | current")
 
-    parser.add_argument("--save_result",
-                        type=bool,
-                        default=True,
-                        help="")
-
     parser.add_argument("--log_interval",
                         type=int,
                         default=1,
                         help="")
+
+    parser.add_argument("--mode",
+                        type=str,
+                        default="show",
+                        help="save | show")
 
     parser.add_argument("--dev",
                         type=str,
@@ -262,12 +263,20 @@ def detect_onnx(opt):
         os.makedirs(opt.output_dir)
         logger.info("{:s} made.".format(opt.output_dir))
 
-    ## ----- Read the video
     video_path = os.path.abspath(opt.vid_path)
     if not os.path.isfile(video_path):
         logger.error("invalid input video path: {:s}, exit now!"
                      .format(video_path))
         exit(-1)
+
+    ## ----- Read the video
+    if opt.mode == "save":
+        vid_save_path = os.path.abspath(vid_save_path)
+        logger.info("Writing results to {:s}...".format(vid_save_path))
+        vid_writer = cv2.VideoWriter(vid_save_path,
+                                     cv2.VideoWriter_fourcc(*"mp4v"),
+                                     fps,
+                                     (int(width), int(height)))
 
     cap = cv2.VideoCapture(video_path)
     width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
@@ -280,13 +289,6 @@ def detect_onnx(opt):
         vid_save_path = opt.output_dir + "/detect_onnx.mp4"
     elif opt.time_type == "current":
         pass
-
-    vid_save_path = os.path.abspath(vid_save_path)
-    logger.info("Writing results to {:s}...".format(vid_save_path))
-    vid_writer = cv2.VideoWriter(vid_save_path,
-                                 cv2.VideoWriter_fourcc(*"mp4v"),
-                                 fps,
-                                 (int(width), int(height)))
 
     ## ----- class name to class id and class id to class name
     id2cls = defaultdict(str)
@@ -345,12 +347,17 @@ def detect_onnx(opt):
                 # timer.toc()
                 online_img = img_info['raw_img']
 
-            if opt.save_result:
+            if opt.mode == "save":
                 vid_writer.write(online_img)
+            elif opt.mode == "show":
+                cv2.namedWindow("Track", 0)
+                cv2.imshow("Track", online_img)
 
-            ch = cv2.waitKey(1)
-            if ch == 27 or ch == ord("q") or ch == ord("Q"):
-                break
+                ch = cv2.waitKey(1)
+                if ch == 27 or ch == ord("q") or ch == ord("Q"):  # quit
+                    break
+                elif ch == ord("p"):  # pause
+                    cv2.waitKey(0)
         else:
             logger.warning("Read frame {:d} failed!".format(frame_id))
             break
