@@ -335,8 +335,12 @@ class Predictor(object):
 
             if isinstance(outputs, tuple):
                 outputs, feature_map = outputs[0], outputs[1]
-            outputs = post_process(outputs, self.num_classes, self.conf_thresh, self.nms_thresh)
-            # logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+
+            ## ----- get bbox(x1y1x2y2) and do NMS
+            outputs = post_process(outputs,
+                                   self.num_classes,
+                                   self.conf_thresh,
+                                   self.nms_thresh)
 
         return outputs, img_info
 
@@ -389,7 +393,7 @@ def image_demo(predictor, vis_folder, path, current_time, save_result):
             dets = dets[np.where(dets[:, 4] > opt.conf)]
 
         ## turn x1,y1,x2,y2,score1,score2,cls_id  (7)
-        ## tox1,y1,x2,y2,score,cls_id  (6)
+        ## to x1,y1,x2,y2,score,cls_id  (6)
         if dets.shape[1] == 7:
             dets[:, 4] *= dets[:, 5]
             dets[:, 5] = dets[:, 6]

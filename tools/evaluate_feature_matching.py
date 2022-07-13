@@ -600,9 +600,40 @@ class FeatureMatcher(object):
             if ret_val:
                 with torch.no_grad():
                     outputs, feature_map, img_info = self.inference(frame)
+
+                    ## ----- Get dets
                     dets = outputs[0]
                     dets = dets.cpu().numpy()
                     dets = dets[np.where(dets[:, 4] > opt.conf)]
+
+                    ## ----- Get feature map and normalize
+                    feature_map = feature_map.view(1, -1)
+                    feature_map = F.normalize(feature_map, dim=1)
+                    feature_map = feature_map.detach().cpu().numpy()
+
+                ## ----- feature map size
+                if fr_id == 0:
+                    n, c, h, w = feature_map.shape
+                    print("Feature map size: {:d}×{:d}".format(w, h))
+
+                ## turn x1,y1,x2,y2,score1,score2,cls_id  (7)
+                ## to x1,y1,x2,y2,score,cls_id  (6)
+                if dets.shape[1] == 7:
+                    dets[:, 4] *= dets[:, 5]
+                    dets[:, 5] = dets[:, 6]
+                    dets = dets[:, :6]
+
+                if dets.shape[0] > 0:
+                    ## ----- update the frame
+                    img_size = [img_info['height'], img_info['width']]
+
+                    ## ----- scale back the bbox
+                    img_h, img_w = img_size
+                    scale = min(net_h / float(img_h), net_w / float(img_w))
+                    dets[:, :4] /= scale  # scale x1, y1, x2, y2
+
+                # only for car(cls_id == 0) for now
+                TPs, GT_tr_ids = self.get_true_positive(fr_id, dets, cls_id=cls_id)
 
             fr_id += 1
 
@@ -618,34 +649,8 @@ class FeatureMatcher(object):
 
             with torch.no_grad():
                 pred = None
-                if len(self.net.feat_out_ids) == 3:
-                    t1 = torch_utils.time_synchronized()
 
-                    pred, pred_orig, reid_feat_out, yolo_inds = self.net.forward(img, augment=self.opt.augment)
-
-                    t2 = torch_utils.time_synchronized()
-                    if fr_id % 100 == 0:
-                        print('Frame %d done, time: %.3fms' % (fr_id, 1000.0 * (t2 - t1)))
-
-                    # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
-                    feat_tmp_list = []
-                    for tmp in reid_feat_out:
-                        # L2 normalize the feature map(feature map scale)
-                        tmp = F.normalize(tmp, dim=1)
-
-                        if fr_id == 0:
-                            # feature map size
-                            n, c, h, w = tmp.shape
-                            print('Feature map size: {:d}×{:d}'.format(w, h))
-
-                        # GPU -> CPU
-                        tmp = tmp.detach().cpu().numpy()
-
-                        feat_tmp_list.append(tmp)
-
-                    reid_feat_out = feat_tmp_list
-
-                elif len(self.net.feat_out_ids) == 1:
+                if len(self.net.feat_out_ids) == 1:
                     t1 = torch_utils.time_synchronized()
 
                     pred, pred_orig, reid_feat_out = self.net.forward(img, augment=self.opt.augment)
