@@ -181,7 +181,7 @@ def _post_process(result, net_size, scale, nms_th, score_th):
     boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3] / 2.0
     boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2] / 2.0
     boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3] / 2.0
-    boxes_xyxy /= scale  # scale back to image size
+    boxes_xyxy /= scale  # scale from net size back to image size
 
     dets = multiclass_nms(boxes_xyxy,
                           scores,
