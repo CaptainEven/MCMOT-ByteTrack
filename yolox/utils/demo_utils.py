@@ -2,16 +2,112 @@
 # -*- coding:utf-8 -*-
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
-import numpy as np
-
 import os
+
+import numpy as np
 
 __all__ = ["mkdir", "nms", "multiclass_nms", "multiclass_NMS", "demo_postprocess"]
 
 
 def mkdir(path):
+    """
+    :param: path
+    """
     if not os.path.exists(path):
         os.makedirs(path)
+
+
+def cos_sim(vect_1, vect_2):
+    """
+    :param vect_1:
+    :param vect_2:
+    :return:
+    """
+    norm1 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), vect_1))))
+    norm2 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), vect_2))))
+    return sum([vect_1[i] * vect_2[i] for i in range(0, len(vect_1))]) / (norm1 * norm2)
+
+
+def overlap(x1, w1, x2, w2):
+    """
+    :param x1:  center_x
+    :param w1:  bbox_w
+    :param x2:  center_x
+    :param w2:  bbox_w
+    :return:
+    """
+    l1 = x1 - w1 / 2.0
+    l2 = x2 - w2 / 2.0
+    left = l1 if l1 > l2 else l2
+    r1 = x1 + w1 / 2.0
+    r2 = x2 + w2 / 2.0
+    right = r1 if r1 < r2 else r2
+    return right - left
+
+def tlbr2xywh(tlbr):
+    """
+    @param tlbr: x1y1x2y2
+    @return: center_x, center_y, box_w, box_h
+    """
+    tlbr = np.squeeze(tlbr)
+    xywh = tlbr.copy()
+    xywh[:2] = (tlbr[:2] + tlbr[2:]) * 0.5
+    xywh[2:] = (tlbr[2:] - tlbr[:2])
+    return xywh
+
+def box_intersection(box1, box2, box_type="x1y1x2y2"):
+    """             0         1         2      3
+    :param box1: center_x, center_y, bbox_w, bbox_h
+    :param box2: center_x, center_y, bbox_w, bbox_h
+    :return:
+    """
+    if box_type == "x1y1x2y2":
+        box1 = tlbr2xywh(box1)
+        box2 = tlbr2xywh(box2)
+    elif box_type == "xywh":
+        pass
+    else:
+        print("[Err]: wrong box type, should be x1y1x2y2 or xywh, exit!")
+        exit(-1)
+
+    w = overlap(box1[0], box1[2], box2[0], box2[2])
+    h = overlap(box1[1], box1[3], box2[1], box2[3])
+
+    if w < 0 or h < 0:
+        return 0
+
+    area = w * h
+    return area
+
+
+def box_union(box1, box2, box_type="x1y1x2y2"):
+    """
+    @param box1: center_x, center_y, box_w, box_h
+    @param box2:
+    @param box_type:
+    @return:
+    """
+    if box_type == "x1y1x2y2":
+        box1 = tlbr2xywh(box1)
+        box2 = tlbr2xywh(box2)
+    elif box_type == "xywh":
+        pass  # do nothing
+    else:
+        print("[Err]: wrong box type, should be x1y1x2y2 or xywh, exit!")
+        exit(-1)
+
+    i = box_intersection(box1, box2, box_type="xywh")
+    u = box1[2] * box1[3] + box2[2] * box2[3] - i
+    return u
+
+
+def box_iou(box1, box2, box_type="x1y1x2y2"):
+    """
+    @param box1:
+    @param box2:
+    @return:
+    """
+    return box_intersection(box1, box2, box_type) / box_union(box1, box2, box_type)
 
 
 def nms(boxes, scores, nms_thr):
@@ -45,6 +141,7 @@ def nms(boxes, scores, nms_thr):
         order = order[inds + 1]
 
     return keep
+
 
 def multiclass_NMS(bboxes_dict, scores_dict, nms_thr):
     """
@@ -95,7 +192,6 @@ def multiclass_nms(boxes, scores, nms_thr, score_thr):
 
 
 def demo_postprocess(outputs, img_size, p6=False):
-
     grids = []
     expanded_strides = []
 

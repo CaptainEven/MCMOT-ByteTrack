@@ -281,10 +281,10 @@ class WeightedFeatureFusion(nn.Module):  # weighted sum of 2 or more layers http
             x = x * w[0]
 
         # Fusion
-        nx = x.shape[1]  # input channels
+        nx = torch.tensor(x.shape[1])  # input channels
         for i in range(self.n - 1):
             a = outputs[self.layers[i]] * w[i + 1] if self.weight else outputs[self.layers[i]]  # feature to add
-            na = a.shape[1]  # feature channels
+            na = torch.tensor(a.shape[1])  # feature channels
 
             # Adjust channels
             if torch.equal(nx, na):  # same shape

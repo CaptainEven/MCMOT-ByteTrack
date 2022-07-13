@@ -76,7 +76,7 @@ class Predictor(object):
         self.rgb_means = (0.485, 0.456, 0.406)
         self.std = (0.229, 0.224, 0.225)
         self.args = args
-        self.session = onnxruntime.InferenceSession(args.model)
+        self.session = onnxruntime.InferenceSession(args.net)
         self.input_shape = tuple(map(int, args.input_shape.split(',')))
 
     def inference(self, ori_img, timer):

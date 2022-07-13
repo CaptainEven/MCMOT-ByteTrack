@@ -642,6 +642,7 @@ def run(exp, opt):
     net.eval()
     ## -----
 
+    ## ----- load weights
     if not opt.trt:
         if opt.ckpt is None:
             ckpt_path = os.path.join(file_name, "best_ckpt.pth.tar")
