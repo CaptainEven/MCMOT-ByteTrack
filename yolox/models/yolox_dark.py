@@ -109,11 +109,11 @@ class YOLOXDarkSSL(nn.Module):
                 q_vectors = q_vectors[:num_gt]  # num_gt×128
                 k_vectors = k_vectors[:num_gt]
 
-                ## ----- Calculate similarity matrix loss
-                sm_output = torch.mm(q_vectors, k_vectors.T)
-                sm_diff = sm_output - torch.eye(num_gt).cuda()
-                sm_diff = torch.pow(sm_diff, 2)
-                ssl_loss += sm_diff.sum() / (num_gt * num_gt)
+                # ## ----- Calculate similarity matrix loss
+                # sm_output = torch.mm(q_vectors, k_vectors.T)
+                # sm_diff = sm_output - torch.eye(num_gt).cuda()
+                # sm_diff = torch.pow(sm_diff, 2)
+                # ssl_loss += sm_diff.sum() / (num_gt * num_gt)
 
                 ## ----- Calculate feature scale-consistency loss
                 ## of feature map and patch feature vector difference
