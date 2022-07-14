@@ -28,11 +28,11 @@ class ReIDEvaluator(object):
                                           "tricycle"],
                                  help='*.names path')
 
-        parser.add_argument("-n",
-                            "--name",
-                            type=str,
-                            default=None,
-                            help="model name")
+        self.parser.add_argument("-n",
+                                 "--name",
+                                 type=str,
+                                 default=None,
+                                 help="model name")
 
         ## ----- exp file, eg: yolox_x_ablation.py
         self.parser.add_argument("-f",
