@@ -10,7 +10,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from loguru import logger
-
+from tqdm import tqdm
 from yolox.exp import get_exp
 from yolox.utils import fuse_model, post_process, select_device, find_free_gpu
 from yolox.utils.demo_utils import cos_sim, box_iou
@@ -614,211 +614,213 @@ class ReIDEvaluator(object):
         num_tps = 0
         fr_id = 0
 
-        while True:
-            ## ----- read the video
-            ret_val, frame = cap.read()
+        with tqdm(total=self.n_frames) as progress_bar:
+            while True:
+                ## ----- read the video
+                ret_val, frame = cap.read()
 
-            if not ret_val:
-                break
+                if not ret_val:
+                    break
 
-            with torch.no_grad():
-                outputs, feature_map, img_info = self.inference(frame)
-                self.img_h, self.img_w = img_info['height'], img_info['width']
-                scale = img_info['ratio']
+                with torch.no_grad():
+                    outputs, feature_map, img_info = self.inference(frame)
+                    self.img_h, self.img_w = img_info['height'], img_info['width']
+                    scale = img_info['ratio']
 
-                ## ----- Get dets
-                dets = outputs[0]
-                dets = dets.cpu().numpy()
-                dets = dets[np.where(dets[:, 4] > self.opt.conf)]
+                    ## ----- Get dets
+                    dets = outputs[0]
+                    dets = dets.cpu().numpy()
+                    dets = dets[np.where(dets[:, 4] > self.opt.conf)]
 
-                ## ----- Get feature map and normalize
-                feature_map = F.normalize(feature_map, p=2, dim=1)  # N×C×H×W
-                feature_map = feature_map.detach().cpu().numpy()
+                    ## ----- Get feature map and normalize
+                    feature_map = F.normalize(feature_map, p=2, dim=1)  # N×C×H×W
+                    feature_map = feature_map.detach().cpu().numpy()
 
-            ## ----- Get feature map size
-            map_n, map_c, self.map_h, self.map_w = feature_map.shape
-            # print("Feature map size: {:d}×{:d}".format(w, h))
+                ## ----- Get feature map size
+                map_n, map_c, self.map_h, self.map_w = feature_map.shape
+                # print("Feature map size: {:d}×{:d}".format(w, h))
 
-            ## turn x1,y1,x2,y2,score1,score2,cls_id  (7)
-            ## to x1,y1,x2,y2,score,cls_id  (6)
-            if dets.shape[1] == 7:
-                dets[:, 4] *= dets[:, 5]
-                dets[:, 5] = dets[:, 6]
-                dets = dets[:, :6]
+                ## turn x1,y1,x2,y2,score1,score2,cls_id  (7)
+                ## to x1,y1,x2,y2,score,cls_id  (6)
+                if dets.shape[1] == 7:
+                    dets[:, 4] *= dets[:, 5]
+                    dets[:, 5] = dets[:, 6]
+                    dets = dets[:, :6]
 
-            if dets.shape[0] > 0:
-                ## ----- scale back the bbox
-                dets[:, :4] /= scale  # scale x1, y1, x2, y2
-            else:
-                continue
+                if dets.shape[0] > 0:
+                    ## ----- scale back the bbox
+                    dets[:, :4] /= scale  # scale x1, y1, x2, y2
+                else:
+                    continue
 
-            # only for car(cls_id == 0) for now
-            TPs, GT_tr_ids = self.get_true_positive(fr_id, dets, cls_id=cls_id)
+                # only for car(cls_id == 0) for now
+                TPs, GT_tr_ids = self.get_true_positive(fr_id, dets, cls_id=cls_id)
 
-            num_tps += len(TPs)
+                num_tps += len(TPs)
 
-            # ----- build mapping from TP id to GT track id
-            tpid_to_gttrid = [GT_tr_ids[x] for x in range(len(TPs))]
+                # ----- build mapping from TP id to GT track id
+                tpid_to_gttrid = [GT_tr_ids[x] for x in range(len(TPs))]
 
-            # ---------- matching statistics
-            if fr_id >= 1:  # start from the second image
-                # ----- get GT for the last frame
-                objs_pre_gt = self.objs_gt[fr_id - 1]
-                self.gt_pre = [obj for obj in objs_pre_gt if obj[-1] == cls_id]
+                # ---------- matching statistics
+                if fr_id >= 1:  # start from the second image
+                    # ----- get GT for the last frame
+                    objs_pre_gt = self.objs_gt[fr_id - 1]
+                    self.gt_pre = [obj for obj in objs_pre_gt if obj[-1] == cls_id]
 
-                # ----- get intersection of pre and cur GT for the specified object class
-                # filtering
-                # tr_ids_cur = [x[4] for x in self.gt_cur]
-                # tr_ids_pre = [x[4] for x in self.gt_pre]
-                # tr_ids_gt_common = set(tr_ids_cur) & set(tr_ids_pre)  # GTs intersection
-                # gt_pre_tmp = [x for x in self.gt_pre if x[4] in tr_ids_gt_common]
-                # gt_cur_tmp = [x for x in self.gt_cur if x[4] in tr_ids_gt_common]
-                # self.gt_pre = gt_pre_tmp
-                # self.gt_cur = gt_cur_tmp
+                    # ----- get intersection of pre and cur GT for the specified object class
+                    # filtering
+                    # tr_ids_cur = [x[4] for x in self.gt_cur]
+                    # tr_ids_pre = [x[4] for x in self.gt_pre]
+                    # tr_ids_gt_common = set(tr_ids_cur) & set(tr_ids_pre)  # GTs intersection
+                    # gt_pre_tmp = [x for x in self.gt_pre if x[4] in tr_ids_gt_common]
+                    # gt_cur_tmp = [x for x in self.gt_cur if x[4] in tr_ids_gt_common]
+                    # self.gt_pre = gt_pre_tmp
+                    # self.gt_cur = gt_cur_tmp
 
-                # ----- get intersection between pre and cur TPs for the specified object class
-                tr_ids_tp_common = set(self.GT_tr_ids_pre) & set(GT_tr_ids)
-                TPs_ids_pre = [self.GT_tr_ids_pre.index(x) for x in self.GT_tr_ids_pre if x in tr_ids_tp_common]
-                TPs_ids_cur = [GT_tr_ids.index(x) for x in GT_tr_ids if x in tr_ids_tp_common]
-                TPs_pre = [self.TPs_pre[x] for x in TPs_ids_pre]
-                TPs_cur = [TPs[x] for x in TPs_ids_cur]
-                # if len(TPs_pre) != len(TPs_cur):
-                #     print("Current frame's TPs not equal to previous' frame.")
+                    # ----- get intersection between pre and cur TPs for the specified object class
+                    tr_ids_tp_common = set(self.GT_tr_ids_pre) & set(GT_tr_ids)
+                    TPs_ids_pre = [self.GT_tr_ids_pre.index(x) for x in self.GT_tr_ids_pre if x in tr_ids_tp_common]
+                    TPs_ids_cur = [GT_tr_ids.index(x) for x in GT_tr_ids if x in tr_ids_tp_common]
+                    TPs_pre = [self.TPs_pre[x] for x in TPs_ids_pre]
+                    TPs_cur = [TPs[x] for x in TPs_ids_cur]
+                    # if len(TPs_pre) != len(TPs_cur):
+                    #     print("Current frame's TPs not equal to previous' frame.")
 
-                # ----- update total pairs
-                total += len(TPs_cur)
+                    # ----- update total pairs
+                    total += len(TPs_cur)
 
-                # ----- greedy matching...
-                # print('Frame {:d} start matching for {:d} TP pairs.'.format(fr_id, len(TPs_cur)))
-                for tpid_cur, det_cur in zip(TPs_ids_cur, TPs_cur):  # current frame as row
-                    x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
-                    reid_feat_vect_cur = self.get_feature(feature_map,
-                                                          self.map_w, self.map_h,
-                                                          self.img_w, self.img_h,
-                                                          x1_cur, y1_cur, x2_cur, y2_cur)
-                    best_sim = -1.0
-                    best_tp_id_pre = -1
-                    for tpid_pre, det_pre in zip(TPs_ids_pre, TPs_pre):  # previous frame as col
-                        x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
-                        reid_feat_vect_pre = self.get_feature(self.feature_map_pre,
+                    # ----- greedy matching...
+                    # print('Frame {:d} start matching for {:d} TP pairs.'.format(fr_id, len(TPs_cur)))
+                    for tpid_cur, det_cur in zip(TPs_ids_cur, TPs_cur):  # current frame as row
+                        x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
+                        reid_feat_vect_cur = self.get_feature(feature_map,
                                                               self.map_w, self.map_h,
                                                               self.img_w, self.img_h,
-                                                              x1_pre, y1_pre, x2_pre, y2_pre)
+                                                              x1_cur, y1_cur, x2_cur, y2_cur)
+                        best_sim = -1.0
+                        best_tp_id_pre = -1
+                        for tpid_pre, det_pre in zip(TPs_ids_pre, TPs_pre):  # previous frame as col
+                            x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
+                            reid_feat_vect_pre = self.get_feature(self.feature_map_pre,
+                                                                  self.map_w, self.map_h,
+                                                                  self.img_w, self.img_h,
+                                                                  x1_pre, y1_pre, x2_pre, y2_pre)
 
-                        # --- compute cosine of cur and pre corresponding feature vector
-                        sim = cos_sim(reid_feat_vect_cur, reid_feat_vect_pre)
-                        # sim = euclidean(reid_feat_vect_cur, reid_feat_vect_pre)
-                        # sim = SSIM(reid_feat_vect_cur, reid_feat_vect_pre)
+                            # --- compute cosine of cur and pre corresponding feature vector
+                            sim = cos_sim(reid_feat_vect_cur, reid_feat_vect_pre)
+                            # sim = euclidean(reid_feat_vect_cur, reid_feat_vect_pre)
+                            # sim = SSIM(reid_feat_vect_cur, reid_feat_vect_pre)
 
-                        # do cosine similarity statistics
-                        sim_tmp = sim * 100.0
-                        edge = int(sim_tmp / self.opt.bin_step) * self.opt.bin_step
-                        self.sim_bins_dict[edge] += 1
+                            # do cosine similarity statistics
+                            sim_tmp = sim * 100.0
+                            edge = int(sim_tmp / self.opt.bin_step) * self.opt.bin_step
+                            self.sim_bins_dict[edge] += 1
 
-                        # statistics of sim computation number
-                        self.num_sim_compute += 1
-                        if sim > best_sim:
-                            best_sim = sim
-                            best_tp_id_pre = tpid_pre
+                            # statistics of sim computation number
+                            self.num_sim_compute += 1
+                            if sim > best_sim:
+                                best_sim = sim
+                                best_tp_id_pre = tpid_pre
 
-                    # determine matched right or not
-                    gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tp_id_pre]
-                    gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
+                        # determine matched right or not
+                        gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tp_id_pre]
+                        gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
 
-                    # update match counting
-                    self.num_total_match += 1
+                        # update match counting
+                        self.num_total_match += 1
 
-                    # if matching correct
-                    if gt_tr_id_pre == gt_tr_id_cur:
-                        # update correct number
-                        num_correct += 1
-                        self.mean_same_id_sim += best_sim
-                        sim_sum += best_sim
+                        # if matching correct
+                        if gt_tr_id_pre == gt_tr_id_cur:
+                            # update correct number
+                            num_correct += 1
+                            self.mean_same_id_sim += best_sim
+                            sim_sum += best_sim
 
-                        ## -----  do visualization for correct and wrong match
+                            ## -----  do visualization for correct and wrong match
+                            if viz_dir != None:
+                                save_path = viz_dir + '/' \
+                                            + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur,
+                                                        best_sim)
+
+                            # do min similarity statistics of same object class
+                            if best_sim < self.min_same_id_sim:
+                                self.min_same_id_sim = best_sim
+
+                            # do cosine similarity statistics
+                            best_sim *= 100.0
+                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
+                            self.correct_sim_bins_dict[edge] += 1
+
+                        else:  # visualize the wrong match:
+                            num_wrong += 1
+                            self.mean_diff_id_sim += best_sim
+
+                            # wrong match img saving path
+                            if viz_dir != None:
+                                save_path = viz_dir + '/' \
+                                            + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur,
+                                                        best_sim)
+                            # do max similarity statistics of the different object class
+                            if best_sim > self.max_diff_id_sim:
+                                self.max_diff_id_sim = best_sim
+                            # do cosine similarity statistics
+                            best_sim *= 100.0
+                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
+                            self.wrong_sim_bins_dict[edge] += 1
+
                         if viz_dir != None:
-                            save_path = viz_dir + '/' \
-                                        + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                            .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur,
-                                                    best_sim)
+                            # ----- plot
+                            # text and line format
+                            text_scale = max(1.0, img_w / 500.0)  # 1600.
+                            text_thickness = 2
+                            line_thickness = max(1, int(img_w / 500.0))
+                            img0_pre = self.img_pre.copy()
+                            x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tp_id_pre][:4]  # best match bbox
+                            cv2.rectangle(img0_pre,
+                                          (int(x1_pre), int(y1_pre)),
+                                          (int(x2_pre), int(y2_pre)),
+                                          [0, 0, 255],
+                                          thickness=line_thickness)
+                            cv2.putText(img0_pre,
+                                        'id{:d}'.format(gt_tr_id_pre),
+                                        (int(x1_pre), int(y1_pre)),
+                                        fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                        fontScale=text_scale,
+                                        color=[0, 255, 0],
+                                        thickness=text_thickness)
+                            img0_cur = img0.copy()
+                            cv2.rectangle(img0_cur,
+                                          (int(x1_cur), int(y1_cur)),
+                                          (int(x2_cur), int(y2_cur)),
+                                          [0, 0, 255],
+                                          thickness=line_thickness)
+                            cv2.putText(img0_cur,
+                                        'id{:d}'.format(gt_tr_id_cur),
+                                        (int(x1_cur), int(y1_cur)),
+                                        fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                        fontScale=text_scale,
+                                        color=[0, 255, 0],
+                                        thickness=text_thickness)
+                            img_save = np.zeros((2 * img_h, img_w, 3), dtype=np.uint8)
+                            img_save[:img_h, :, :] = img0_pre
+                            img_save[img_h:2 * img_h, :, :] = img0_cur
+                            cv2.imwrite(save_path, img_save)
 
-                        # do min similarity statistics of same object class
-                        if best_sim < self.min_same_id_sim:
-                            self.min_same_id_sim = best_sim
+                # ---------- update
+                self.TPs_pre = TPs
+                self.GT_tr_ids_pre = GT_tr_ids
+                self.tpid_to_gttrid_pre = tpid_to_gttrid
 
-                        # do cosine similarity statistics
-                        best_sim *= 100.0
-                        edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
-                        self.correct_sim_bins_dict[edge] += 1
+                self.feature_map_pre = feature_map  # contains 1 feature map
+                self.img_pre = frame
 
-                    else:  # visualize the wrong match:
-                        num_wrong += 1
-                        self.mean_diff_id_sim += best_sim
+                ## ----- Update frame idx
+                fr_id += 1
 
-                        # wrong match img saving path
-                        if viz_dir != None:
-                            save_path = viz_dir + '/' \
-                                        + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                            .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur,
-                                                    best_sim)
-                        # do max similarity statistics of the different object class
-                        if best_sim > self.max_diff_id_sim:
-                            self.max_diff_id_sim = best_sim
-                        # do cosine similarity statistics
-                        best_sim *= 100.0
-                        edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
-                        self.wrong_sim_bins_dict[edge] += 1
-
-                    if viz_dir != None:
-                        # ----- plot
-                        # text and line format
-                        text_scale = max(1.0, img_w / 500.0)  # 1600.
-                        text_thickness = 2
-                        line_thickness = max(1, int(img_w / 500.0))
-                        img0_pre = self.img_pre.copy()
-                        x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tp_id_pre][:4]  # best match bbox
-                        cv2.rectangle(img0_pre,
-                                      (int(x1_pre), int(y1_pre)),
-                                      (int(x2_pre), int(y2_pre)),
-                                      [0, 0, 255],
-                                      thickness=line_thickness)
-                        cv2.putText(img0_pre,
-                                    'id{:d}'.format(gt_tr_id_pre),
-                                    (int(x1_pre), int(y1_pre)),
-                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                    fontScale=text_scale,
-                                    color=[0, 255, 0],
-                                    thickness=text_thickness)
-                        img0_cur = img0.copy()
-                        cv2.rectangle(img0_cur,
-                                      (int(x1_cur), int(y1_cur)),
-                                      (int(x2_cur), int(y2_cur)),
-                                      [0, 0, 255],
-                                      thickness=line_thickness)
-                        cv2.putText(img0_cur,
-                                    'id{:d}'.format(gt_tr_id_cur),
-                                    (int(x1_cur), int(y1_cur)),
-                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                    fontScale=text_scale,
-                                    color=[0, 255, 0],
-                                    thickness=text_thickness)
-                        img_save = np.zeros((2 * img_h, img_w, 3), dtype=np.uint8)
-                        img_save[:img_h, :, :] = img0_pre
-                        img_save[img_h:2 * img_h, :, :] = img0_cur
-                        cv2.imwrite(save_path, img_save)
-
-            # ---------- update
-            self.TPs_pre = TPs
-            self.GT_tr_ids_pre = GT_tr_ids
-            self.tpid_to_gttrid_pre = tpid_to_gttrid
-
-            self.feature_map_pre = feature_map  # contains 1 feature map
-            self.img_pre = frame
-
-            ## ----- Update frame idx
-            fr_id += 1
-
-            ## ------------------------- Iter a frame done
+                progress_bar.update()
+                ## ------------------------- Iter a frame done
 
         # compute precision of this seq
         if total > 0:
