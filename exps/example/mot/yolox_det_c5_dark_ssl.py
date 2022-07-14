@@ -61,7 +61,7 @@ class Exp(MyExp):
         self.random_size = (12, 26)
         self.max_epoch = 10  # 100
         self.print_interval = 1  # 10
-        self.eval_interval = 100
+        self.eval_interval = 0  # 100
         self.save_ckpt_batch_interval = 30  # 300
         self.test_conf = 0.001
         self.nmsthre = 0.7

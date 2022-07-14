@@ -231,6 +231,9 @@ class UncertaintyLoss(nn.Module):
 
 class TripletLoss(nn.Module):
     def __init__(self, margin=0.2):
+        """
+        :param margin
+        """
         super(TripletLoss, self).__init__()
         self.margin = margin
 

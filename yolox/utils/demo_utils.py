@@ -3,7 +3,7 @@
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
 import os
-
+import math
 import numpy as np
 
 __all__ = ["mkdir", "nms", "multiclass_nms", "multiclass_NMS", "demo_postprocess"]

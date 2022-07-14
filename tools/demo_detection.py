@@ -502,13 +502,7 @@ def detect_video(predictor, cap, vid_save_path, opt):
                 dets = dets[:, :6]
 
             if dets.shape[0] > 0:
-                ## ----- update the frame
-                img_size = [img_info['height'], img_info['width']]
-
-                ## ----- scale back the bbox
-                img_h, img_w = img_size
-                scale = min(net_h / float(img_h), net_w / float(img_w))
-                dets[:, :4] /= scale  # scale x1, y1, x2, y2
+                dets[:, :4] /= img_info['ratio']  # scale x1, y1, x2, y2
 
                 timer.toc()
                 online_img = plot_detection(img=img_info['raw_img'],
