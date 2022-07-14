@@ -443,7 +443,7 @@ class ReIDEvaluator(object):
                 box_gt = obj_gt[:4]
                 box_gt = self.clip_bbox(box_gt, self.img_w, self.img_h)
                 box_pred = obj_pred[:4]
-                iou = box_iou(box_gt, box_pred)  # compute iou
+                iou = box_iou(box_gt, box_pred, box_type="x1y1x2y2")  # compute iou
                 if obj_pred[4] > self.opt.conf and iou > best_iou:  # meet the conf thresh
                     best_pred_id = j
                     best_iou = iou
@@ -702,7 +702,7 @@ class ReIDEvaluator(object):
                         x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
                         reid_feat_vect_pre = self.get_feature(self.feature_map_pre,
                                                               self.map_w, self.map_h,
-                                                              self.img_w,self.img_h,
+                                                              self.img_w, self.img_h,
                                                               x1_pre, y1_pre, x2_pre, y2_pre)
 
                         # --- compute cosine of cur and pre corresponding feature vector
@@ -815,14 +815,17 @@ class ReIDEvaluator(object):
             self.feature_map_pre = feature_map  # contains 1 feature map
             self.img_pre = frame
 
-        # compute precision of this seq
-        precision = num_correct / total
-        print('Precision: {:.3f}%, num_correct: {:d}, num_wrong: {:d}'
-              ' | mean cos sim: {:.3f} | num_TPs: {:d}\n'
-              .format(precision * 100.0, num_correct, num_wrong, sim_sum / num_correct, num_tps))
+            ## ----- Update frame idx
+            fr_id += 1
 
-        ## ----- Update frame idx
-        fr_id += 1
+            ## ------------------------- Iter a frame done
+
+        # compute precision of this seq
+        if total > 0:
+            precision = num_correct / total
+            print("Precision: {:.3f}% | num_correct: {:d} | num_wrong: {:d}"
+                  " | mean cos sim: {:.3f} | num_TPs: {:d}\n"
+                  .format(precision * 100.0, num_correct, num_wrong, sim_sum / num_correct, num_tps))
 
         return precision, num_tps
 
