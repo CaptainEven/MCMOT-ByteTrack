@@ -11,6 +11,7 @@ import torch
 import torch.nn.functional as F
 from loguru import logger
 
+from yolox.exp import get_exp
 from yolox.utils import fuse_model, post_process, select_device, find_free_gpu
 from yolox.utils.demo_utils import cos_sim, box_iou
 
@@ -34,6 +35,11 @@ class ReIDEvaluator(object):
                                  default=None,
                                  help="model name")
 
+        self.parser.add_argument("--output_dir",
+                                 type=str,
+                                 default="../YOLOX_outputs",
+                                 help="")
+
         ## ----- exp file, eg: yolox_x_ablation.py
         self.parser.add_argument("-f",
                                  "--exp_file",
@@ -54,6 +60,12 @@ class ReIDEvaluator(object):
                                  default="../YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ckpt.pth.tar",
                                  type=str,
                                  help="ckpt for eval")
+
+        self.parser.add_argument("--fuse",
+                                 dest="fuse",
+                                 default=False,
+                                 action="store_true",
+                                 help="Fuse conv and bn for testing.")
         # ----------
 
         # input seq videos
@@ -124,12 +136,13 @@ class ReIDEvaluator(object):
 
         opt = self.parser.parse_args()
         self.opt = opt
-        self.exp = get_exp(self.opt.exp_file, self.opt.name)
+        exp = get_exp(self.opt.exp_file, self.opt.name)
+        self.exp = exp
 
-        if hasattr(exp, "cfg_file_path"):
-            exp.cfg_file_path = os.path.abspath(opt.cfg)
-        if hasattr(exp, "output_dir"):
-            exp.output_dir = opt.output_dir
+        if hasattr(self.exp, "cfg_file_path"):
+            self.exp.cfg_file_path = os.path.abspath(self.opt.cfg)
+        if hasattr(self.exp, "output_dir"):
+            self.exp.output_dir = self.opt.output_dir
 
         if isinstance(opt.class_names, str):
             class_names = opt.class_names.split(",")
@@ -137,9 +150,9 @@ class ReIDEvaluator(object):
             class_names = opt.class_names
 
         self.class_names = class_names
-        opt.class_names = class_names
-        exp.class_names = class_names
-        exp.n_classes = len(exp.class_names)
+        self.opt.class_names = class_names
+        self.exp.class_names = class_names
+        self.exp.n_classes = len(self.exp.class_names)
         logger.info("Number of classes: {:d}".format(exp.n_classes))
 
         # class name to class id and class id to class name
@@ -154,9 +167,9 @@ class ReIDEvaluator(object):
             print('[Err]: invalid videos dir.')
             return
 
-        self.videos = [self.opt.videos + '/' + x for x in os.listdir(self.opt.videos)
+        self.videos = [self.opt.videos + '/' + x
+                       for x in os.listdir(self.opt.videos)
                        if x.endswith('.mp4')]
-
         # ----------
 
         # set device
@@ -173,12 +186,13 @@ class ReIDEvaluator(object):
         ## -----
 
         ## ----- load weights
-        ckpt_path = os.path.abspath(opt.ckpt_path)
+        self.ckpt = os.path.abspath(self.opt.ckpt)
         logger.info("Loading checkpoint...")
-        ckpt = torch.load(ckpt_path, map_location="cpu")
+        ckpt_states = torch.load(self.ckpt, map_location="cpu")
+
         # load the model state dict
-        self.net.load_state_dict(ckpt["model"])
-        logger.info("Checkpoint {:s} loaded done.".format(ckpt_path))
+        self.net.load_state_dict(ckpt_states["model"])
+        logger.info("Checkpoint {:s} loaded done.".format(self.ckpt))
 
         if opt.fuse:
             logger.info("\tFusing model...")
@@ -265,7 +279,7 @@ class ReIDEvaluator(object):
 
             ## ---------- run a video seq
             print("Run seq {:s}...".format(video_path))
-            precision, num_tps = self.run_a_seq(video_path, cls_id, img_w, img_h, viz_dir)
+            precision, num_tps = self.run_a_seq(video_path, cls_id, viz_dir)
             mean_precision += precision
             num_tps_total += num_tps
             # print('Seq {:s} done.\n'.format(video_path))
@@ -542,8 +556,6 @@ class ReIDEvaluator(object):
         img = img.to(self.device)  # put input image to device
 
         with torch.no_grad():
-            timer.tic()
-
             ## ----- forward, return a tuple
             outputs, feature_map = self.model.forward(img)
             ## -----
