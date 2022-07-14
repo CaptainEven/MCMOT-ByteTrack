@@ -825,8 +825,8 @@ class ReIDEvaluator(object):
         # compute precision of this seq
         if total > 0:
             precision = num_correct / total
-            print("Precision: {:.3f}% | num_correct: {:d} | num_wrong: {:d}"
-                  " | mean cos sim: {:.3f} | num_TPs: {:d}\n"
+            print("Precision: {:.4f}% | num_correct: {:d} | num_wrong: {:d}"
+                  " | mean cos sim: {:.5f} | num_TPs: {:d}\n"
                   .format(precision * 100.0, num_correct, num_wrong, sim_sum / num_correct, num_tps))
 
         return precision, num_tps
