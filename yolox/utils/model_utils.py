@@ -112,10 +112,12 @@ def replace_module(module, replaced_module_type, new_module_type, replace_func=N
     model = module
     if isinstance(module, replaced_module_type):
         model = replace_func(replaced_module_type, new_module_type)
-    else:  # recurrsively replace
+    else:  # recursively replace
         for name, child in module.named_children():
             new_child = replace_module(child, replaced_module_type, new_module_type)
             if new_child is not child:  # child is already replaced
                 model.add_module(name, new_child)
 
     return model
+
+

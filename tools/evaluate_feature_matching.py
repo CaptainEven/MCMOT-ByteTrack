@@ -11,45 +11,49 @@ import torch
 import torch.nn.functional as F
 from loguru import logger
 
-from yolox.utils import fuse_model, get_model_info, post_process
+from yolox.utils import fuse_model, post_process, select_device, find_free_gpu
 from yolox.utils.demo_utils import cos_sim, box_iou
 
 
-class FeatureMatcher(object):
+class ReIDEvaluator(object):
     def __init__(self):
         self.parser = argparse.ArgumentParser()
 
-        self.parser.add_argument('--names',
+        self.parser.add_argument("--class_names",
                                  type=list,
-                                 default=["car", "bicycle", "person", "cyclist", "tricycle"],
+                                 default=["car",
+                                          "bicycle",
+                                          "person",
+                                          "cyclist",
+                                          "tricycle"],
                                  help='*.names path')
 
-        # ---------- cfg and weights file
-        self.parser.add_argument('--cfg',
-                                 type=str,
-                                 default='/mnt/diskb/even/YOLOV4/cfg/yolov4_half_one_feat_fuse.cfg',
-                                 help='*.cfg path')
+        parser.add_argument("-n",
+                            "--name",
+                            type=str,
+                            default=None,
+                            help="model name")
 
         ## ----- exp file, eg: yolox_x_ablation.py
-        parser.add_argument("-f",
-                            "--exp_file",
-                            default="../exps/example/mot/yolox_det_c5_dark_ssl.py",
-                            type=str,
-                            help="pls input your experiment description file")
+        self.parser.add_argument("-f",
+                                 "--exp_file",
+                                 default="../exps/example/mot/yolox_det_c5_dark_ssl.py",
+                                 type=str,
+                                 help="pls input your experiment description file")
 
         ## -----Darknet cfg file path
-        parser.add_argument("--cfg",
-                            type=str,
-                            default="../cfg/yolox_darknet_tiny_bb46.cfg",
-                            help="")
+        self.parser.add_argument("--cfg",
+                                 type=str,
+                                 default="../cfg/yolox_darknet_tiny_bb46.cfg",
+                                 help="")
 
         ## ----- checkpoint file path, eg: ../pretrained/latest_ckpt.pth.tar, track_latest_ckpt.pth.tar
         # yolox_tiny_det_c5_dark
-        parser.add_argument("-c",
-                            "--ckpt",
-                            default="../YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ckpt.pth.tar",
-                            type=str,
-                            help="ckpt for eval")
+        self.parser.add_argument("-c",
+                                 "--ckpt",
+                                 default="../YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ckpt.pth.tar",
+                                 type=str,
+                                 help="ckpt for eval")
         # ----------
 
         # input seq videos
@@ -85,23 +89,11 @@ class FeatureMatcher(object):
                                  default=448,
                                  help='inference size (pixels)')
 
-        # ----- Input image Pre-processing method
-        self.parser.add_argument('--img-proc-method',
-                                 type=str,
-                                 default='resize',
-                                 help='Image pre-processing method(letterbox, resize)')
-
         # -----
         self.parser.add_argument('--cutoff',
                                  type=int,
                                  default=0,  # 0 or 44, 47
                                  help='cutoff layer index, 0 means all layers loaded.')
-
-        # ----- Set ReID feature map output layer ids
-        self.parser.add_argument('--feat-out-ids',
-                                 type=str,
-                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
-                                 help='reid feature map output layer ids.')
 
         self.parser.add_argument('--dim',
                                  type=int,
@@ -117,7 +109,7 @@ class FeatureMatcher(object):
         # -----
         self.parser.add_argument('--conf',
                                  type=float,
-                                 default=0.2,
+                                 default=0.3,
                                  help='object confidence threshold')
 
         self.parser.add_argument('--iou',
@@ -129,17 +121,31 @@ class FeatureMatcher(object):
                                  nargs='+',
                                  type=int,
                                  help='filter by class')
-        self.parser.add_argument('--agnostic-nms',
-                                 action='store_true',
-                                 help='class-agnostic NMS')
 
-        self.opt = self.parser.parse_args()
+        opt = self.parser.parse_args()
+        self.opt = opt
+        self.exp = get_exp(self.opt.exp_file, self.opt.name)
+
+        if hasattr(exp, "cfg_file_path"):
+            exp.cfg_file_path = os.path.abspath(opt.cfg)
+        if hasattr(exp, "output_dir"):
+            exp.output_dir = opt.output_dir
+
+        if isinstance(opt.class_names, str):
+            class_names = opt.class_names.split(",")
+        elif isinstance(opt.class_names, list):
+            class_names = opt.class_names
+
+        self.class_names = class_names
+        opt.class_names = class_names
+        exp.class_names = class_names
+        exp.n_classes = len(exp.class_names)
+        logger.info("Number of classes: {:d}".format(exp.n_classes))
 
         # class name to class id and class id to class name
-        names = self.opt.names
         self.id2cls = defaultdict(str)
         self.cls2id = defaultdict(int)
-        for cls_id, cls_name in enumerate(names):
+        for cls_id, cls_name in enumerate(self.class_names):
             self.id2cls[cls_id] = cls_name
             self.cls2id[cls_name] = cls_id
 
@@ -157,39 +163,30 @@ class FeatureMatcher(object):
         self.opt.device = str(find_free_gpu())
         print('Using gpu: {:s}'.format(self.opt.device))
         os.environ['CUDA_VISIBLE_DEVICES'] = self.opt.device
-        device = torch_utils.select_device(device='cpu' if not torch.cuda.is_available() else self.opt.device)
+        device = select_device(device='cpu' if not torch.cuda.is_available() else self.opt.device)
         self.opt.device = device
+        self.device = device
 
         ## ----- Define the network
-        net = exp.get_model()
-        if not opt.debug:
-            logger.info("Model Summary: {}".format(get_model_info(net, exp.test_size)))
-        if opt.device == "gpu":
-            net.cuda()
-        net.eval()
+        self.net = self.exp.get_model()
+        self.net.to(self.device).eval()
         ## -----
 
         ## ----- load weights
-        if not opt.trt:
-            if opt.ckpt is None:
-                ckpt_path = os.path.join(file_name, "best_ckpt.pth.tar")
-            else:
-                ckpt_path = opt.ckpt
-            ckpt_path = os.path.abspath(ckpt_path)
-
-            logger.info("Loading checkpoint...")
-            ckpt = torch.load(ckpt_path, map_location="cpu")
-
-            # load the model state dict
-            net.load_state_dict(ckpt["model"])
-            logger.info("Checkpoint {:s} loaded done.".format(ckpt_path))
+        ckpt_path = os.path.abspath(opt.ckpt_path)
+        logger.info("Loading checkpoint...")
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+        # load the model state dict
+        self.net.load_state_dict(ckpt["model"])
+        logger.info("Checkpoint {:s} loaded done.".format(ckpt_path))
 
         if opt.fuse:
             logger.info("\tFusing model...")
-            self.net = fuse_model(net)
+            self.net = fuse_model(self.net)
 
-        # put model to device and set eval mode
-        self.net.to(device).eval()
+        ## ----- Input image parameters
+        self.mean = (0.485, 0.456, 0.406)
+        self.std = (0.229, 0.224, 0.225)
 
         ## ----- statistics
         self.correct_sim_bins_dict = defaultdict(int)
@@ -213,6 +210,9 @@ class FeatureMatcher(object):
         print('Feature matcher init done.')
 
     def reset(self):
+        """
+        @return:
+        """
         # statistics
         self.correct_sim_bins_dict = defaultdict(int)
         self.wrong_sim_bins_dict = defaultdict(int)
@@ -251,7 +251,7 @@ class FeatureMatcher(object):
         num_tps_total = 0
         for video_path in self.videos:  # .mp4
             if not os.path.isfile(video_path):
-                print('[Warning]: {:s} not exists.'.format(video_path))
+                print("[Warning]: {:s} not exists.".format(video_path))
                 continue
 
             # get video seq name
@@ -263,12 +263,9 @@ class FeatureMatcher(object):
                 print('[Warning]: {:s} not exists.'.format(self.darklabel_txt_path))
                 continue
 
-            # current video seq's dataset
-            self.dataset = LoadImages(video_path, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
-
             ## ---------- run a video seq
-            print('Run seq {:s}...'.format(video_path))
-            precision, num_tps = self.run_a_seq(seq_name, cls_id, img_w, img_h, viz_dir)
+            print("Run seq {:s}...".format(video_path))
+            precision, num_tps = self.run_a_seq(video_path, cls_id, img_w, img_h, viz_dir)
             mean_precision += precision
             num_tps_total += num_tps
             # print('Seq {:s} done.\n'.format(video_path))
@@ -291,15 +288,18 @@ class FeatureMatcher(object):
         # detailed statistics
         for edge in range(0, 100, self.opt.bin_step):
             wrong_ratio = self.wrong_sim_bins_dict[edge] / num_total * 100.0
-            print('Wrong distribution   [{:3d}, {:3d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
+            print('Wrong distribution   [{:3d}, {:3d}]: {:.3f}'
+                  .format(edge, edge + self.opt.bin_step, wrong_ratio))
 
         for edge in range(0, 100, self.opt.bin_step):
             correct_ratio = self.correct_sim_bins_dict[edge] / num_total * 100.0
-            print('Correct distribution [{:3d}, {:3d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
+            print('Correct distribution [{:3d}, {:3d}]: {:.3f}'
+                  .format(edge, edge + self.opt.bin_step, correct_ratio))
 
         for edge in range(0, 100, self.opt.bin_step):
             ratio = self.sim_bins_dict[edge] / self.num_sim_compute * 100.0
-            print('Total distribution   [{:3d}, {:3d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, ratio))
+            print('Total distribution   [{:3d}, {:3d}]: {:.3f}'
+                  .format(edge, edge + self.opt.bin_step, ratio))
 
         print('\nTotal {:d} true positives detected.'.format(num_tps_total))
         print('Total {:d} matches tested.'.format(num_total))
@@ -479,7 +479,7 @@ class FeatureMatcher(object):
     def preproc(self, image, net_size, mean, std, swap=(2, 0, 1)):
         """
         :param image:
-        :param net_size: (H, W)
+        :param net_size: (net_h, net_w)
         :param mean:
         :param std:
         :param swap:
@@ -535,15 +535,11 @@ class FeatureMatcher(object):
         img_info["width"] = width
         img_info["raw_img"] = img
 
-        img, ratio = self.preproc(img, self.test_size, self.mean, self.std)
+        img, ratio = self.preproc(img, (self.net_h, self.net_w), self.mean, self.std)
         img_info["ratio"] = ratio
         img = torch.from_numpy(img).unsqueeze(0)
         img = img.float()
-
-        if self.device == "gpu":
-            img = img.cuda()
-            if self.fp16:
-                img = img.half()  # to FP16
+        img = img.to(self.device)  # put input image to device
 
         with torch.no_grad():
             timer.tic()
@@ -552,6 +548,7 @@ class FeatureMatcher(object):
             outputs, feature_map = self.model.forward(img)
             ## -----
 
+            ## ----- Post process for detection
             outputs = post_process(outputs, self.num_classes, self.conf_thresh, self.nms_thresh)
 
         return outputs, feature_map, img_info
@@ -578,7 +575,7 @@ class FeatureMatcher(object):
         n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # int
 
         # read net input width and height
-        net_h, net_w = self.opt.net_h, self.opt.net_w
+        self.net_h, self.net_w = self.opt.net_h, self.opt.net_w
 
         # ---------- load GT for all frames
         self.objs_gt = self.load_gt(self.img_w, self.img_h, cls_id=cls_id)
@@ -594,17 +591,18 @@ class FeatureMatcher(object):
         while True:
             ## ----- read the video
             ret_val, frame = cap.read()
-            net_h, net_w = net_size
 
             if not ret_val:
                 break
 
             with torch.no_grad():
                 outputs, feature_map, img_info = self.inference(frame)
+
                 ## ----- Get dets
                 dets = outputs[0]
                 dets = dets.cpu().numpy()
                 dets = dets[np.where(dets[:, 4] > opt.conf)]
+
                 ## ----- Get feature map and normalize
                 feature_map = feature_map.view(1, -1)
                 feature_map = F.normalize(feature_map, dim=1)
@@ -628,6 +626,7 @@ class FeatureMatcher(object):
                 img_h, img_w = img_size
                 scale = min(net_h / float(img_h), net_w / float(img_w))
                 dets[:, :4] /= scale  # scale x1, y1, x2, y2
+
             # only for car(cls_id == 0) for now
             TPs, GT_tr_ids = self.get_true_positive(fr_id, dets, cls_id=cls_id)
 
@@ -680,46 +679,57 @@ class FeatureMatcher(object):
                                                           feat_map_w, feat_map_h,
                                                           img_w, img_h,
                                                           x1_pre, y1_pre, x2_pre, y2_pre)
+
                     # --- compute cosine of cur and pre corresponding feature vector
                     sim = cos_sim(reid_feat_vect_cur, reid_feat_vect_pre)
                     # sim = euclidean(reid_feat_vect_cur, reid_feat_vect_pre)
                     # sim = SSIM(reid_feat_vect_cur, reid_feat_vect_pre)
+
                     # do cosine similarity statistics
                     sim_tmp = sim * 100.0
                     edge = int(sim_tmp / self.opt.bin_step) * self.opt.bin_step
                     self.sim_bins_dict[edge] += 1
+
                     # statistics of sim computation number
                     self.num_sim_compute += 1
                     if sim > best_sim:
                         best_sim = sim
                         best_tp_id_pre = tpid_pre
+
                 # determine matched right or not
                 gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tp_id_pre]
                 gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
+
                 # update match counting
                 self.num_total_match += 1
+
                 # if matching correct
                 if gt_tr_id_pre == gt_tr_id_cur:
                     # update correct number
                     num_correct += 1
                     self.mean_same_id_sim += best_sim
                     sim_sum += best_sim
-                    # if do visualization for correct and wrong match
+
+                    ## -----  do visualization for correct and wrong match
                     if viz_dir != None:
                         save_path = viz_dir + '/' \
                                     + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
                                         .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur,
                                                 best_sim)
+
                     # do min similarity statistics of same object class
                     if best_sim < self.min_same_id_sim:
                         self.min_same_id_sim = best_sim
+
                     # do cosine similarity statistics
                     best_sim *= 100.0
                     edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
                     self.correct_sim_bins_dict[edge] += 1
+
                 else:  # visualize the wrong match:
                     num_wrong += 1
                     self.mean_diff_id_sim += best_sim
+
                     # wrong match img saving path
                     if viz_dir != None:
                         save_path = viz_dir + '/' \
@@ -796,8 +806,11 @@ def run_test():
     """
     :return:
     """
-    matcher = FeatureMatcher()
-    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
+    evaluator = ReIDEvaluator()
+    evaluator.run(cls_id=0,
+                  img_w=1920,
+                  img_h=1080,
+                  viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
 
 
 if __name__ == '__main__':

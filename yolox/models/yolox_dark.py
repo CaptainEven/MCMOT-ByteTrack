@@ -104,7 +104,7 @@ class YOLOXDarkSSL(nn.Module):
                 n_vectors = n_vectors.reshape(n_vectors.shape[0], -1)  # k×128
                 n_vectors = nn.functional.normalize(n_vectors, dim=1)
 
-                # ---------- SSL loss calculation
+                # ---------- SSL loss calculations
                 ## ---------- processing each sample(image) of the batch
                 q_vectors = q_vectors[:num_gt]  # num_gt×128
                 k_vectors = k_vectors[:num_gt]
@@ -117,7 +117,7 @@ class YOLOXDarkSSL(nn.Module):
 
                 ## ----- Calculate feature scale-consistency loss
                 ## of feature map and patch feature vector difference
-                ## (尺度一致性特征损失函数)
+                ## (尺度一致性特征损失)
                 scale_consistent_loss = 0.0
                 for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
                     cls_id, cx, cy, w, h = targets[batch_idx][i]  # in net_size
@@ -138,7 +138,7 @@ class YOLOXDarkSSL(nn.Module):
                 if targets.shape[0] > 0:
                     ssl_loss += scale_consistent_loss / targets.shape[0]
 
-                ## ----- Calculate Triplet loss: hard to be optimized?
+                ## ----- Calculate Triplet loss
                 tri_cnt = 0
                 tri_loss = 0.0
                 for i in range(q_vectors.shape[0]):
