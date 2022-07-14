@@ -62,7 +62,7 @@ class YOLOXDarkSSL(nn.Module):
 
             ## ----- Get object detection losses and feature map
             losses, feature_map = self.head.forward(fpn_outs, targets, inps)
-            loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = losses
+            total_loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = losses
 
             ## ----- Get size
             net_h, net_w = inps.shape[2], inps.shape[3]
@@ -193,10 +193,10 @@ class YOLOXDarkSSL(nn.Module):
                 labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
                 ssl_loss += self.head.softmax_loss(logits, labels) / num_gt
 
-            loss += ssl_loss
+            total_loss += ssl_loss
 
             outputs = {
-                "total_loss": loss,
+                "total_loss": total_loss,
                 "iou_loss": iou_loss,
                 "l1_loss": l1_loss,
                 "conf_loss": conf_loss,
