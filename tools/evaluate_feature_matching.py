@@ -289,7 +289,7 @@ class ReIDEvaluator(object):
                 continue
 
             ## ---------- run a video seq
-            print("Run seq {:s}...".format(video_path))
+            print("Evaluating seq {:s}...".format(video_path))
             precision, num_tps = self.run_a_seq(video_path, cls_id, viz_dir)
             mean_precision += precision
             num_tps_total += num_tps
