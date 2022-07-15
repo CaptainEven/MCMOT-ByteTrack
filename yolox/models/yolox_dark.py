@@ -74,6 +74,11 @@ class YOLOXDarkSSL(nn.Module):
 
             ## ---------- Calculate SSL loss of the batch
             ssl_loss = 0.0
+            cycle_loss = 0.0
+            sim_mat_loss = 0.0
+            triplet_loss = 0.0
+            scale_consistent_loss = 0.0
+
             for batch_idx, num_gt in enumerate(num_gts):
                 num_gt = int(num_gt)
                 if num_gt == 0:
@@ -109,16 +114,15 @@ class YOLOXDarkSSL(nn.Module):
                 q_vectors = q_vectors[:num_gt]  # num_gt×128
                 k_vectors = k_vectors[:num_gt]
 
-                # ## ----- Calculate similarity matrix loss
-                # sm_output = torch.mm(q_vectors, k_vectors.T)
-                # sm_diff = sm_output - torch.eye(num_gt).cuda()
-                # sm_diff = torch.pow(sm_diff, 2)
-                # ssl_loss += sm_diff.sum() / (num_gt * num_gt)
+                ## ----- Calculate similarity matrix loss
+                sm_output = torch.mm(q_vectors, k_vectors.T)
+                sm_diff = sm_output - torch.eye(num_gt).cuda()
+                sm_diff = torch.pow(sm_diff, 2)
+                sim_mat_loss = sm_diff.sum() / (num_gt * num_gt)
 
                 ## ----- Calculate feature scale-consistency loss
                 ## of feature map and patch feature vector difference
                 ## (尺度一致性特征损失)
-                scale_consistent_loss = 0.0
                 for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
                     cls_id, cx, cy, w, h = targets[batch_idx][i]  # in net_size
 
@@ -136,18 +140,17 @@ class YOLOXDarkSSL(nn.Module):
                     scale_consistent_loss += 1.0 - torch.dot(k_vector, feature_vector)
 
                 if targets.shape[0] > 0:
-                    ssl_loss += scale_consistent_loss / targets.shape[0]
+                    scale_consistent_loss /= targets.shape[0]
 
                 ## ----- Calculate Triplet loss
                 tri_cnt = 0
-                tri_loss = 0.0
                 for i in range(q_vectors.shape[0]):
                     anc = q_vectors[i]
                     pos = k_vectors[i]
                     for j in range(k_vectors.shape[0]):
                         if j != i:
                             neg = k_vectors[j]
-                            tri_loss += self.head.triplet_loss.forward(anc, pos, neg)
+                            triplet_loss += self.head.triplet_loss.forward(anc, pos, neg)
                             tri_cnt += 1
                 for i in range(k_vectors.shape[0]):
                     anc = k_vectors[i]
@@ -155,15 +158,21 @@ class YOLOXDarkSSL(nn.Module):
                     for j in range(q_vectors.shape[0]):
                         if j != i:
                             neg = q_vectors[j]
-                            tri_loss += self.head.triplet_loss.forward(anc, pos, neg)
+                            triplet_loss += self.head.triplet_loss.forward(anc, pos, neg)
                             tri_cnt += 1
+                for i in range(q_vectors.shape[0]):
+                    anc = q_vectors[i]
+                    pos = k_vectors[i]
+                    for j in range(n_vectors.shape[0]):
+                        neg = n_vectors[j]
+                        triplet_loss += self.head.triplet_loss.forward(anc, pos, neg, extra_margin=0.6)
+                        tri_cnt += 1
 
                 if tri_cnt > 0:
-                    ssl_loss += tri_loss / tri_cnt
+                    triplet_loss /= tri_cnt
 
                 ## ----- calculate Cycle consistency loss
                 cyc_cnt = 0
-                cycle_loss = 0.0
                 for i in range(q_vectors.shape[0]):
                     for j in range(k_vectors.shape[0]):
                         if j != i:
@@ -173,7 +182,7 @@ class YOLOXDarkSSL(nn.Module):
                             cyc_cnt += 1
 
                 if cyc_cnt > 0:
-                    ssl_loss += cycle_loss / cyc_cnt
+                    cycle_loss /= cyc_cnt
 
                 ## ----- Calculate contrastive loss
                 # Einstein sum is more intuitive
@@ -193,6 +202,10 @@ class YOLOXDarkSSL(nn.Module):
                 labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
                 ssl_loss += self.head.softmax_loss(logits, labels) / num_gt
 
+            total_loss += sim_mat_loss
+            total_loss += scale_consistent_loss
+            total_loss += triplet_loss
+            total_loss += cycle_loss
             total_loss += ssl_loss
 
             outputs = {
@@ -202,6 +215,10 @@ class YOLOXDarkSSL(nn.Module):
                 "conf_loss": conf_loss,
                 "cls_loss": cls_loss,
                 "ssl_loss": ssl_loss,
+                "sim_mat_loss": sim_mat_loss,
+                "triplet_loss": triplet_loss,
+                "cycle_loss": cycle_loss,
+                "scale_consistent_loss": scale_consistent_loss,
                 "num_fg": num_fg,
             }
         else:

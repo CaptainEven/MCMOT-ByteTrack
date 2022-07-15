@@ -104,7 +104,7 @@ class VOCDetSSL(Dataset):
                  preproc=None,
                  target_transform=AnnotationTransform(),
                  max_patches=50,
-                 num_negatives=30,
+                 num_negatives=50,
                  neg_pos_iou_thresh=0.1,
                  patch_size=(224, 224),
                  max_sample_times=5):

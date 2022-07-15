@@ -8,10 +8,10 @@ The data augmentation procedures were interpreted from @weiliu89's SSD paper
 http://arxiv.org/abs/1512.02325
 """
 
-import math
 import random
 
 import cv2
+import math
 import numpy as np
 import torchvision.transforms as transforms
 from loguru import logger
@@ -175,6 +175,7 @@ def random_distort(image):
     :param image:
     :return:
     """
+
     def _convert(image, alpha=1, beta=0):
         tmp = image.astype(float) * alpha + beta
         tmp[tmp < 0] = 0
@@ -260,22 +261,83 @@ def preproc(image, net_size, mean, std, swap=(2, 0, 1)):
 
     return padded_img, r
 
-from PIL import ImageFilter
+
+from PIL import Image, ImageFilter
+
+
 class GaussianBlur(object):
     """
     Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
     """
-
     def __init__(self, sigma=[0.1, 2.0]):
+        """
+        :param sigma:
+        """
         self.sigma = sigma
 
     def __call__(self, x):
         """
-        :param x:
+        :param x: PIL Image
         """
         sigma = random.uniform(self.sigma[0], self.sigma[1])
         x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
         return x
+
+import PIL
+class RandomLightOrShadow(object):
+    """
+    Randomly add light or shadow
+    """
+    def __init__(self, base=200):
+        """
+        @param base:
+        """
+        self.base = base
+
+    def __call__(self, x):
+        """
+        @param x: PIL Image
+        """
+        if isinstance(x, PIL.Image.Image):
+            x = np.array(x)  # PIL Image to numpy array
+
+        x = random_light_or_shadow(x)
+        x = Image.fromarray(x)
+        return x
+
+## ----- TODO: random colorful light(not only white light)
+def random_light_or_shadow(img, base=200, low=10, high=255):
+    """
+    @param img:
+    @param base:
+    """
+    h, w, c = img.shape  # BGR or RGB
+
+    ## ----- Randomly Generate Gauss Center
+    center_x = np.random.randint(- w * 3, w * 3)
+    center_y = np.random.randint(- w * 3, w * 3)
+
+    radius_x = np.random.randint(int(h * 0.5), w * 2)
+    radius_y = np.random.randint(int(h * 0.5), w * 2)
+
+    delta_x = np.power((radius_x / 4), 2)
+    delta_y = np.power((radius_y / 4), 2)
+
+    x_arr, y_arr, c_arr = np.meshgrid(np.arange(w), np.arange(h), np.arange(c))
+    weight = np.array(
+        base * np.exp(-np.power((center_x - x_arr), 2) / (2 * delta_x))
+        * np.exp(-np.power((center_y - y_arr), 2) / (2 * delta_y))
+    )
+
+    light_mode = np.random.randint(0, 2)
+    if light_mode == 1:  # shadow
+        img = img - weight
+        img[img < 0] = low  # clipping
+    else:  # light
+        img = img + weight
+        img[img > 255] = high  # clipping
+
+    return img.astype(np.uint8)
 
 
 class TwoCropsTransform:
@@ -299,11 +361,12 @@ class PatchTransform():
         """
         self.augmentation = [
             # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
+            transforms.RandomApply([RandomLightOrShadow(base=200)], p=0.5),
             transforms.RandomApply([
                 transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
             ], p=0.8),
             transforms.RandomGrayscale(p=0.2),
-            transforms.RandomApply([GaussianBlur([0.1, 2.0])], p=0.5),
+            transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],

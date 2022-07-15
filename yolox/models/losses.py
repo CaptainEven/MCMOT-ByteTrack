@@ -237,18 +237,23 @@ class TripletLoss(nn.Module):
         super(TripletLoss, self).__init__()
         self.margin = margin
 
-    def forward(self, anc, pos, neg):
+    def forward(self, anc, pos, neg, extra_margin=0.0):
         """
         assume anc, pos and neg are L2 normalized feature vector: 1×n
         1×n dot n×1
         :param anc: anchor
         :param pos: positive
         :param neg: negative
+        :pram extra_margin:
         """
         # anc = torch.
         pos_dist = torch.dot(anc, pos)
         neg_dist = torch.dot(anc, neg)
-        loss = pos_dist - neg_dist + self.margin
+
+        if extra_margin == 0.0:
+            loss = pos_dist - neg_dist + self.margin
+        elif extra_margin > 0.0:
+            loss = pos_dist - neg_dist + self.margin
         if loss > 0.0:
             return loss
         else:

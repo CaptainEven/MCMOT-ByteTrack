@@ -142,7 +142,7 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=4,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
+                        default=1,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
 
     parser.add_argument("--n_workers",
@@ -160,7 +160,7 @@ def make_parser():
     parser.add_argument("-d",
                         "--devices",
                         type=str,
-                        default="7",
+                        default="1",
                         help="The device(GPU) ids.")
 
     return parser
