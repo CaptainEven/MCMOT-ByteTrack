@@ -437,7 +437,7 @@ def random_batch_kernel(batch,
         return batch_kernel, batch_sigma
 
 
-class RandomBlur(object):
+class RandomKernelBlur(object):
     """
     Random shaped kernel blurring
     """
@@ -576,7 +576,7 @@ class PatchTransform():
             ], p=0.8),
             transforms.RandomGrayscale(p=0.2),
             # transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
-            transforms.RandomApply([RandomBlur(iso_rate=0.2)], p=0.5),
+            transforms.RandomApply([RandomKernelBlur(iso_rate=0.2)], p=0.5),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
