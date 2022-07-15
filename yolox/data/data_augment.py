@@ -262,7 +262,6 @@ def preproc(image, net_size, mean, std, swap=(2, 0, 1)):
     return padded_img, r
 
 
-
 ## TODO: random blur kernel filtering
 ####################
 # isotropic gaussian kernels, identical to 'fspecial('gaussian',hsize,sigma)' in matlab
@@ -287,16 +286,15 @@ def isotropic_gaussian_kernel_matlab(l, sigma, tensor=False):
 
     return torch.FloatTensor(k) if tensor else k
 
+
 def random_isotropic_gaussian_kernel(l=21,
                                      sig_min=0.2,
                                      sig_max=4.0,
-                                     scale=3,
                                      tensor=False):
     """
     :param l:
     :param sig_min:
     :param sig_max:
-    :param scale:
     :param tensor:
     :return:
     """
@@ -353,16 +351,15 @@ def anisotropic_gaussian_kernel_matlab(l,
 
     return torch.FloatTensor(k) if tensor else k
 
+
 def random_anisotropic_gaussian_kernel(l=15,
                                        sig_min=0.2,
                                        sig_max=4.0,
-                                       scale=3,
                                        tensor=False):
     """
     :param l:
     :param sig_min:
     :param sig_max:
-    :param scale:
     :param tensor:
     :return:
     """
@@ -378,18 +375,17 @@ def random_anisotropic_gaussian_kernel(l=15,
 
     return k, np.array([sig1, sig2, theta])
 
+
 def random_gaussian_kernel(l=21,
                            sig_min=0.2,
                            sig_max=4.0,
                            rate_iso=1.0,
-                           scale=3,
                            tensor=False):
     """
     :param l:
     :param sig_min:
     :param sig_max:
     :param rate_iso: iso gauss kernel rate
-    :param scale:
     :param tensor:
     :return:
     """
@@ -397,22 +393,77 @@ def random_gaussian_kernel(l=21,
         return random_isotropic_gaussian_kernel(l=l,
                                                 sig_min=sig_min,
                                                 sig_max=sig_max,
-                                                scale=scale,
                                                 tensor=tensor)
     else:
         return random_anisotropic_gaussian_kernel(l=l,
                                                   sig_min=sig_min,
                                                   sig_max=sig_max,
-                                                  scale=scale,
                                                   tensor=tensor)
+
+
+# only these two func can be used outside this script
+def random_batch_kernel(batch,
+                        l=21,
+                        sig_min=0.2,
+                        sig_max=4.0,
+                        rate_iso=1.0,
+                        scale=3,
+                        ret_tensor=False):
+    """
+    :param batch:
+    :param l:
+    :param sig_min:
+    :param sig_max:
+    :param rate_iso:
+    :param scale:
+    :param ret_tensor:
+    :return:
+    """
+    batch_kernel = np.zeros((batch, l, l))
+    batch_sigma = np.zeros((batch, 3))
+    shifted_l = l - scale + 1
+    for i in range(batch):
+        batch_kernel[i, :shifted_l, :shifted_l], batch_sigma[i, :] = \
+            random_gaussian_kernel(l=shifted_l,
+                                   sig_min=sig_min,
+                                   sig_max=sig_max,
+                                   rate_iso=rate_iso,
+                                   scale=scale,
+                                   tensor=False)
+    if ret_tensor:
+        return torch.FloatTensor(batch_kernel), torch.FloatTensor(batch_sigma)
+    else:
+        return batch_kernel, batch_sigma
+
 
 class RandomBlur(object):
     """
     Random shaped kernel blurring
     """
+
     def __init__(self, iso_rate=0.2):
+        """
+        @param iso_rate
+        """
         self.iso_rate = iso_rate
 
+    def __call__(self, x):
+        """
+        @param x: PIL Image or numpy ndarray
+        """
+        if isinstance(x, PIL.Image.Image):
+            x = np.array(x)  # PIL Image to numpy array
+
+        ## ----- generate random blurring kernel
+        k_size = np.random.randint(3, 21)
+        kernel = random_gaussian_kernel(l=k_size,
+                                        sig_min=0.7,
+                                        sig_max=10.0,
+                                        rate_iso=0.2,
+                                        tensor=False)
+        x = cv2.filter2D(x, -1, kernel)
+        x = Image.fromarray(x)
+        return x
 
 
 from PIL import Image, ImageFilter
@@ -422,6 +473,7 @@ class GaussianBlur(object):
     """
     Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
     """
+
     def __init__(self, sigma=[0.1, 2.0]):
         """
         :param sigma:
@@ -436,11 +488,15 @@ class GaussianBlur(object):
         x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
         return x
 
+
 import PIL
+
+
 class RandomLightOrShadow(object):
     """
     Randomly add light or shadow
     """
+
     def __init__(self, base=200):
         """
         @param base:
@@ -449,7 +505,7 @@ class RandomLightOrShadow(object):
 
     def __call__(self, x):
         """
-        @param x: PIL Image
+        @param x: PIL Image or numpy ndarray
         """
         if isinstance(x, PIL.Image.Image):
             x = np.array(x)  # PIL Image to numpy array
@@ -457,6 +513,7 @@ class RandomLightOrShadow(object):
         x = random_light_or_shadow(x)
         x = Image.fromarray(x)
         return x
+
 
 ## ----- TODO: random colorful light(not only white light)
 def random_light_or_shadow(img, base=200, low=10, high=255):
@@ -497,6 +554,7 @@ class TwoCropsTransform:
     """
     Take two random crops of one image as the query and key.
     """
+
     def __init__(self, base_transform):
         self.base_transform = base_transform
 
