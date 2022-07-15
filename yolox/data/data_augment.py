@@ -456,7 +456,7 @@ class RandomBlur(object):
             x = np.array(x)  # PIL Image to numpy array
 
         ## ----- generate random blurring kernel
-        k_size = np.random.randint(3, 22)  # [3, 21]
+        k_size = np.random.randint(3, 7)  # [3, 7]
         kernel, sigma = random_gaussian_kernel(l=k_size,
                                                sig_min=0.5,
                                                sig_max=7,
@@ -474,7 +474,6 @@ class GaussianBlur(object):
     """
     Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
     """
-
     def __init__(self, sigma=[0.1, 2.0]):
         """
         :param sigma:
@@ -497,7 +496,6 @@ class RandomLightOrShadow(object):
     """
     Randomly add light or shadow
     """
-
     def __init__(self, base=200):
         """
         @param base:
