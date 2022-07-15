@@ -455,7 +455,7 @@ class RandomBlur(object):
             x = np.array(x)  # PIL Image to numpy array
 
         ## ----- generate random blurring kernel
-        k_size = np.random.randint(3, 21)
+        k_size = np.random.randint(3, 22)  # [3, 21]
         kernel = random_gaussian_kernel(l=k_size,
                                         sig_min=0.7,
                                         sig_max=10.0,
@@ -577,7 +577,8 @@ class PatchTransform():
                 transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
             ], p=0.8),
             transforms.RandomGrayscale(p=0.2),
-            transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
+            # transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
+            transforms.RandomApply([RandomBlur(iso_rate=0.2)], p=0.5),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
