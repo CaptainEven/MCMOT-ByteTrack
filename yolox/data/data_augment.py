@@ -13,6 +13,7 @@ import random
 import cv2
 import math
 import numpy as np
+import scipy
 import torchvision.transforms as transforms
 from loguru import logger
 
@@ -456,11 +457,11 @@ class RandomBlur(object):
 
         ## ----- generate random blurring kernel
         k_size = np.random.randint(3, 22)  # [3, 21]
-        kernel = random_gaussian_kernel(l=k_size,
-                                        sig_min=0.7,
-                                        sig_max=10.0,
-                                        rate_iso=0.2,
-                                        tensor=False)
+        kernel, sigma = random_gaussian_kernel(l=k_size,
+                                               sig_min=0.5,
+                                               sig_max=7,
+                                               rate_iso=0.2,
+                                               tensor=False)
         x = cv2.filter2D(x, -1, kernel)
         x = Image.fromarray(x)
         return x
