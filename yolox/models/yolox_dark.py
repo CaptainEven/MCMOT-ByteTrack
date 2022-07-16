@@ -160,12 +160,13 @@ class YOLOXDarkSSL(nn.Module):
                             neg = q_vectors[j]
                             triplet_loss += self.head.triplet_loss.forward(anc, pos, neg)
                             tri_cnt += 1
-                for i in range(q_vectors.shape[0]):
+                for i in range(targets.shape[0]):
                     anc = q_vectors[i]
                     pos = k_vectors[i]
                     for j in range(n_vectors.shape[0]):
                         neg = n_vectors[j]
-                        triplet_loss += self.head.triplet_loss.forward(anc, pos, neg, extra_margin=0.6)
+                        triplet_loss += self.head.triplet_loss.forward(anc, pos, neg,
+                                                                       extra_margin=0.7)
                         tri_cnt += 1
 
                 if tri_cnt > 0:
