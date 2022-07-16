@@ -204,9 +204,9 @@ class YOLOXDarkSSL(nn.Module):
 
             total_loss += sim_mat_loss
             total_loss += scale_consistent_loss
-            total_loss += triplet_loss
             total_loss += cycle_loss
             total_loss += ssl_loss
+            total_loss += triplet_loss
 
             outputs = {
                 "total_loss": total_loss,
@@ -216,9 +216,9 @@ class YOLOXDarkSSL(nn.Module):
                 "cls_loss": cls_loss,
                 "ssl_loss": ssl_loss,
                 "sim_mat_loss": sim_mat_loss,
-                "triplet_loss": triplet_loss,
                 "cycle_loss": cycle_loss,
                 "scale_consistent_loss": scale_consistent_loss,
+                "triplet_loss": triplet_loss,
                 "num_fg": num_fg,
             }
         else:

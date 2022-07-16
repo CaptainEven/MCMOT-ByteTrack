@@ -74,6 +74,8 @@ class Exp(MyExp):
         self.max_labels = 50
         logger.info("max labels: {:d}".format(self.max_labels))
 
+        self.feature_dim = 512
+
     def get_model(self):
         """
         :return:

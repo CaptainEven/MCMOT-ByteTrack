@@ -21,7 +21,8 @@ class DarknetHeadSSL(nn.Module):
                  strides=[8, 16, 32],
                  in_channels=[256, 512, 1024],
                  act="lrelu",
-                 depth_wise=False, ):
+                 depth_wise=False,
+                 feature_dim=512):
         """
         compute loss in Head
         :param num_classes:
@@ -36,6 +37,7 @@ class DarknetHeadSSL(nn.Module):
 
         self.n_anchors = 1
         self.num_classes = num_classes
+        self.feature_dim = feature_dim
 
         # for deploy, set to False
         self.decode_in_inference = True
@@ -87,7 +89,7 @@ class DarknetHeadSSL(nn.Module):
                                                        stride=1,
                                                        act=act, ),
                                                   Conv(in_channels=int(256 * width),
-                                                       out_channels=128,
+                                                       out_channels=self.feature_dim,
                                                        ksize=3,
                                                        stride=1,
                                                        act=act, ), ])
@@ -112,8 +114,8 @@ class DarknetHeadSSL(nn.Module):
 
             if i == 0:  # output 128 dim vector: GAP + 1×1_conv
                 self.reid_preds = nn.Sequential(*[nn.AdaptiveAvgPool2d(1),
-                                                  nn.Conv2d(in_channels=128,
-                                                            out_channels=128,
+                                                  nn.Conv2d(in_channels=self.feature_dim,
+                                                            out_channels=self.feature_dim,
                                                             kernel_size=1,
                                                             stride=1,
                                                             padding=0),
