@@ -71,7 +71,7 @@ class Exp(MyExp):
 
         self.n_classes = 5
         self.cfg_file_path = "../cfg/yolox_darknet_tiny_bb46.cfg"
-        self.max_labels = 50
+        self.max_labels = 30
         logger.info("max labels: {:d}".format(self.max_labels))
 
         self.feature_dim = 512
