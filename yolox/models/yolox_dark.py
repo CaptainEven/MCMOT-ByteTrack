@@ -22,7 +22,7 @@ class YOLOXDarkSSL(nn.Module):
                  backbone=None,
                  head=None,
                  n_classes=5,
-                 T=0.2):
+                 T=0.5):
         """
         :param cfg_path: configure file path for DarknetBackbone
         :param backbone:
@@ -172,18 +172,18 @@ class YOLOXDarkSSL(nn.Module):
                 if tri_cnt > 0:
                     triplet_loss /= tri_cnt
 
-                # ## ----- calculate Cycle consistency loss
-                # cyc_cnt = 0
-                # for i in range(q_vectors.shape[0]):
-                #     for j in range(k_vectors.shape[0]):
-                #         if j != i:
-                #             sim_qi_kj = torch.dot(q_vectors[i], k_vectors[j])
-                #             sim_qj_ki = torch.dot(k_vectors[i], q_vectors[j])
-                #             cycle_loss += abs(sim_qi_kj - sim_qj_ki)
-                #             cyc_cnt += 1
-                #
-                # if cyc_cnt > 0:
-                #     cycle_loss /= cyc_cnt
+                ## ----- calculate Cycle consistency loss
+                cyc_cnt = 0
+                for i in range(q_vectors.shape[0]):
+                    for j in range(k_vectors.shape[0]):
+                        if j != i:
+                            sim_qi_kj = torch.dot(q_vectors[i], k_vectors[j])
+                            sim_qj_ki = torch.dot(k_vectors[i], q_vectors[j])
+                            cycle_loss += abs(sim_qi_kj - sim_qj_ki)
+                            cyc_cnt += 1
+
+                if cyc_cnt > 0:
+                    cycle_loss /= cyc_cnt
 
                 ## ----- Calculate contrastive loss
                 # Einstein sum is more intuitive
@@ -203,9 +203,16 @@ class YOLOXDarkSSL(nn.Module):
                 labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
                 ssl_loss += self.head.softmax_loss(logits, labels) / num_gt
 
+                ## TODO: calculate intra-positive SSL loss
+                logits_intra_pos = torch.einsum('nc,ck->nk', [q_vectors, k_vectors.T])
+                logits_intra_pos /= self.T
+                labels_intra = torch.arange(logits_intra_pos.shape[0]).cuda()
+                ssl_intra_loss = self.head.softmax_loss(logits_intra_pos, labels_intra) / num_gt
+                ssl_loss += ssl_intra_loss
+
             # total_loss += sim_mat_loss
             # total_loss += scale_consistent_loss
-            # total_loss += cycle_loss
+            total_loss += cycle_loss
             total_loss += ssl_loss
             total_loss += triplet_loss
 
@@ -217,7 +224,7 @@ class YOLOXDarkSSL(nn.Module):
                 "cls_loss": cls_loss,
                 "ssl_loss": ssl_loss,
                 # "sim_mat_loss": sim_mat_loss,
-                # "cycle_loss": cycle_loss,
+                "cycle_loss": cycle_loss,
                 # "scale_consistent_loss": scale_consistent_loss,
                 "triplet_loss": triplet_loss,
                 "num_fg": num_fg,
