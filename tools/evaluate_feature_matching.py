@@ -254,11 +254,9 @@ class ReIDEvaluator(object):
         self.num_total_match = 0
         self.num_sim_compute = 0
 
-    def run(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
+    def run(self, cls_id=0, viz_dir=None):
         """
         :param cls_id:
-        :param img_w:
-        :param img_h:
         :param viz_dir:
         :return:
         """
@@ -840,10 +838,7 @@ def run_test():
     :return:
     """
     evaluator = ReIDEvaluator()
-    evaluator.run(cls_id=0,
-                  img_w=1920,
-                  img_h=1080,
-                  viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
+    evaluator.run(cls_id=0, viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
 
 
 if __name__ == '__main__':
