@@ -232,7 +232,7 @@ class ReIDEvaluator(object):
         self.num_total_match = 0
         self.num_sim_compute = 0
 
-        print('Feature matcher init done.')
+        print("ReID evaluator inited!")
 
     def reset(self):
         """

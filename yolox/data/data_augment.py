@@ -564,19 +564,19 @@ class TwoCropsTransform:
 
 ## Patch transform to return q and q
 class PatchTransform():
-    def __init__(self, patch_size=(320, 320)):
+    def __init__(self, patch_size=(224, 224)):
         """
         :param patch_size
         """
         self.augmentation = [
             # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
-            transforms.RandomApply([RandomLightOrShadow(base=200)], p=0.5),
+            transforms.RandomApply([RandomLightOrShadow(base=200)], p=0.7),
             transforms.RandomApply([
                 transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
             ], p=0.8),
             transforms.RandomGrayscale(p=0.2),
             # transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
-            transforms.RandomApply([RandomKernelBlur(iso_rate=0.2)], p=0.5),
+            transforms.RandomApply([RandomKernelBlur(iso_rate=0.3)], p=0.5),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],

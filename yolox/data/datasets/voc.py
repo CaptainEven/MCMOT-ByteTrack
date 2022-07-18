@@ -171,7 +171,7 @@ class VOCDetSSL(Dataset):
         self.neg_patch_transform = transforms.Compose(
             [
                 transforms.RandomApply([
-                    transforms.ColorJitter(0.3, 0.3, 0.3, 0.1)  # not strengthened
+                    transforms.ColorJitter(0.2, 0.2, 0.2, 0.1)  # not strengthened
                 ], p=0.2),
                 transforms.RandomGrayscale(p=0.2),
                 transforms.RandomApply([GaussianBlur([0.1, 2.0])], p=0.2),
