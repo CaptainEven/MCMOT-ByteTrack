@@ -322,7 +322,7 @@ class GAP(nn.Module):
         :param dimension:
         """
         super(GAP, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.avg_pool = nn.AdaptiveAvgPool2d(dimension)
 
     def forward(self, x):
         """
@@ -331,8 +331,21 @@ class GAP(nn.Module):
         """
         return self.avg_pool(x)
 
+class AttentionGAP(nn.Module):
+    def __init__(self):
+        super(AttentionGAP, self).__init__()
+        self.gap = GAP()
 
-class ScaleChannel(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
+    def forward(self, x):
+        """
+        @param x:
+        """
+        attention_map = torch.sigmoid(x)  # n×c×h×w
+        return self.gap(attention_map * x) / self.gap(attention_map)
+
+
+# weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
+class ScaleChannel(nn.Module):
     def __init__(self, layers):
         """
         :param layers:
@@ -352,7 +365,8 @@ class ScaleChannel(nn.Module):  # weighted sum of 2 or more layers https://arxiv
 
 
 # SAM layer: ScaleSpatial
-class SAM(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
+# weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
+class SAM(nn.Module):
     def __init__(self, layers):
         super(SAM, self).__init__()
         self.layers = layers  # layer indices

@@ -442,11 +442,16 @@ class RandomKernelBlur(object):
     Random shaped kernel blurring
     """
 
-    def __init__(self, iso_rate=0.2):
+    def __init__(self,
+                 iso_rate=0.2,
+                 min_k_size=3,
+                 max_k_size=9):
         """
         @param iso_rate
         """
         self.iso_rate = iso_rate
+        self.min_k_size = min_k_size
+        self.max_k_size = max_k_size
 
     def __call__(self, x):
         """
@@ -456,15 +461,92 @@ class RandomKernelBlur(object):
             x = np.array(x)  # PIL Image to numpy array
 
         ## ----- generate random blurring kernel
-        k_size = np.random.randint(3, 7)  # [3, 7]
+        k_size = np.random.randint(self.min_k_size, self.max_k_size)  # [3, 7]
         kernel, sigma = random_gaussian_kernel(l=k_size,
                                                sig_min=0.5,
                                                sig_max=7,
                                                rate_iso=0.2,
                                                tensor=False)
         x = cv2.filter2D(x, -1, kernel)
-        x = Image.fromarray(x)
+        x = Image.fromarray(x)  # PIL image to numpy ndarray
         return x
+
+
+import copy
+
+
+def local_pixel_shuffling(x, prob=0.5):
+    """
+    @param x:
+    """
+    if random.random() >= prob:
+        return x
+
+    image_temp = copy.deepcopy(x)
+    orig_image = copy.deepcopy(x)
+    H, W, C = x.shape
+    num_block = 10000
+    for _ in range(num_block):
+        block_noise_size_x = random.randint(1, int(H // 10))
+        block_noise_size_y = random.randint(1, int(W // 10))
+        block_noise_size_z = random.randint(0, C)
+        noise_y = random.randint(0, H - block_noise_size_y)
+        noise_x = random.randint(0, W - block_noise_size_x)
+        noise_z = random.randint(0, C - block_noise_size_z)
+        window = orig_image[noise_y:noise_y + block_noise_size_y,
+                 noise_x:noise_x + block_noise_size_x,
+                 noise_z:noise_z + block_noise_size_z,
+                 ]
+        window = window.flatten()
+        np.random.shuffle(window)
+        window = window.reshape((block_noise_size_y,
+                                 block_noise_size_x,
+                                 block_noise_size_z))
+        image_temp[noise_y:noise_y + block_noise_size_y,
+        noise_x:noise_x + block_noise_size_x,
+        noise_z:noise_z + block_noise_size_z] = window
+
+    local_shuffling_x = image_temp
+
+    return local_shuffling_x
+
+
+class LocalPixelShuffling(object):
+    def __init__(self, p=0.5):
+        self.prob = p
+
+    def __call__(self, x):
+        """
+        @param x: PIL Image or numpy ndarray
+        """
+        if isinstance(x, PIL.Image.Image):
+            x = np.array(x)  # PIL Image to numpy array
+
+        x = local_pixel_shuffling(x, self.prob)
+        x = Image.fromarray(x)  # PIL image to numpy ndarray
+        return x
+
+
+def image_in_painting(x):
+    """
+    @param x:
+    """
+    H, W, C = x.shape
+    cnt = 5
+    while cnt > 0 and random.random() < 0.95:
+        block_noise_size_y = random.randint(H // 6, H // 3)
+        block_noise_size_x = random.randint(W // 6, W // 3)
+        block_noise_size_z = random.randint(C // 6, C // 3)
+        noise_x = random.randint(3, H - block_noise_size_y - 3)
+        noise_y = random.randint(3, W - block_noise_size_x - 3)
+        noise_z = random.randint(3, C - block_noise_size_z - 3)
+        x[noise_y:noise_y + block_noise_size_y,
+        noise_x:noise_x + block_noise_size_x,
+        noise_z:noise_z + block_noise_size_z] = np.random.rand(block_noise_size_y,
+                                                               block_noise_size_x,
+                                                               block_noise_size_z, ) * 1.0
+        cnt -= 1
+    return
 
 
 from PIL import Image, ImageFilter
@@ -474,6 +556,7 @@ class GaussianBlur(object):
     """
     Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
     """
+
     def __init__(self, sigma=[0.1, 2.0]):
         """
         :param sigma:
@@ -496,6 +579,7 @@ class RandomLightOrShadow(object):
     """
     Randomly add light or shadow
     """
+
     def __init__(self, base=200):
         """
         @param base:
@@ -523,11 +607,11 @@ def random_light_or_shadow(img, base=200, low=10, high=255):
     h, w, c = img.shape  # BGR or RGB
 
     ## ----- Randomly Generate Gauss Center
-    center_x = np.random.randint(- w * 3, w * 3)
-    center_y = np.random.randint(- w * 3, w * 3)
+    center_x = np.random.randint(-h * 3, h * 3)
+    center_y = np.random.randint(-h * 3, h * 3)
 
-    radius_x = np.random.randint(int(h * 0.5), w * 2)
-    radius_y = np.random.randint(int(h * 0.5), w * 2)
+    radius_x = np.random.randint(int(h * 0.5), h * 2)
+    radius_y = np.random.randint(int(h * 0.5), h * 2)
 
     delta_x = np.power((radius_x / 4), 2)
     delta_y = np.power((radius_y / 4), 2)
@@ -553,6 +637,7 @@ class TwoCropsTransform:
     """
     Take two random crops of one image as the query and key.
     """
+
     def __init__(self, base_transform):
         self.base_transform = base_transform
 
@@ -570,13 +655,16 @@ class PatchTransform():
         """
         self.augmentation = [
             # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
-            transforms.RandomApply([RandomLightOrShadow(base=200)], p=0.7),
+            transforms.RandomApply([RandomLightOrShadow(base=200)], p=0.8),
             transforms.RandomApply([
                 transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
             ], p=0.8),
+            transforms.RandomApply([LocalPixelShuffling(p=0.3)], p=1.0),
             transforms.RandomGrayscale(p=0.2),
             # transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
-            transforms.RandomApply([RandomKernelBlur(iso_rate=0.3)], p=0.7),
+            transforms.RandomApply([RandomKernelBlur(iso_rate=0.2,
+                                                     min_k_size=3,
+                                                     max_k_size=5)], p=0.8),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],

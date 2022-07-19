@@ -1,7 +1,7 @@
 python3 ./tools/train_det.py --ckpt /mnt/diskb/even/ByteTrack/YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ckpt.pth.tar \
                              --exp_file ./exps/example/mot/yolox_det_c5_dark_ssl.py \
                              --cfg ./cfg/yolox_darknet_tiny_bb46.cfg \
-                             --batch-size 8 \
+                             --batch-size 7 \
                              --cutoff 44 \
                              --debug 0 \
                              --n_workers 2 \

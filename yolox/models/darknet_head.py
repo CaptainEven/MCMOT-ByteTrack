@@ -9,6 +9,7 @@ from loguru import logger
 
 from yolox.utils import bboxes_iou
 from yolox.models.losses import TripletLoss
+from yolox.models.darknet_modules import GAP, AttentionGAP
 from .losses import IOUloss
 from .network_blocks import BaseConv, DWConv
 
@@ -114,7 +115,7 @@ class DarknetHeadSSL(nn.Module):
                                             padding=0, ))
 
             if i == 0:  # output 128 dim vector: GAP + 1×1_conv
-                self.reid_preds = nn.Sequential(*[nn.AdaptiveAvgPool2d(1),
+                self.reid_preds = nn.Sequential(*[AttentionGAP(),
                                                   nn.LeakyReLU(),
                                                   nn.Conv2d(in_channels=self.feature_dim,
                                                             out_channels=self.feature_dim,
