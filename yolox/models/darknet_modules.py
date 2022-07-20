@@ -339,6 +339,7 @@ class AttentionGAP(nn.Module):
     def __init__(self, in_channels):
         """
         parameterized self-attention GAP
+        @param in_channels:
         """
         super(AttentionGAP, self).__init__()
         self.gap = GAP()
