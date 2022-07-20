@@ -160,21 +160,13 @@ class VOCDetSSL(Dataset):
         self.pos_patch_transform = PatchTransform(patch_size=self.patch_size)
 
         ## ----- Define the negative sample transformations
-        # self.neg_patch_transform = transforms.Compose(
-        #     [
-        #         transforms.ToTensor(),
-        #         transforms.Normalize(mean=[0.485, 0.456, 0.406],
-        #                              std=[0.229, 0.224, 0.225], )
-        #     ]
-        # )
-
         self.neg_patch_transform = transforms.Compose(
             [
                 transforms.RandomApply([
                     transforms.ColorJitter(0.2, 0.2, 0.2, 0.1)  # not strengthened
-                ], p=0.2),
+                ], p=0.1),
                 transforms.RandomGrayscale(p=0.2),
-                transforms.RandomApply([GaussianBlur([0.1, 2.0])], p=0.2),
+                transforms.RandomApply([GaussianBlur([0.1, 2.0])], p=0.1),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -274,8 +266,8 @@ class VOCDetSSL(Dataset):
             if sample_n_times > max_sample_times:
                 break
 
-            x1 = np.random.randint(0, W - crop_size[1], size=(sample_num))
-            y1 = np.random.randint(0, H - crop_size[0], size=(sample_num))
+            x1 = np.random.randint(0, W - crop_size[1], size=sample_num)
+            y1 = np.random.randint(0, H - crop_size[0], size=sample_num)
 
             x2 = x1 + crop_size[1]
             y2 = y1 + crop_size[0]

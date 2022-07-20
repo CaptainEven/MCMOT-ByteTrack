@@ -115,7 +115,7 @@ class DarknetHeadSSL(nn.Module):
                                             padding=0, ))
 
             if i == 0:  # output 128 dim vector: GAP + 1×1_conv
-                self.reid_preds = nn.Sequential(*[AttentionGAP(),
+                self.reid_preds = nn.Sequential(*[AttentionGAP(in_channels=self.feature_dim),
                                                   nn.LeakyReLU(),
                                                   nn.Conv2d(in_channels=self.feature_dim,
                                                             out_channels=self.feature_dim,
@@ -134,7 +134,7 @@ class DarknetHeadSSL(nn.Module):
         self.grids = [torch.zeros(1)] * len(in_channels)
         self.expanded_strides = [None] * len(in_channels)
         self.softmax_loss = nn.CrossEntropyLoss()
-        self.triplet_loss = TripletLoss(margin=0.4)
+        self.triplet_loss = TripletLoss(margin=0.4)  # 0.4
 
     def initialize_biases(self, prior_prob):
         """

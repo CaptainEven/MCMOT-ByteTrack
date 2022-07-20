@@ -166,7 +166,7 @@ class YOLOXDarkSSL(nn.Module):
                     for j in range(n_vectors.shape[0]):
                         neg = n_vectors[j]
                         triplet_loss += self.head.triplet_loss.forward(anc, pos, neg,
-                                                                       extra_margin=0.6)
+                                                                       extra_margin=0.6)  # 0.6
                         tri_cnt += 1
 
                 if tri_cnt > 0:
@@ -211,7 +211,7 @@ class YOLOXDarkSSL(nn.Module):
                 ssl_loss += ssl_intra_loss
 
             # total_loss += sim_mat_loss
-            # total_loss += scale_consistent_loss
+            total_loss += scale_consistent_loss
             total_loss += cycle_loss
             total_loss += ssl_loss
             total_loss += triplet_loss

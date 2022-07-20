@@ -160,7 +160,7 @@ def make_parser():
     parser.add_argument("-d",
                         "--devices",
                         type=str,
-                        default="1",
+                        default="7",
                         help="The device(GPU) ids.")
 
     return parser

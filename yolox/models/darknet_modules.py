@@ -1,13 +1,15 @@
 # encoding=utf-8
 
 import os
-# import random
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pathlib import Path
+
+
+# import random
 # from torch.nn import init
 # from torchvision.models import resnet
 
@@ -44,7 +46,8 @@ def load_darknet_weights(model, weights, cutoff=0):
         if cutoff != 0 and i > cutoff:
             break
 
-        if mod_def['type'] == 'convolutional' or mod_def['type'] == 'deconvolutional':  # how to load 'deconvolutional' layer
+        if mod_def['type'] == 'convolutional' or mod_def[
+            'type'] == 'deconvolutional':  # how to load 'deconvolutional' layer
             conv = module[0]
             if mod_def['batch_normalize']:
                 # Load BN bias, weights, running mean and running variance
@@ -331,16 +334,25 @@ class GAP(nn.Module):
         """
         return self.avg_pool(x)
 
+
 class AttentionGAP(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels):
+        """
+        parameterized self-attention GAP
+        """
         super(AttentionGAP, self).__init__()
         self.gap = GAP()
+        self.conv = nn.Conv2d(in_channels=in_channels,
+                              out_channels=1,
+                              kernel_size=3,
+                              stride=1,
+                              padding=1)
 
     def forward(self, x):
         """
         @param x:
         """
-        attention_map = torch.sigmoid(x)  # n×c×h×w
+        attention_map = torch.sigmoid(self.conv(x))  # n×c×h×w
         return self.gap(attention_map * x) / self.gap(attention_map)
 
 

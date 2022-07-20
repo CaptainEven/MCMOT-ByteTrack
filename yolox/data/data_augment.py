@@ -281,6 +281,8 @@ def isotropic_gaussian_kernel_matlab(l, sigma, tensor=False):
     k = np.exp(arg)
 
     k[k < scipy.finfo(float).eps * k.max()] = 0
+
+    ## ----- normalize to [0, 1], sum=1
     sum_k = k.sum()
     if sum_k != 0:
         k = k / sum_k
@@ -527,26 +529,146 @@ class LocalPixelShuffling(object):
         return x
 
 
-def image_in_painting(x):
+def image_in_painting(x, p=0.95):
     """
     @param x:
     """
     H, W, C = x.shape
     cnt = 5
-    while cnt > 0 and random.random() < 0.95:
+    while cnt > 0 and random.random() < p:
         block_noise_size_y = random.randint(H // 6, H // 3)
         block_noise_size_x = random.randint(W // 6, W // 3)
-        block_noise_size_z = random.randint(C // 6, C // 3)
+        block_noise_size_z = random.randint(0, 3)
         noise_x = random.randint(3, H - block_noise_size_y - 3)
         noise_y = random.randint(3, W - block_noise_size_x - 3)
-        noise_z = random.randint(3, C - block_noise_size_z - 3)
+        noise_z = random.randint(0, C - block_noise_size_z)
         x[noise_y:noise_y + block_noise_size_y,
         noise_x:noise_x + block_noise_size_x,
-        noise_z:noise_z + block_noise_size_z] = np.random.rand(block_noise_size_y,
-                                                               block_noise_size_x,
-                                                               block_noise_size_z, ) * 1.0
+        :] = np.random.rand(block_noise_size_y,
+                            block_noise_size_x,
+                            3, ) * 1.0
         cnt -= 1
-    return
+    return x
+
+
+class ImageInPainting(object):
+    def __init__(self, p):
+        self.p = p
+
+    def __call__(self, x):
+        """
+        @param x: PIL Image or numpy ndarray
+        """
+        if isinstance(x, PIL.Image.Image):
+            x = np.array(x)  # PIL Image to numpy array
+
+        x = image_in_painting(x, self.p)
+        x = Image.fromarray(x)  # PIL image to numpy ndarray
+        return x
+
+
+def random_mosaic(img, p, max_num=3):
+    """
+    @param img: numpy ndarray
+    @param p:
+    """
+    if np.random.random() < p:
+        ## ----- Generate random rect
+        h, w, c = img.shape
+
+        mosaic_num = np.random.randint(1, max_num)
+        for i in range(max_num):
+            rect_w = np.random.randint(10, int(0.25 * w))
+            rect_h = np.random.randint(10, int(0.25 * h))
+            left = np.random.randint(5, w - rect_w - 1)
+            top = np.random.randint(5, h - rect_h - 1)
+            patch_size = np.random.randint(3, 14)
+            img = rect_mosaic(img, left, top, rect_w, rect_h, patch_size)
+
+    return img
+
+class RandomMosaic(object):
+    def __init__(self, p=1.0, max_num=5):
+        """
+        @param p:
+        @param max_num:
+        """
+        self.p = p
+        self.max_num = max_num
+
+    def __call__(self, x):
+        """
+        @param x: PIL Image or numpy ndarray
+        """
+        if isinstance(x, PIL.Image.Image):
+            x = np.array(x)  # PIL Image to numpy array
+
+        x = random_mosaic(x, self.p, self.max_num)
+        x = Image.fromarray(x)
+        return x
+
+
+def random_shape_mosaic(img, left, top, rect_w, rect_h, patch_size=5):
+    """
+    Random shaped mosaic
+    """
+    H, W, C = img.shape
+    if (top + rect_h > H) or (left + rect_w > W):  # do nothing
+        return img
+
+    ## ----- generate random blurring kernel
+    k_size = max(rect_w, rect_h)
+    kernel, sigma = random_gaussian_kernel(l=k_size,
+                                           sig_min=0.5,
+                                           sig_max=7,
+                                           rate_iso=0.2,
+                                           tensor=False)
+    idx = np.argpartition(kernel, int(0.3 * kernel.size))[0]
+    kernel_thresh = kernel[idx]
+
+    ## ----- Split the rect area of image int o patches
+    for y in range(0, rect_h - patch_size, patch_size):
+        for x in range(0, rect_w - patch_size, patch_size):
+            if kernel[y, x] > kernel_thresh:
+                y0 = y + top
+                x0 = x + left
+                patch = img[y0: y0 + patch_size, x0: x0 + patch_size, :]
+                B = int(np.mean(patch[:, :, 0]))
+                G = int(np.mean(patch[:, :, 1]))
+                R = int(np.mean(patch[:, :, 2]))
+                color = np.array([B, G, R], dtype=np.uint8)
+                img[y0: y0 + patch_size, x0: x0 + patch_size] = color
+
+    return img
+
+
+def rect_mosaic(img, left, top, rect_w, rect_h, patch_size=5):
+    """
+    Add mosaic to rectangle shape area
+    :param img: opencv frame, numpy ndarray
+    :param int left :  rect left coordinate
+    :param int top:  rect top coordinate
+    :param int rect_w:
+    :param int rect_h:
+    :param int patch_size:
+    """
+    H, W, C = img.shape
+    if (top + rect_h > H) or (left + rect_w > W):  # do nothing
+        return img
+
+    ## ----- Split the rect area of image int o patches
+    for y in range(0, rect_h - patch_size, patch_size):
+        for x in range(0, rect_w - patch_size, patch_size):
+            y0 = y + top
+            x0 = x + left
+            patch = img[y0: y0 + patch_size, x0: x0 + patch_size, :]
+            B = int(np.mean(patch[:, :, 0]))
+            G = int(np.mean(patch[:, :, 1]))
+            R = int(np.mean(patch[:, :, 2]))
+            color = np.array([B, G, R], dtype=np.uint8)
+            img[y0: y0 + patch_size, x0: x0 + patch_size] = color
+
+    return img
 
 
 from PIL import Image, ImageFilter
@@ -575,7 +697,7 @@ class GaussianBlur(object):
 import PIL
 
 
-class RandomLightOrShadow(object):
+class RandomLightShadow(object):
     """
     Randomly add light or shadow
     """
@@ -655,16 +777,18 @@ class PatchTransform():
         """
         self.augmentation = [
             # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
-            transforms.RandomApply([RandomLightOrShadow(base=200)], p=0.8),
+            transforms.RandomApply([RandomMosaic()], p=0.5),
+            transforms.RandomApply([RandomLightShadow(base=200)], p=0.8),
+            # transforms.RandomApply([LocalPixelShuffling(p=0.2)], p=1.0),
+            # transforms.RandomApply([ImageInPainting(p=0.2)], p=1.0),
             transforms.RandomApply([
                 transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
             ], p=0.8),
-            transforms.RandomApply([LocalPixelShuffling(p=0.3)], p=1.0),
             transforms.RandomGrayscale(p=0.2),
             # transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
             transforms.RandomApply([RandomKernelBlur(iso_rate=0.2,
                                                      min_k_size=3,
-                                                     max_k_size=5)], p=0.8),
+                                                     max_k_size=7)], p=0.8),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
