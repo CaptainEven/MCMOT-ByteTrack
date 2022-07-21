@@ -53,15 +53,17 @@ class YOLOXDarkSSL(nn.Module):
         :param targets:
         :return:
         """
-        # fpn output content features of all(default: 3) scales
-        fpn_outs = self.backbone.forward(inps)  # 1/8, 1/16, 1/32
+        ## ----- pass through backbone fpn output content features
+        # of all(default: 3) scales: 1/8, 1/16, 1/32
+        fpn_outs, shallow_layer = self.backbone.forward(inps)
 
+        ## ----- pass through the head
         if self.training:
             assert targets is not None
             assert not (q is None or k is None or n is None)
 
             ## ----- Get object detection losses and feature map
-            losses, feature_map = self.head.forward(fpn_outs, targets, inps)
+            losses, feature_map = self.head.forward(fpn_outs, shallow_layer, targets, inps)
             total_loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = losses
 
             ## ----- Get size
@@ -90,20 +92,23 @@ class YOLOXDarkSSL(nn.Module):
                 n_vectors = n[batch_idx]
 
                 # ----- inference
-                q_vectors = self.backbone.forward(q_vectors)[0]  # 200×96×28×28
-                k_vectors = self.backbone.forward(k_vectors)[0]
-                n_vectors = self.backbone.forward(n_vectors)[0]
+                q_vectors, q_shallow = self.backbone.forward(q_vectors)  # 200×96×28×28
+                k_vectors, k_shallow = self.backbone.forward(k_vectors)
+                n_vectors, n_shallow = self.backbone.forward(n_vectors)
 
+                q_vectors = torch.cat([q_vectors[0], q_shallow], dim=1)
                 q_vectors = self.head.reid_convs(q_vectors)
                 q_vectors = self.head.reid_preds(q_vectors)
                 q_vectors = q_vectors.reshape(q_vectors.shape[0], -1)  # n×128
                 q_vectors = nn.functional.normalize(q_vectors, dim=1)
 
+                k_vectors = torch.cat([k_vectors[0], k_shallow], dim=1)
                 k_vectors = self.head.reid_convs(k_vectors)
                 k_vectors = self.head.reid_preds(k_vectors)
                 k_vectors = k_vectors.reshape(k_vectors.shape[0], -1)  # n×128
                 k_vectors = nn.functional.normalize(k_vectors, dim=1)
 
+                n_vectors = torch.cat([n_vectors[0], n_shallow], dim=1)
                 n_vectors = self.head.reid_convs(n_vectors)
                 n_vectors = self.head.reid_preds(n_vectors)
                 n_vectors = n_vectors.reshape(n_vectors.shape[0], -1)  # k×128
@@ -229,8 +234,8 @@ class YOLOXDarkSSL(nn.Module):
                 "triplet_loss": triplet_loss,
                 "num_fg": num_fg,
             }
-        else:
-            outputs = self.head.forward(fpn_outs)
+        else:  # testing
+            outputs = self.head.forward(fpn_outs, shallow_layer)
 
         return outputs
 

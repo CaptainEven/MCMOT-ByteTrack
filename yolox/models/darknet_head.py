@@ -84,7 +84,7 @@ class DarknetHeadSSL(nn.Module):
                                                        act=act, ), ]))
 
             if i == 0:
-                self.reid_convs = nn.Sequential(*[Conv(in_channels=int(256 * width),
+                self.reid_convs = nn.Sequential(*[Conv(in_channels=160,
                                                        out_channels=int(256 * width),
                                                        ksize=3,
                                                        stride=1,
@@ -116,7 +116,7 @@ class DarknetHeadSSL(nn.Module):
 
             if i == 0:  # output 128 dim vector: GAP + 1×1_conv
                 self.reid_preds = nn.Sequential(*[AttentionGAP(in_channels=self.feature_dim),
-                                                  nn.LeakyReLU(),
+                                                  # nn.LeakyReLU(),
                                                   nn.Conv2d(in_channels=self.feature_dim,
                                                             out_channels=self.feature_dim,
                                                             kernel_size=1,
@@ -156,15 +156,16 @@ class DarknetHeadSSL(nn.Module):
         b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
         conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
-    def forward(self, fpn_outs,
-                targets=None, imgs=None, ):
+    def forward(self,
+                fpn_outs,
+                shallow_layer,
+                targets=None,
+                imgs=None, ):
         """
         :param fpn_outs:
+        :param shallow_layer:
         :param targets:
-        :param imgs: inps
-        :param q:
-        :param k:
-        :param n:
+        :param imgs:
         :return:
         """
         outputs = []
@@ -195,7 +196,8 @@ class DarknetHeadSSL(nn.Module):
             obj_output = self.obj_preds[i](reg_feat)
 
             if i == 0:
-                reid_x = x
+                ## ----- Concatenate the shallow layer: 1×96×56×96 cat 1×64×56×96
+                reid_x = torch.cat([x, shallow_layer], dim=1)
                 feat_output = self.reid_convs(reid_x)
 
             if self.training:
@@ -217,7 +219,7 @@ class DarknetHeadSSL(nn.Module):
                     reg_output = reg_output.permute(0, 1, 3, 4, 2).reshape(batch_size, -1, 4)
                     origin_preds.append(reg_output.clone())
 
-            else:
+            else:  # testing
                 ## ----- concatenate different branch of outputs
                 output = torch.cat([reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1)
 
@@ -234,6 +236,7 @@ class DarknetHeadSSL(nn.Module):
                                    origin_preds,
                                    dtype=fpn_outs[0].dtype, )
             return losses, feat_output
+
         else:
             self.hw = [x.shape[-2:] for x in outputs]
 

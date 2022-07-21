@@ -44,7 +44,10 @@ class YOLOXDarknet(nn.Module):
         ## ----- build the network
         self.module_defs = parse_darknet_cfg(cfg)
         logger.info("Network config file parsed.")
-        self.module_list, self.routs = build_modules(self.module_defs, net_size, cfg, 3)
+        self.module_list, self.routs = build_modules(self.module_defs,
+                                                     net_size,
+                                                     cfg,
+                                                     3)
         if init_weights:
             self.init_weights()
             logger.info("Network weights initialized.")

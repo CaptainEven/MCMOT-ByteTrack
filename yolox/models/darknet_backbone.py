@@ -146,4 +146,7 @@ class DarknetBackbone(nn.Module):
                          layer_outs[self.id1],
                          layer_outs[self.id2])
 
-        return self.fpn_outs
+        shallow_layer = layer_outs[13]
+
+        # return self.fpn_outs
+        return self.fpn_outs, shallow_layer

@@ -307,7 +307,7 @@ class FeatureConcat(nn.Module):
         :param layers:
         """
         super(FeatureConcat, self).__init__()
-        self.layers = layers  # layer indices
+        self.layer_inds = layers  # layer indices
         self.multiple = len(layers) > 1  # multiple layers flag
 
     def forward(self, x, outputs):
@@ -316,7 +316,8 @@ class FeatureConcat(nn.Module):
         :param outputs:
         :return:
         """
-        return torch.cat([outputs[i] for i in self.layers], 1) if self.multiple else outputs[self.layers[0]]
+        return torch.cat([outputs[i] for i in self.layer_inds], 1) \
+            if self.multiple else outputs[self.layer_inds[0]]
 
 
 class GAP(nn.Module):
