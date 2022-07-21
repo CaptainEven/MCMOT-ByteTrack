@@ -127,7 +127,6 @@ class YOLOXDarkSSL(nn.Module):
 
                 ## ----- Calculate feature scale-consistency loss
                 ## of feature map and patch feature vector difference
-                ## (尺度一致性特征损失)
                 for i, (q_vector, k_vector) in enumerate(zip(q_vectors, k_vectors)):
                     cls_id, cx, cy, w, h = targets[batch_idx][i]  # in net_size
 
