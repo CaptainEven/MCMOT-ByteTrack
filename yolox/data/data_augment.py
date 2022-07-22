@@ -621,6 +621,7 @@ def random_shape_mosaic(img, left, top, rect_w, rect_h,
 
     ## ----- generate random blurring kernel
     k_size = max(rect_w // patch_size, rect_h // patch_size)
+    k_size = k_size if k_size >= 3 else 3
     kernel, sigma = random_gaussian_kernel(l=k_size,
                                            sig_min=0.5,
                                            sig_max=7,
@@ -642,9 +643,6 @@ def random_shape_mosaic(img, left, top, rect_w, rect_h,
                 R = int(np.mean(patch[:, :, 2]))
                 color = np.array([B, G, R], dtype=np.uint8)
                 img[y0: y0 + patch_size, x0: x0 + patch_size] = color
-            else:
-                # print("skip")
-                pass
 
     return img
 
