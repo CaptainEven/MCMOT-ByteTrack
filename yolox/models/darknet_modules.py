@@ -344,11 +344,24 @@ class AttentionGAP(nn.Module):
         """
         super(AttentionGAP, self).__init__()
         self.gap = GAP()
-        self.conv = nn.Conv2d(in_channels=in_channels,
-                              out_channels=1,
-                              kernel_size=3,
-                              stride=1,
-                              padding=1)
+
+        # self.conv = nn.Conv2d(in_channels=in_channels,
+        #                       out_channels=1,
+        #                       kernel_size=3,
+        #                       stride=1,
+        #                       padding=1)
+
+        self.conv = nn.Sequential(*[nn.Conv2d(in_channels=in_channels,
+                                              out_channels=128,
+                                              kernel_size=3,
+                                              stride=1,
+                                              padding=1),
+                                    nn.LeakyReLU(),
+                                    nn.Conv2d(in_channels=128,
+                                              out_channels=1,
+                                              kernel_size=3,
+                                              stride=1,
+                                              padding=1)])
 
     def forward(self, x):
         """
