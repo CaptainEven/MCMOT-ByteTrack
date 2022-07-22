@@ -583,7 +583,8 @@ def random_mosaic(img, p, max_num=3):
             left = np.random.randint(5, w - rect_w - 1)
             top = np.random.randint(5, h - rect_h - 1)
             patch_size = np.random.randint(3, 14)
-            img = random_rect_mosaic(img, left, top, rect_w, rect_h, patch_size)
+            # img = random_rect_mosaic(img, left, top, rect_w, rect_h, patch_size)
+            img = random_shape_mosaic(img, left, top, rect_w, rect_h, patch_size)
 
     return img
 
