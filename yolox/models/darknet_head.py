@@ -117,12 +117,12 @@ class DarknetHeadSSL(nn.Module):
             if i == 0:  # output 128 dim vector: GAP + 1×1_conv
                 self.reid_preds = nn.Sequential(*[AttentionGAP(in_channels=self.feature_dim),
                                                   nn.LeakyReLU(),
-                                                  nn.Conv2d(in_channels=self.feature_dim,
-                                                            out_channels=self.feature_dim,
-                                                            kernel_size=1,
-                                                            stride=1,
-                                                            padding=0),
-                                                  # nn.Linear(self.feature_dim, self.feature_dim)
+                                                  # nn.Conv2d(in_channels=self.feature_dim,
+                                                  #           out_channels=self.feature_dim,
+                                                  #           kernel_size=1,
+                                                  #           stride=1,
+                                                  #           padding=0),
+                                                  nn.Linear(self.feature_dim, self.feature_dim)
                                                   ])
 
         ## ----- loss function definition

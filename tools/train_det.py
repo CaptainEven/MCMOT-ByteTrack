@@ -155,7 +155,7 @@ def make_parser():
     parser.add_argument("-nd",
                         "--n_devices",
                         type=int,
-                        default=1,  # number of devices(gpus)
+                        default=7,  # number of devices(gpus)
                         help="device for training")
 
     parser.add_argument("-d",

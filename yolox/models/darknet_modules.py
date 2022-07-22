@@ -355,7 +355,9 @@ class AttentionGAP(nn.Module):
         @param x:
         """
         attention_map = torch.sigmoid(self.conv(x))  # n×c×h×w
-        return self.gap(attention_map * x) / self.gap(attention_map)
+        out = self.gap(attention_map * x) / self.gap(attention_map)
+        out = torch.squeeze(out)
+        return out
 
 
 # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
