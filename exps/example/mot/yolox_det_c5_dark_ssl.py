@@ -74,7 +74,7 @@ class Exp(MyExp):
         self.max_labels = 30
         logger.info("max labels: {:d}".format(self.max_labels))
 
-        self.feature_dim = 512
+        self.feature_dim = 128
 
     def get_model(self):
         """

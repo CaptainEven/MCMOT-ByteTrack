@@ -352,12 +352,13 @@ class AttentionGAP(nn.Module):
         #                       padding=1)
 
         self.conv = nn.Sequential(*[nn.Conv2d(in_channels=in_channels,
-                                              out_channels=128,
+                                              out_channels=256,
                                               kernel_size=3,
                                               stride=1,
                                               padding=1),
+                                    nn.BatchNorm2d(256),
                                     nn.LeakyReLU(),
-                                    nn.Conv2d(in_channels=128,
+                                    nn.Conv2d(in_channels=256,
                                               out_channels=1,
                                               kernel_size=3,
                                               stride=1,
@@ -406,7 +407,14 @@ class SAM(nn.Module):
 
 
 class MixDeConv2d(nn.Module):  # MixDeConv: Mixed Depthwise DeConvolutional Kernels https://arxiv.org/abs/1907.09595
-    def __init__(self, in_ch, out_ch, k=(3, 5, 7), stride=1, dilation=1, bias=True, method='equal_params'):
+    def __init__(self,
+                 in_ch,
+                 out_ch,
+                 k=(3, 5, 7),
+                 stride=1,
+                 dilation=1,
+                 bias=True,
+                 method='equal_params'):
         """
         :param in_ch:
         :param out_ch:
