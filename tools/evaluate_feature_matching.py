@@ -187,7 +187,8 @@ class ReIDEvaluator(object):
         self.opt.device = str(find_free_gpu())
         print('Using gpu: {:s}'.format(self.opt.device))
         os.environ['CUDA_VISIBLE_DEVICES'] = self.opt.device
-        device = select_device(device='cpu' if not torch.cuda.is_available() else self.opt.device)
+        device = select_device(device='cpu' if not torch.cuda.is_available()
+                                            else self.opt.device)
         self.opt.device = device
         self.device = device
 

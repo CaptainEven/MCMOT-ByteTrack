@@ -583,9 +583,11 @@ def random_mosaic(img, p, max_num=3):
             left = np.random.randint(5, w - rect_w - 1)
             top = np.random.randint(5, h - rect_h - 1)
             patch_size = np.random.randint(3, 14)
-            img = rect_mosaic(img, left, top, rect_w, rect_h, patch_size)
+            # img = random_rect_mosaic(img, left, top, rect_w, rect_h, patch_size)
+            img = random_shape_mosaic(img, left, top, rect_w, rect_h, patch_size)
 
     return img
+
 
 class RandomMosaic(object):
     def __init__(self, p=1.0, max_num=5):
@@ -608,7 +610,8 @@ class RandomMosaic(object):
         return x
 
 
-def random_shape_mosaic(img, left, top, rect_w, rect_h, patch_size=5):
+def random_shape_mosaic(img, left, top, rect_w, rect_h,
+                        patch_size=5):
     """
     Random shaped mosaic
     """
@@ -617,19 +620,21 @@ def random_shape_mosaic(img, left, top, rect_w, rect_h, patch_size=5):
         return img
 
     ## ----- generate random blurring kernel
-    k_size = max(rect_w, rect_h)
+    k_size = max(rect_w // patch_size, rect_h // patch_size)
+    k_size = k_size if k_size >= 3 else 3
     kernel, sigma = random_gaussian_kernel(l=k_size,
                                            sig_min=0.5,
                                            sig_max=7,
                                            rate_iso=0.2,
                                            tensor=False)
-    idx = np.argpartition(kernel, int(0.3 * kernel.size))[0]
-    kernel_thresh = kernel[idx]
+    idx = np.argpartition(kernel, int(0.3 * kernel.size), axis=None)[0]
+    idx_y, idx_x = int(idx / kernel.shape[1]), idx % kernel.shape[1]
+    kernel_thresh = kernel[idx_y, idx_x]
 
     ## ----- Split the rect area of image int o patches
-    for y in range(0, rect_h - patch_size, patch_size):
-        for x in range(0, rect_w - patch_size, patch_size):
-            if kernel[y, x] > kernel_thresh:
+    for y_i, y in enumerate(range(0, rect_h - patch_size, patch_size)):
+        for x_i, x in enumerate(range(0, rect_w - patch_size, patch_size)):
+            if kernel[y_i, x_i] > kernel_thresh:
                 y0 = y + top
                 x0 = x + left
                 patch = img[y0: y0 + patch_size, x0: x0 + patch_size, :]
@@ -642,7 +647,7 @@ def random_shape_mosaic(img, left, top, rect_w, rect_h, patch_size=5):
     return img
 
 
-def rect_mosaic(img, left, top, rect_w, rect_h, patch_size=5):
+def random_rect_mosaic(img, left, top, rect_w, rect_h, patch_size=5):
     """
     Add mosaic to rectangle shape area
     :param img: opencv frame, numpy ndarray
@@ -729,14 +734,14 @@ def random_light_or_shadow(img, base=200, low=10, high=255):
     h, w, c = img.shape  # BGR or RGB
 
     ## ----- Randomly Generate Gauss Center
-    center_x = np.random.randint(-h * 3, h * 3)
-    center_y = np.random.randint(-h * 3, h * 3)
+    center_x = np.random.randint(-w * 1.2, w * 1.2)
+    center_y = np.random.randint(-h * 1.2, h * 1.2)
 
-    radius_x = np.random.randint(int(h * 0.5), h * 2)
-    radius_y = np.random.randint(int(h * 0.5), h * 2)
+    radius_x = np.random.randint(int(w * 0.5), w * 1.2)
+    radius_y = np.random.randint(int(h * 0.5), h * 1.2)
 
-    delta_x = np.power((radius_x / 4), 2)
-    delta_y = np.power((radius_y / 4), 2)
+    delta_x = np.power((radius_x / 2), 2)
+    delta_y = np.power((radius_y / 2), 2)
 
     x_arr, y_arr, c_arr = np.meshgrid(np.arange(w), np.arange(h), np.arange(c))
     weight = np.array(
@@ -778,7 +783,7 @@ class PatchTransform():
         self.augmentation = [
             # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
             transforms.RandomApply([RandomMosaic()], p=0.5),
-            transforms.RandomApply([RandomLightShadow(base=200)], p=0.8),
+            transforms.RandomApply([RandomLightShadow(base=200)], p=0.5),
             # transforms.RandomApply([LocalPixelShuffling(p=0.2)], p=1.0),
             # transforms.RandomApply([ImageInPainting(p=0.2)], p=1.0),
             transforms.RandomApply([
@@ -788,7 +793,7 @@ class PatchTransform():
             # transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
             transforms.RandomApply([RandomKernelBlur(iso_rate=0.2,
                                                      min_k_size=3,
-                                                     max_k_size=7)], p=0.8),
+                                                     max_k_size=7)], p=0.5),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
