@@ -32,7 +32,7 @@ class DarknetHeadSSL(nn.Module):
         :param in_channels:
         :param act(str): activation type of conv. Default value: "silu".
         :param depth-wise (bool): whether apply depth-wise conv in conv branch.
-        Defalut value: False.
+        Default value: False.
         """
         super().__init__()
 
