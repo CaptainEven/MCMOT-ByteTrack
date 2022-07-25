@@ -55,7 +55,8 @@ class YOLOXDarkSSL(nn.Module):
         """
         ## ----- pass through backbone fpn output content features
         # of all(default: 3) scales: 1/8, 1/16, 1/32
-        fpn_outs = self.backbone.forward(inps)
+        layer_outs = self.backbone.forward(inps)
+        fpn_outs = self.backbone.fpn_outs
 
         ## ----- pass through the head
         if self.training:

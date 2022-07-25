@@ -9,7 +9,7 @@ from loguru import logger
 
 from yolox.utils import bboxes_iou
 from yolox.models.losses import TripletLoss
-from yolox.models.darknet_modules import GAP, AttentionGAP
+from yolox.models.darknet_modules import GAP, AttentionGAP, UpSampleFuse
 from .losses import IOUloss
 from .network_blocks import BaseConv, DWConv
 
@@ -84,7 +84,7 @@ class DarknetHeadSSL(nn.Module):
                                                        act=act, ), ]))
 
             if i == 0:
-                self.reid_convs = nn.Sequential(*[Conv(in_channels=int(256 * width),
+                self.reid_convs = nn.Sequential(*[Conv(in_channels=self.feature_dim,
                                                        out_channels=int(256 * width),
                                                        ksize=3,
                                                        stride=1,
@@ -124,6 +124,9 @@ class DarknetHeadSSL(nn.Module):
                                                   #           padding=0),
                                                   nn.Linear(self.feature_dim, self.feature_dim)
                                                   ])
+
+        self.upsample_fuse_1 = UpSampleFuse(192, self.feature_dim)
+        self.upsample_fuse_2 = UpSampleFuse(224, self.feature_dim)
 
         ## ----- loss function definition
         self.use_l1 = False
@@ -195,9 +198,14 @@ class DarknetHeadSSL(nn.Module):
             obj_output = self.obj_preds[i](reg_feat)
 
             ## ----- Get feature map
-            if i == 0:
+            if i == 2:
                 ## ----- Concatenate the shallow layer: 1×96×56×96 cat 1×64×56×96
                 reid_x = x
+
+                ## ----- Build feature map
+                reid_x = self.upsample_fuse_1(reid_x, fpn_outs[1])
+                reid_x = self.upsample_fuse_2(reid_x, fpn_outs[0])
+
                 feat_output = self.reid_convs(reid_x)
 
             if self.training:

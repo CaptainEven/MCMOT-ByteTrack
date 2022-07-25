@@ -374,6 +374,34 @@ class AttentionGAP(nn.Module):
         return out
 
 
+class UpSampleFuse(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        """
+        UpSample and concatenate
+        @param in_channels:
+        @param out_channels:
+        """
+        super(UpSampleFuse, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.conv = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channels,
+                                              out_channels=self.out_channels,
+                                              kernel_size=3,
+                                              stride=1,
+                                              padding=1),
+                                    nn.LeakyReLU(),
+                                    nn.BatchNorm2d(self.out_channels)])
+
+    def forward(self, x, fuse_layer):
+        """
+        @param x:
+        """
+        x = F.interpolate(x, scale_factor=2, mode='nearest')  # up-sample
+        x = torch.cat([x, fuse_layer], dim=1)  # fuse
+        x = self.conv(x)  # conv
+        return x
+
 # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
 class ScaleChannel(nn.Module):
     def __init__(self, layers):

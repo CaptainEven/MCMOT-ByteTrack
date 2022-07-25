@@ -21,6 +21,7 @@ class DarknetBackbone(nn.Module):
                  net_size=(768, 448),
                  in_chans=3,
                  out_inds=[],
+                 map_inds=[],
                  init_weights=False,
                  use_momentum=True):
         """
@@ -146,4 +147,5 @@ class DarknetBackbone(nn.Module):
                          layer_outs[self.id1],
                          layer_outs[self.id2])
 
-        return self.fpn_outs
+        # return self.fpn_outs
+        return layer_outs

@@ -95,7 +95,8 @@ class Exp(MyExp):
             backbone = DarknetBackbone(cfg_path=self.cfg_file_path,
                                        net_size=(768, 448),
                                        in_chans=3,
-                                       out_inds=[20, 26, 45],
+                                       out_inds=[20, 26, 45],  # 3 scales feature maps
+                                       map_inds=[3, 10, 20, 26, 45],  # 1/2, 1/4, 1/8, 1/16, 1/32
                                        init_weights=True,
                                        use_momentum=True)
             head = DarknetHeadSSL(num_classes=self.n_classes,
@@ -103,7 +104,8 @@ class Exp(MyExp):
                                   strides=[8, 16, 32],
                                   in_channels=[256, 256, 512],
                                   act="lrelu",  # leaky relu
-                                  depth_wise=False)  # 156 -> 96, 512 -> 192
+                                  depth_wise=False,
+                                  feature_dim=self.feature_dim)  # 156 -> 96, 512 -> 192
             self.model = YOLOXDarkSSL(cfg_path=self.cfg_file_path,
                                       backbone=backbone,
                                       head=head,
