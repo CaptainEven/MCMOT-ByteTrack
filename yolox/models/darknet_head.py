@@ -84,7 +84,7 @@ class DarknetHeadSSL(nn.Module):
                                                        act=act, ), ]))
 
             if i == 0:
-                self.reid_convs = nn.Sequential(*[Conv(in_channels=int(256 * width),
+                self.reid_convs = nn.Sequential(*[Conv(in_channels=160,
                                                        out_channels=int(256 * width),
                                                        ksize=3,
                                                        stride=1,
@@ -158,6 +158,7 @@ class DarknetHeadSSL(nn.Module):
 
     def forward(self,
                 fpn_outs,
+                shallow_layer,
                 targets=None,
                 imgs=None, ):
         """
@@ -195,7 +196,7 @@ class DarknetHeadSSL(nn.Module):
 
             if i == 0:
                 ## ----- Concatenate the shallow layer: 1×96×56×96 cat 1×64×56×96
-                reid_x = x
+                reid_x = torch.cat([x, shallow_layer], dim=1)
                 feat_output = self.reid_convs(reid_x)
 
             if self.training:
