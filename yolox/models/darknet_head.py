@@ -206,8 +206,7 @@ class DarknetHeadSSL(nn.Module):
                 ## ----- Build feature map
                 reid_x = self.upsample_fuse_1(reid_x, fpn_outs[1])
                 reid_x = self.upsample_fuse_2(reid_x, fpn_outs[0])
-
-                feat_output = self.reid_convs(reid_x)
+                feature_map = self.reid_convs(reid_x)
 
             if self.training:
                 ## ----- concatenate different branch of outputs
@@ -244,7 +243,7 @@ class DarknetHeadSSL(nn.Module):
                                    torch.cat(outputs, 1),
                                    origin_preds,
                                    dtype=fpn_outs[0].dtype, )
-            return losses, feat_output
+            return losses, feature_map
 
         else:
             self.hw = [x.shape[-2:] for x in outputs]
@@ -253,9 +252,9 @@ class DarknetHeadSSL(nn.Module):
             outputs = torch.cat([x.flatten(start_dim=2) for x in outputs], dim=2).permute(0, 2, 1)
             if self.decode_in_inference:
                 decoded_outputs = self.decode_outputs(outputs, dtype=fpn_outs[0].type())
-                return decoded_outputs, feat_output
+                return decoded_outputs, feature_map
             else:
-                return outputs, feat_output
+                return outputs, feature_map
 
     def get_output_and_grid(self, output, k, stride, dtype):
         """
