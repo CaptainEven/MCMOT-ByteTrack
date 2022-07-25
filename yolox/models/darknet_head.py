@@ -161,6 +161,7 @@ class DarknetHeadSSL(nn.Module):
                 targets=None,
                 imgs=None, ):
         """
+        TODO: feature_map, Reconstruction(part U-Net)
         :param fpn_outs:
         :param targets:
         :param imgs:
@@ -193,6 +194,7 @@ class DarknetHeadSSL(nn.Module):
             ## ----- object-ness output
             obj_output = self.obj_preds[i](reg_feat)
 
+            ## ----- Get feature map
             if i == 0:
                 ## ----- Concatenate the shallow layer: 1×96×56×96 cat 1×64×56×96
                 reid_x = x
@@ -202,7 +204,7 @@ class DarknetHeadSSL(nn.Module):
                 ## ----- concatenate different branch of outputs
                 output = torch.cat([reg_output, obj_output, cls_output], 1)
 
-                ## ----- grading and reshaping
+                ## ----- griding and reshaping
                 output, grid = self.get_output_and_grid(output, i, stride_this_level, fpn_outs[0].type())
 
                 x_shifts.append(grid[:, :, 0])
