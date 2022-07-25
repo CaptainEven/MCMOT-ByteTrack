@@ -126,6 +126,7 @@ class DarknetHeadSSL(nn.Module):
                                                   nn.Linear(self.feature_dim, self.feature_dim)
                                                   ])
 
+        ## ----- U-Net: up-sample and concatenate
         self.upsample_fuse_1 = UpSampleFuse(192, self.feature_dim)
         self.upsample_fuse_2 = UpSampleFuse(224, self.feature_dim)
 
