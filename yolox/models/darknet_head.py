@@ -39,6 +39,7 @@ class DarknetHeadSSL(nn.Module):
         self.n_anchors = 1
         self.num_classes = num_classes
         self.feature_dim = feature_dim
+        logger.info("Feature vector dim: {:d}".format(self.feature_dim))
 
         # for deploy, set to False
         self.decode_in_inference = True
