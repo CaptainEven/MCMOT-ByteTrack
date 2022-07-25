@@ -103,7 +103,8 @@ class Exp(MyExp):
                                   strides=[8, 16, 32],
                                   in_channels=[256, 256, 512],
                                   act="lrelu",  # leaky relu
-                                  depth_wise=False)  # 156 -> 96, 512 -> 192
+                                  depth_wise=False,
+                                  feature_dim=self.feature_dim)  # 156 -> 96, 512 -> 192
             self.model = YOLOXDarkSSL(cfg_path=self.cfg_file_path,
                                       backbone=backbone,
                                       head=head,
