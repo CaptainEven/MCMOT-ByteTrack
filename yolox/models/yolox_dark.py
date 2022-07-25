@@ -92,26 +92,26 @@ class YOLOXDarkSSL(nn.Module):
                 n_vectors = n[batch_idx]
 
                 # ----- inference
-                q_vectors, q_shallow = self.backbone.forward(q_vectors)  # 200×96×28×28
+                q_vectors, q_shallow = self.backbone.forward(q_vectors)
                 k_vectors, k_shallow = self.backbone.forward(k_vectors)
                 n_vectors, n_shallow = self.backbone.forward(n_vectors)
 
                 q_vectors = torch.cat([q_vectors[0], q_shallow], dim=1)
                 q_vectors = self.head.reid_convs(q_vectors)
                 q_vectors = self.head.reid_preds(q_vectors)
-                q_vectors = q_vectors.reshape(q_vectors.shape[0], -1)  # n×128
+                q_vectors = q_vectors.reshape(q_vectors.shape[0], -1)
                 q_vectors = nn.functional.normalize(q_vectors, dim=1)
 
                 k_vectors = torch.cat([k_vectors[0], k_shallow], dim=1)
                 k_vectors = self.head.reid_convs(k_vectors)
                 k_vectors = self.head.reid_preds(k_vectors)
-                k_vectors = k_vectors.reshape(k_vectors.shape[0], -1)  # n×128
+                k_vectors = k_vectors.reshape(k_vectors.shape[0], -1)
                 k_vectors = nn.functional.normalize(k_vectors, dim=1)
 
                 n_vectors = torch.cat([n_vectors[0], n_shallow], dim=1)
                 n_vectors = self.head.reid_convs(n_vectors)
                 n_vectors = self.head.reid_preds(n_vectors)
-                n_vectors = n_vectors.reshape(n_vectors.shape[0], -1)  # k×128
+                n_vectors = n_vectors.reshape(n_vectors.shape[0], -1)
                 n_vectors = nn.functional.normalize(n_vectors, dim=1)
 
                 # ---------- SSL loss calculations
@@ -182,7 +182,7 @@ class YOLOXDarkSSL(nn.Module):
                     for j in range(k_vectors.shape[0]):
                         if j != i:
                             sim_qi_kj = torch.dot(q_vectors[i], k_vectors[j])
-                            sim_qj_ki = torch.dot(k_vectors[i], q_vectors[j])
+                            sim_qj_ki = torch.dot(q_vectors[j], k_vectors[i])
                             cycle_loss += abs(sim_qi_kj - sim_qj_ki)
                             cyc_cnt += 1
 
@@ -207,7 +207,7 @@ class YOLOXDarkSSL(nn.Module):
                 labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
                 ssl_loss += self.head.softmax_loss(logits, labels) / num_gt
 
-                ## TODO: calculate intra-positive SSL loss
+                ## ----- calculate intra-positive SSL loss
                 logits_intra_pos = torch.einsum('nc,ck->nk', [q_vectors, k_vectors.T])
                 logits_intra_pos /= self.T
                 labels_intra = torch.arange(logits_intra_pos.shape[0]).cuda()
