@@ -174,7 +174,9 @@ class YOLOXDarkSSL(nn.Module):
                 ssl_loss += self.head.softmax_loss(logits, labels) / num_gt
 
                 ## ----- Calculate reconstruction loss
-
+                p1_recon = self.head.upsample_fuse_3(p1_feature_map, p1_maps[1])
+                p1_recon = self.head.upsample_fuse_4(p1_recon, p1_maps[0])
+                p1_recon = self.head.upsample_conv(p1_recon)
 
 
             # total_loss += sim_mat_loss

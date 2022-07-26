@@ -9,7 +9,7 @@ from loguru import logger
 
 from yolox.utils import bboxes_iou
 from yolox.models.losses import TripletLoss
-from yolox.models.darknet_modules import GAP, AttentionGAP, UpSampleFuse
+from yolox.models.darknet_modules import GAP, AttentionGAP, UpSampleFuse, UpSampleConv
 from .losses import IOUloss
 from .network_blocks import BaseConv, DWConv
 
@@ -128,7 +128,8 @@ class DarknetHeadSSL(nn.Module):
         self.upsample_fuse_1 = UpSampleFuse(288, self.feature_dim)
         self.upsample_fuse_2 = UpSampleFuse(224, self.feature_dim)
         self.upsample_fuse_3 = UpSampleFuse(192, self.feature_dim)
-        self.upsample_fuse_4 = UpSampleFuse(228, self.feature_dim)
+        self.upsample_fuse_4 = UpSampleFuse(164, self.feature_dim)
+        self.upsample_conv = UpSampleConv(128, 3)
 
         ## ----- loss function definition
         self.use_l1 = False

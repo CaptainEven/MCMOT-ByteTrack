@@ -374,6 +374,33 @@ class AttentionGAP(nn.Module):
         return out
 
 
+class UpSampleConv(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        """
+        @param in_channels:
+        @param out_channels:
+        """
+        super(UpSampleConv, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.conv = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channels,
+                                              out_channels=self.out_channels,
+                                              kernel_size=3,
+                                              stride=1,
+                                              padding=1),
+                                    nn.LeakyReLU(),
+                                    nn.BatchNorm2d(self.out_channels)])
+
+    def forward(self, x):
+        """
+        @param x:
+        """
+        x = F.interpolate(x, scale_factor=2, mode='nearest')  # up-sample
+        x = self.conv(x)  # conv
+        return x
+
+
 class UpSampleFuse(nn.Module):
     def __init__(self, in_channels, out_channels):
         """
