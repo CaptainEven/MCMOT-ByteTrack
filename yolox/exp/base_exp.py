@@ -66,6 +66,7 @@ class BaseExp(metaclass=ABCMeta):
         :param cfg_list:
         :return:
         """
+        # print(cfg_list)
         assert len(cfg_list) % 2 == 0
 
         for k, v in zip(cfg_list[0::2], cfg_list[1::2]):
