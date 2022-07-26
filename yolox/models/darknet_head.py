@@ -113,6 +113,7 @@ class DarknetHeadSSL(nn.Module):
                                                ksize=3,
                                                stride=1,
                                                act=act, ), ])
+
         self.reid_preds = nn.Sequential(*[AttentionGAP(in_channels=self.feature_dim),
                                           nn.LeakyReLU(),
                                           # nn.Conv2d(in_channels=self.feature_dim,
@@ -126,6 +127,8 @@ class DarknetHeadSSL(nn.Module):
         ## ----- U-Net: up-sample and concatenate
         self.upsample_fuse_1 = UpSampleFuse(288, self.feature_dim)
         self.upsample_fuse_2 = UpSampleFuse(224, self.feature_dim)
+        self.upsample_fuse_3 = UpSampleFuse(192, self.feature_dim)
+        self.upsample_fuse_4 = UpSampleFuse(228, self.feature_dim)
 
         ## ----- loss function definition
         self.use_l1 = False

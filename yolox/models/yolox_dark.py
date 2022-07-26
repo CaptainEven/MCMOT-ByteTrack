@@ -55,8 +55,8 @@ class YOLOXDarkSSL(nn.Module):
         """
         ## ----- pass through backbone fpn output content features
         # of all(default: 3) scales: 1/8, 1/16, 1/32
-        layer_outs = self.backbone.forward(inps)
-        fpn_outs = self.backbone.fpn_outs
+        self.backbone.forward(inps)
+        det_fpn_outs = self.backbone.fpn_outs
 
         ## ----- pass through the head
         if self.training:
@@ -64,7 +64,7 @@ class YOLOXDarkSSL(nn.Module):
             assert not (p0 is None or p1 is None or p2 is None)
 
             ## ----- Get object detection losses and feature map
-            losses, feature_map = self.head.forward(fpn_outs, targets, inps)
+            losses, feature_map = self.head.forward(det_fpn_outs, targets, inps)
             total_loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = losses
 
             ## ----- Get size
@@ -80,6 +80,7 @@ class YOLOXDarkSSL(nn.Module):
             cycle_loss = 0.0
             # sim_mat_loss = 0.0
             scale_consistent_loss = 0.0
+            reconstruct_loss = 0.0
 
             for batch_idx, num_gt in enumerate(num_gts):
                 num_gt = int(num_gt)
@@ -87,22 +88,22 @@ class YOLOXDarkSSL(nn.Module):
                     continue
 
                 ## ----- Get feature vectors of the image
-                p0_vectors = p0[batch_idx]
-                p1_vectors = p1[batch_idx]
-                p2_vectors = p2[batch_idx]
+                p0_patches = p0[batch_idx]
+                p1_patches = p1[batch_idx]
+                p2_patches = p2[batch_idx]
 
                 # ----- inference
-                p0_layers = self.backbone.forward(p0_vectors)
-                p1_layers = self.backbone.forward(p1_vectors)
-                p2_layers = self.backbone.forward(p2_vectors)
+                p0_maps = self.backbone.forward(p0_patches)
+                p1_maps = self.backbone.forward(p1_patches)
+                p2_maps = self.backbone.forward(p2_patches)
 
-                p0_fpn_layers = [p0_layers[i] for i in self.backbone.out_inds]
-                p1_fpn_layers = [p1_layers[i] for i in self.backbone.out_inds]
-                p2_fpn_layers = [p2_layers[i] for i in self.backbone.out_inds]
+                # p0_fpn_layers = p0_maps[-3:]  # fpn layers
+                # p1_fpn_layers = p1_maps[-3:]
+                # p2_fpn_layers = p2_maps[-3:]
 
-                p0_feature_map = self.head.get_feature_map(p0_fpn_layers)  # 1/8
-                p1_feature_map = self.head.get_feature_map(p1_fpn_layers)  # 1/8
-                p2_feature_map = self.head.get_feature_map(p2_fpn_layers)  # 1/8
+                p0_feature_map = self.head.get_feature_map(p0_maps[-3:])  # 1/8
+                p1_feature_map = self.head.get_feature_map(p1_maps[-3:])  # 1/8
+                p2_feature_map = self.head.get_feature_map(p2_maps[-3:])  # 1/8
 
                 p0_vectors = self.head.reid_convs(p0_feature_map)
                 p0_vectors = self.head.reid_preds(p0_vectors)
@@ -150,8 +151,8 @@ class YOLOXDarkSSL(nn.Module):
                     # scale_consistent_loss += 1.0 - torch.dot(p1_vector, feature_vector)
                     # scale_consistent_loss += 1.0 - torch.dot(p2_vector, feature_vector)
 
-                if targets.shape[0] > 0:
-                    scale_consistent_loss /= targets.shape[0]
+                if p0_vectors.shape[0] > 0:
+                    scale_consistent_loss /= p0_vectors.shape[0]
 
                 ## ----- calculate Cycle consistency loss
                 cyc_cnt = 0
@@ -167,12 +168,14 @@ class YOLOXDarkSSL(nn.Module):
                     cycle_loss /= cyc_cnt
 
                 ## ----- Calculate intra-positive SSL loss
-                logits_intra_pos = torch.einsum('nc,ck->nk', [p1_vectors, p2_vectors.T])
-                # logits_intra_pos = torc.mm(p1_vectors, p2_vectors.T)
-                logits_intra_pos /= self.T
-                labels_intra = torch.arange(logits_intra_pos.shape[0]).cuda()
-                ssl_intra_loss = self.head.softmax_loss(logits_intra_pos, labels_intra) / num_gt
-                ssl_loss += ssl_intra_loss
+                logits = torch.mm(p1_vectors, p2_vectors.T)
+                logits /= self.T
+                labels = torch.arange(logits.shape[0]).cuda()
+                ssl_loss += self.head.softmax_loss(logits, labels) / num_gt
+
+                ## ----- Calculate reconstruction loss
+
+
 
             # total_loss += sim_mat_loss
             total_loss += scale_consistent_loss
@@ -192,7 +195,7 @@ class YOLOXDarkSSL(nn.Module):
                 "num_fg": num_fg,
             }
         else:  # testing
-            outputs = self.head.forward(fpn_outs)
+            outputs = self.head.forward(det_fpn_outs)
 
         return outputs
 
