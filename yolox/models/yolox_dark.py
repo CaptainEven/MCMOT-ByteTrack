@@ -93,23 +93,23 @@ class YOLOXDarkSSL(nn.Module):
                 n_vectors = n[batch_idx]
 
                 # ----- inference
-                q_vectors = self.backbone.forward(q_vectors)[0]  # 200×96×28×28
+                q_vectors = self.backbone.forward(q_vectors)[0]
                 k_vectors = self.backbone.forward(k_vectors)[0]
                 n_vectors = self.backbone.forward(n_vectors)[0]
 
                 q_vectors = self.head.reid_convs(q_vectors)
                 q_vectors = self.head.reid_preds(q_vectors)
-                q_vectors = q_vectors.reshape(q_vectors.shape[0], -1)  # n×128
+                q_vectors = q_vectors.reshape(q_vectors.shape[0], -1)
                 q_vectors = nn.functional.normalize(q_vectors, dim=1)
 
                 k_vectors = self.head.reid_convs(k_vectors)
                 k_vectors = self.head.reid_preds(k_vectors)
-                k_vectors = k_vectors.reshape(k_vectors.shape[0], -1)  # n×128
+                k_vectors = k_vectors.reshape(k_vectors.shape[0], -1)
                 k_vectors = nn.functional.normalize(k_vectors, dim=1)
 
                 n_vectors = self.head.reid_convs(n_vectors)
                 n_vectors = self.head.reid_preds(n_vectors)
-                n_vectors = n_vectors.reshape(n_vectors.shape[0], -1)  # k×128
+                n_vectors = n_vectors.reshape(n_vectors.shape[0], -1)
                 n_vectors = nn.functional.normalize(n_vectors, dim=1)
 
                 # ---------- SSL loss calculations
