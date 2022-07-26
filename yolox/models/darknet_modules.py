@@ -384,6 +384,7 @@ class UpSampleConv(nn.Module):
 
         self.in_channels = in_channels
         self.out_channels = out_channels
+
         self.conv = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channels,
                                               out_channels=self.out_channels,
                                               kernel_size=3,
@@ -412,6 +413,7 @@ class UpSampleFuse(nn.Module):
 
         self.in_channels = in_channels
         self.out_channels = out_channels
+
         self.conv = nn.Sequential(*[nn.Conv2d(in_channels=self.in_channels,
                                               out_channels=self.out_channels,
                                               kernel_size=3,

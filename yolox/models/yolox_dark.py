@@ -178,11 +178,20 @@ class YOLOXDarkSSL(nn.Module):
                 p1_recon = self.head.upsample_fuse_4(p1_recon, p1_maps[0])
                 p1_recon = self.head.upsample_conv(p1_recon)
 
+                p2_recon = self.head.upsample_fuse_3(p2_feature_map, p2_maps[1])
+                p2_recon = self.head.upsample_fuse_4(p2_recon, p2_maps[0])
+                p2_recon = self.head.upsample_conv(p2_recon)
 
+                reconstruct_loss += self.head.mse_loss(p1_recon, p0)
+                reconstruct_loss += self.head.mse_loss(p2_recon, p0)
+
+            ## ----- Calculate total loss
+            # TODO: to weight the losses
             # total_loss += sim_mat_loss
             total_loss += scale_consistent_loss
             total_loss += cycle_loss
             total_loss += ssl_loss
+            total_loss += reconstruct_loss
 
             outputs = {
                 "total_loss": total_loss,
@@ -194,6 +203,7 @@ class YOLOXDarkSSL(nn.Module):
                 # "sim_mat_loss": sim_mat_loss,
                 "cycle_loss": cycle_loss,
                 "scale_consistent_loss": scale_consistent_loss,
+                "recon_loss": reconstruct_loss,
                 "num_fg": num_fg,
             }
         else:  # testing
