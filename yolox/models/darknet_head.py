@@ -131,14 +131,16 @@ class DarknetHeadSSL(nn.Module):
         self.upsample_fuse_4 = UpSampleFuse(164, self.feature_dim)
         self.upsample_conv = UpSampleConv(128, 3)
 
+        self.strides = strides
+        self.grids = [torch.zeros(1)] * len(in_channels)
+        self.expanded_strides = [None] * len(in_channels)
+
         ## ----- loss function definition
         self.use_l1 = False
         self.l1_loss = nn.L1Loss(reduction="none")
         self.bce_log_loss = nn.BCEWithLogitsLoss(reduction="none")
         self.iou_loss = IOUloss(reduction="none")
-        self.strides = strides
-        self.grids = [torch.zeros(1)] * len(in_channels)
-        self.expanded_strides = [None] * len(in_channels)
+
         self.softmax_loss = nn.CrossEntropyLoss()
         # self.triplet_loss = TripletLoss(margin=0.4)  # 0.4
         self.mse_loss = nn.MSELoss()
