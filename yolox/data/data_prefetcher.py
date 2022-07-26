@@ -34,7 +34,7 @@ class DataPrefetcher:
         """
         try:  # return the items from dataset
             self.next_input, self.next_target, \
-            self.next_q, self.next_k, self.next_n = next(self.loader)
+            self.next_p0, self.next_p1, self.next_p2 = next(self.loader)
         except StopIteration:
             self.next_input = None
             self.next_target = None
@@ -46,9 +46,9 @@ class DataPrefetcher:
             self.next_target = self.next_target.cuda(non_blocking=True)
 
             ## ----- put q, k, n to cuda
-            self.next_q = self.next_q.cuda(non_blocking=True)
-            self.next_k = self.next_k.cuda(non_blocking=True)
-            self.next_n = self.next_n.cuda(non_blocking=True)
+            self.next_p0 = self.next_p0.cuda(non_blocking=True)
+            self.next_p1 = self.next_p1.cuda(non_blocking=True)
+            self.next_p2 = self.next_p2.cuda(non_blocking=True)
 
     def next(self):
         """
@@ -58,28 +58,27 @@ class DataPrefetcher:
         input = self.next_input
         target = self.next_target
 
-        ## ----- get q,k,n
-        q = self.next_q
-        k = self.next_k
-        n = self.next_n
+        ## ----- get p0, p1, p2
+        p0 = self.next_p0
+        p1 = self.next_p1
+        p2 = self.next_p2
 
         if input is not None:
             self.record_stream(input)
-            # input.record_stream(torch.cuda.current_stream())
         if target is not None:
             target.record_stream(torch.cuda.current_stream())
 
-        if q is not None:
-            q.record_stream(torch.cuda.current_stream())
-        if k is not None:
-            k.record_stream(torch.cuda.current_stream())
-        if n is not None:
-            n.record_stream(torch.cuda.current_stream())
+        if p0 is not None:
+            p0.record_stream(torch.cuda.current_stream())
+        if p1 is not None:
+            p1.record_stream(torch.cuda.current_stream())
+        if p2 is not None:
+            p2.record_stream(torch.cuda.current_stream())
 
         # get input and target
         self.preload()
 
-        return input, target, q, k, n
+        return input, target, p0, p1, p2
 
     def _input_cuda_for_image(self):
         self.next_input = self.next_input.cuda(non_blocking=True)

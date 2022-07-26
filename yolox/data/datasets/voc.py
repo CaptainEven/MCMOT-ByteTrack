@@ -19,7 +19,6 @@ import torchvision.transforms as transforms
 from PIL import Image
 from loguru import logger
 
-from yolox.data.data_augment import GaussianBlur
 from yolox.evaluators.voc_eval import voc_eval
 from yolox.utils.myutils import filter_bbox_by_ious
 from .datasets_wrapper import Dataset
@@ -97,6 +96,7 @@ class VOCDetSSL(Dataset):
         dataset_name (string, optional): which dataset to load
             (default: 'VOC2007')
     """
+
     def __init__(self,
                  data_dir,
                  f_list_path,
@@ -104,8 +104,6 @@ class VOCDetSSL(Dataset):
                  preproc=None,
                  target_transform=AnnotationTransform(),
                  max_patches=50,
-                 num_negatives=50,
-                 neg_pos_iou_thresh=0.1,
                  patch_size=(224, 224),
                  max_sample_times=5):
         """
@@ -125,9 +123,7 @@ class VOCDetSSL(Dataset):
 
         ## ----- The patch size for training
         self.patch_size = patch_size  # h, w
-        self.max_pos_patches = max_patches  # number of max patches
-        self.max_neg_patches = num_negatives
-        self.np_iou_thresh = neg_pos_iou_thresh
+        self.max_patches = max_patches  # number of max patches
 
         self.preproc = preproc
         self.target_transform = target_transform
@@ -157,22 +153,14 @@ class VOCDetSSL(Dataset):
                     .format(len(self.ids)))
 
         ## ----- Define the positive sample transformations
-        self.pos_patch_transform = PatchTransform(patch_size=self.patch_size)
+        self.aug_transform = PatchTransform(patch_size=self.patch_size)
 
         ## ----- Define the negative sample transformations
-        self.neg_patch_transform = transforms.Compose(
-            [
-                transforms.RandomApply([
-                    transforms.ColorJitter(0.2, 0.2, 0.2, 0.1)  # not strengthened
-                ], p=0.1),
-                transforms.RandomGrayscale(p=0.2),
-                transforms.RandomApply([GaussianBlur([0.1, 2.0])], p=0.1),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
-            ]
-        )
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+        ])
 
     def __len__(self):
         """
@@ -476,18 +464,18 @@ class VOCDetSSL(Dataset):
         height, width, _ = img.shape
 
         ## ----- load label, target: x1,y1,x2,y2,cls_id
-        targets = self.load_anno(idx)  # n_objs×5
+        target = self.load_anno(idx)  # n_objs×5
         # print(target.shape)
 
         ## ----- Get positive bboxes
         pos_bboxes = np.empty((0, 4), dtype=np.int64)
         pos_patches = []
 
-        if targets.size == 0:  # empty objs
+        if target.size == 0:  # empty objs
             pos_bboxes = self.random_crops(img.shape[1],
                                            img.shape[0],
                                            self.patch_size,
-                                           self.max_pos_patches,
+                                           self.max_patches,
                                            self.max_sample_times)
             for i, bbox in enumerate(pos_bboxes):
                 x1, y1, x2, y2 = bbox
@@ -496,11 +484,11 @@ class VOCDetSSL(Dataset):
                 patch = img[int(y1):int(y2), int(x1):int(x2), :]
                 pos_patches.append(patch)
         else:
-            pos_bboxes = np.zeros((targets.shape[0], 4), dtype=np.float64)
+            pos_bboxes = np.zeros((target.shape[0], 4), dtype=np.float64)
 
             ## ----- record positive bboxes
-            for i, bbox_clsid in enumerate(targets):
-                if i >= self.max_pos_patches:
+            for i, bbox_clsid in enumerate(target):
+                if i >= self.max_patches:
                     break
 
                 ## -----x1y1x2y2 in original image coordinate
@@ -525,31 +513,31 @@ class VOCDetSSL(Dataset):
 
         ## ---------- load patches for query and key
         # ----- Get positive pairs of patches
-        q = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
-        k = torch.zeros((self.max_pos_patches, 3, self.patch_size[0], self.patch_size[1]))
-        n = torch.zeros((self.max_neg_patches, 3, self.patch_size[0], self.patch_size[1]))
+        p0 = torch.zeros((self.max_patches, 3, self.patch_size[0], self.patch_size[1]))
+        p1 = torch.zeros((self.max_patches, 3, self.patch_size[0], self.patch_size[1]))
+        p2 = torch.zeros((self.max_patches, 3, self.patch_size[0], self.patch_size[1]))
         for i, patch in enumerate(pos_patches):
             ## ----- Resize
             if patch.size == 0:  # empty positive patch
                 continue
 
-            patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
-            q_item, k_item = self.pos_patch_transform(Image.fromarray(patch))
-            q[i] = q_item
-            k[i] = k_item
+            ## ----- Random resizing
+            resize_mode = np.random.randint(0, 4)
+            if resize_mode == 0:
+                patch = cv2.resize(patch, self.patch_size, cv2.INTER_NEAREST)
+            elif resize_mode == 1:
+                patch = cv2.resize(patch, self.patch_size, cv2.INTER_LINEAR)
+            elif resize_mode == 2:
+                patch = cv2.resize(patch, self.patch_size, cv2.INTER_CUBIC)
+            elif resize_mode == 3:
+                patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
 
-        # img_hw = (height, width)
+            p0[i] = self.transform(Image.fromarray(patch))
+            aug_1, aug_2 = self.aug_transform(Image.fromarray(patch))
+            p1[i] = aug_1
+            p2[i] = aug_2
 
-        ## ----- Generate negative samples
-        neg_bboxes = self.gen_negatives(img, pos_bboxes, self.max_sample_times)
-        for i, neg_bbox in enumerate(neg_bboxes):
-            x1, y1, x2, y2 = neg_bbox
-            patch = img[int(y1):int(y2), int(x1):int(x2), :]
-            patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
-            n_item = self.neg_patch_transform(Image.fromarray(patch))
-            n[i] = n_item
-
-        return img, targets, q, k, n
+        return img, target, p0, p1, p2
 
     @Dataset.resize_getitem
     def __getitem__(self, idx):
@@ -557,12 +545,12 @@ class VOCDetSSL(Dataset):
         :param idx:
         :return:
         """
-        img, target, q, k, n = self.pull_item(idx)
+        img, target, p0, p1, p2 = self.pull_item(idx)
 
         if self.preproc is not None:
             img, target = self.preproc(img, target, self.input_dim)
 
-        return img, target, q, k, n
+        return img, target, p0, p1, p2
 
     def evaluate_detections(self, all_boxes, output_dir=None):
         """

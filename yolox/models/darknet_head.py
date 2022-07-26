@@ -84,19 +84,6 @@ class DarknetHeadSSL(nn.Module):
                                                        stride=1,
                                                        act=act, ), ]))
 
-            if i == 0:
-                self.reid_convs = nn.Sequential(*[Conv(in_channels=self.feature_dim,
-                                                       out_channels=int(256 * width),
-                                                       ksize=3,
-                                                       stride=1,
-                                                       act=act, ),
-                                                  nn.LeakyReLU(),
-                                                  Conv(in_channels=int(256 * width),
-                                                       out_channels=self.feature_dim,
-                                                       ksize=3,
-                                                       stride=1,
-                                                       act=act, ), ])
-
             ## ---------- Predictions
             self.cls_preds.append(nn.Conv2d(in_channels=int(256 * width),
                                             out_channels=self.n_anchors * self.num_classes,
@@ -115,19 +102,29 @@ class DarknetHeadSSL(nn.Module):
                                             stride=1,
                                             padding=0, ))
 
-            if i == 0:  # output 128 dim vector: GAP + 1×1_conv
-                self.reid_preds = nn.Sequential(*[AttentionGAP(in_channels=self.feature_dim),
-                                                  nn.LeakyReLU(),
-                                                  # nn.Conv2d(in_channels=self.feature_dim,
-                                                  #           out_channels=self.feature_dim,
-                                                  #           kernel_size=1,
-                                                  #           stride=1,
-                                                  #           padding=0),
-                                                  nn.Linear(self.feature_dim, self.feature_dim)
-                                                  ])
+        self.reid_convs = nn.Sequential(*[Conv(in_channels=self.feature_dim,
+                                               out_channels=int(256 * width),
+                                               ksize=3,
+                                               stride=1,
+                                               act=act, ),
+                                          nn.LeakyReLU(),
+                                          Conv(in_channels=int(256 * width),
+                                               out_channels=self.feature_dim,
+                                               ksize=3,
+                                               stride=1,
+                                               act=act, ), ])
+        self.reid_preds = nn.Sequential(*[AttentionGAP(in_channels=self.feature_dim),
+                                          nn.LeakyReLU(),
+                                          # nn.Conv2d(in_channels=self.feature_dim,
+                                          #           out_channels=self.feature_dim,
+                                          #           kernel_size=1,
+                                          #           stride=1,
+                                          #           padding=0),
+                                          nn.Linear(self.feature_dim, self.feature_dim)
+                                          ])
 
         ## ----- U-Net: up-sample and concatenate
-        self.upsample_fuse_1 = UpSampleFuse(192, self.feature_dim)
+        self.upsample_fuse_1 = UpSampleFuse(288, self.feature_dim)
         self.upsample_fuse_2 = UpSampleFuse(224, self.feature_dim)
 
         ## ----- loss function definition
@@ -199,16 +196,6 @@ class DarknetHeadSSL(nn.Module):
             ## ----- object-ness output
             obj_output = self.obj_preds[i](reg_feat)
 
-            ## ----- Get feature map
-            if i == 2:
-                ## ----- Concatenate the shallow layer: 1×96×56×96 cat 1×64×56×96
-                reid_x = x
-
-                ## ----- Build feature map
-                reid_x = self.upsample_fuse_1(reid_x, fpn_outs[1])
-                reid_x = self.upsample_fuse_2(reid_x, fpn_outs[0])
-                feature_map = self.reid_convs(reid_x)
-
             if self.training:
                 ## ----- concatenate different branch of outputs
                 output = torch.cat([reg_output, obj_output, cls_output], 1)
@@ -234,6 +221,9 @@ class DarknetHeadSSL(nn.Module):
 
             outputs.append(output)
 
+        ## ----- Get feature map: fpn_outs: 1/8, 1/16, 1/32
+        feature_map = self.get_feature_map(fpn_outs)
+
         if self.training:
             ## ---------- compute losses in the head
             losses = self.get_losses(imgs,
@@ -256,6 +246,15 @@ class DarknetHeadSSL(nn.Module):
                 return decoded_outputs, feature_map
             else:
                 return outputs, feature_map
+
+    def get_feature_map(self, fpn_outs):
+        """
+        @param fpn_outs:
+        """
+        feature_map = self.upsample_fuse_1(fpn_outs[2], fpn_outs[1])
+        feature_map = self.upsample_fuse_2(feature_map, fpn_outs[0])
+        feature_map = self.reid_convs(feature_map)
+        return feature_map
 
     def get_output_and_grid(self, output, k, stride, dtype):
         """
