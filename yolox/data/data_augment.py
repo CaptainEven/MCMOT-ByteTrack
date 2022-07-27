@@ -463,7 +463,7 @@ class RandomKernelBlur(object):
             x = np.array(x)  # PIL Image to numpy array
 
         ## ----- generate random blurring kernel
-        k_size = np.random.randint(self.min_k_size, self.max_k_size)  # [3, 7]
+        k_size = np.random.randint(self.min_k_size, self.max_k_size + 1)  # [3, 7]
         kernel, sigma = random_gaussian_kernel(l=k_size,
                                                sig_min=0.5,
                                                sig_max=7,
@@ -759,6 +759,39 @@ def random_light_or_shadow(img, base=200, low=10, high=255):
 
     return img.astype(np.uint8)
 
+def random_jpeg_compression(img, low=70, high=95):
+    """
+    :param img:
+    :return:
+    """
+    quality_factor = random.randint(low, high)
+    img = cv2.cvtColor(util.float32_to_uint8(img), cv2.COLOR_RGB2BGR)
+    result, encimg = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), quality_factor])
+    img = cv2.imdecode(encimg, 1)
+    # img = cv2.cvtColor(util.uint8_to_float32(img), cv2.COLOR_BGR2RGB)
+    return img
+
+
+class RandomJPEGCompress(object):
+    def __init__(self, low=70, high=95):
+        """
+        @param low:
+        @param high:
+        """
+        self.low = low
+        self.high = high
+
+    def __call__(self, x):
+        """
+        @param x: PIL Image or numpy ndarray
+        """
+        if isinstance(x, PIL.Image.Image):
+            x = np.array(x)  # PIL Image to numpy array
+
+        x = random_jpeg_compression(x, self.low, self.high)
+        x = Image.fromarray(x)
+        return x
+
 
 class TwoCropsTransform:
     """
@@ -782,19 +815,19 @@ class PatchTransform():
         """
         self.augmentation = [
             # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
-            transforms.RandomApply([RandomMosaic()], p=0.5),
-            transforms.RandomApply([RandomLightShadow(base=200)], p=0.5),
+            transforms.RandomApply([RandomMosaic()], p=0.7),
+            transforms.RandomApply([RandomLightShadow(base=200)], p=0.7),
             # transforms.RandomApply([LocalPixelShuffling(p=0.2)], p=1.0),
             # transforms.RandomApply([ImageInPainting(p=0.2)], p=1.0),
             transforms.RandomApply([
-                transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
+                transforms.ColorJitter(0.3, 0.3, 0.3, 0.1)  # not strengthened
             ], p=0.8),
-            transforms.RandomGrayscale(p=0.2),
+            transforms.RandomGrayscale(p=0.02),  # p=0.2
             # transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
             transforms.RandomApply([RandomKernelBlur(iso_rate=0.2,
                                                      min_k_size=3,
-                                                     max_k_size=7)], p=0.5),
-            transforms.RandomHorizontalFlip(),
+                                                     max_k_size=7)], p=0.7),
+            # transforms.RandomHorizontalFlip(),  ## no flipping for patch reconstruction
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),

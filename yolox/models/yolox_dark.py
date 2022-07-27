@@ -144,7 +144,6 @@ class YOLOXDarkSSL(nn.Module):
                     scale_consistent_loss += 1.0 - torch.dot(p0_vector, feature_vector)
                     # scale_consistent_loss += 1.0 - torch.dot(p1_vector, feature_vector)
                     # scale_consistent_loss += 1.0 - torch.dot(p2_vector, feature_vector)
-
                 if p0_vectors.shape[0] > 0:
                     scale_consistent_loss /= p0_vectors.shape[0]
 
@@ -157,7 +156,6 @@ class YOLOXDarkSSL(nn.Module):
                             sim_p1j_p2i = torch.dot(p1_vectors[j], p2_vectors[i])
                             cycle_loss += abs(sim_p1i_p2j - sim_p1j_p2i)
                             cyc_cnt += 1
-
                 if cyc_cnt > 0:
                     cycle_loss /= cyc_cnt
 
@@ -168,16 +166,16 @@ class YOLOXDarkSSL(nn.Module):
                 ssl_loss += self.head.softmax_loss(logits, labels) / num_gt
 
                 ## ----- Calculate reconstruction loss
-                p1_recon = self.head.upsample_fuse_3(p1_feature_map, p1_maps[1])
-                p1_recon = self.head.upsample_fuse_4(p1_recon, p1_maps[0])
-                p1_recon = self.head.upsample_conv(p1_recon)
+                p1_patches_recon = self.head.upsample_fuse_3(p1_feature_map, p1_maps[1])
+                p1_patches_recon = self.head.upsample_fuse_4(p1_patches_recon, p1_maps[0])
+                p1_patches_recon = self.head.upsample_conv(p1_patches_recon)
 
-                p2_recon = self.head.upsample_fuse_3(p2_feature_map, p2_maps[1])
-                p2_recon = self.head.upsample_fuse_4(p2_recon, p2_maps[0])
-                p2_recon = self.head.upsample_conv(p2_recon)
+                p2_patches_recon = self.head.upsample_fuse_3(p2_feature_map, p2_maps[1])
+                p2_patches_recon = self.head.upsample_fuse_4(p2_patches_recon, p2_maps[0])
+                p2_patches_recon = self.head.upsample_conv(p2_patches_recon)
 
-                reconstruct_loss += self.head.mse_loss(p1_recon, p0_patches)
-                reconstruct_loss += self.head.mse_loss(p2_recon, p0_patches)
+                reconstruct_loss += self.head.mse_loss(p1_patches_recon, p0_patches)
+                reconstruct_loss += self.head.mse_loss(p2_patches_recon, p0_patches)
 
                 # ## ----- Calculate similarity matrix loss
                 # sm_output = torch.mm(p1_vectors, p2_vectors.T)
