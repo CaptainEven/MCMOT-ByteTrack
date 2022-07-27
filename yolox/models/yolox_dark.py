@@ -78,9 +78,9 @@ class YOLOXDarkSSL(nn.Module):
             ## ---------- Calculate SSL loss of the batch
             ssl_loss = 0.0
             cycle_loss = 0.0
-            # sim_mat_loss = 0.0
             scale_consistent_loss = 0.0
             reconstruct_loss = 0.0
+            # sim_mat_loss = 0.0
 
             for batch_idx, num_gt in enumerate(num_gts):
                 num_gt = int(num_gt)
@@ -125,12 +125,6 @@ class YOLOXDarkSSL(nn.Module):
                 p0_vectors = p0_vectors[:num_gt]  # num_gt×128
                 p1_vectors = p1_vectors[:num_gt]
                 p2_vectors = p2_vectors[:num_gt]
-
-                # ## ----- Calculate similarity matrix loss
-                # sm_output = torch.mm(p1_vectors, p2_vectors.T)
-                # sm_diff = sm_output - torch.eye(num_gt).cuda()
-                # sm_diff = torch.pow(sm_diff, 2)
-                # sim_mat_loss = sm_diff.sum() / (num_gt * num_gt)
 
                 ## ----- Calculate feature scale-consistency loss
                 ## of feature map and patch feature vector difference
@@ -184,6 +178,12 @@ class YOLOXDarkSSL(nn.Module):
 
                 reconstruct_loss += self.head.mse_loss(p1_recon, p0)
                 reconstruct_loss += self.head.mse_loss(p2_recon, p0)
+
+                # ## ----- Calculate similarity matrix loss
+                # sm_output = torch.mm(p1_vectors, p2_vectors.T)
+                # sm_diff = sm_output - torch.eye(num_gt).cuda()
+                # sm_diff = torch.pow(sm_diff, 2)
+                # sim_mat_loss = sm_diff.sum() / (num_gt * num_gt)
 
             ## ----- Calculate total loss
             # TODO: to weight the losses
