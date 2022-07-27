@@ -177,7 +177,7 @@ class YOLOXDarkSSL(nn.Module):
                 p2_recon = self.head.upsample_conv(p2_recon)
 
                 reconstruct_loss += self.head.mse_loss(p1_recon, p0_patches)
-                reconstruct_loss += self.head.mse_loss(p2_recon, p0_patches11)
+                reconstruct_loss += self.head.mse_loss(p2_recon, p0_patches)
 
                 # ## ----- Calculate similarity matrix loss
                 # sm_output = torch.mm(p1_vectors, p2_vectors.T)
