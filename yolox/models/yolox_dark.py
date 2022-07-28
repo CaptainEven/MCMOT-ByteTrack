@@ -117,26 +117,21 @@ class YOLOXDarkSSL(nn.Module):
 
                 p0_vectors = self.head.reid_convs(p0_feature_map)
                 p0_vectors = self.head.reid_preds(p0_vectors)
-                p0_vectors = p0_vectors.reshape(p0_vectors.shape[0], -1)
+                p0_vectors = p0_vectors.reshape(-1, self.head.feature_dim)
                 p0_vectors = nn.functional.normalize(p0_vectors, dim=1)
 
                 p1_vectors = self.head.reid_convs(p1_feature_map)
                 p1_vectors = self.head.reid_preds(p1_vectors)
-                p1_vectors = p1_vectors.reshape(p1_vectors.shape[0], -1)
-                p1_vectors = nn.functional.normalize(p1_vectors, dim=1)
+                p1_vectors = p1_vectors.reshape(-1, self.head.feature_dim)
+                p1_vectors = nn.functional.normalize(p1_vectors, p=2, dim=1)
 
                 p2_vectors = self.head.reid_convs(p2_feature_map)
                 p2_vectors = self.head.reid_preds(p2_vectors)
-                p2_vectors = p2_vectors.reshape(p2_vectors.shape[0], -1)
+                p2_vectors = p2_vectors.reshape(-1, self.head.feature_dim)
                 p2_vectors = nn.functional.normalize(p2_vectors, dim=1)
 
                 # ---------- SSL loss calculations
                 ## ---------- processing each sample(image) of the batch
-                if num_gt == 1:
-                    p0_vectors = p0_vectors.view(-1, self.head.feature_dim)
-                    p1_vectors = p1_vectors.view(-1, self.head.feature_dim)
-                    p2_vectors = p2_vectors.view(-1, self.head.feature_dim)
-
                 ## ----- Calculate feature scale-consistency loss
                 ## of feature map and patch feature vector difference
                 for i, (p0_vector, p1_vector, p2_vector) in enumerate(zip(p0_vectors,
@@ -200,10 +195,12 @@ class YOLOXDarkSSL(nn.Module):
                 # sim_mat_loss = sm_diff.sum() / (num_gt * num_gt)
 
             ## ----- Calculate total loss
-            total_loss += 10 * scale_consistent_loss
+            scale_consistent_loss *= 10.0
+            reconstruct_loss *= 10.0
+            total_loss += scale_consistent_loss
             total_loss += cycle_loss
             total_loss += ssl_loss
-            total_loss += 10 * reconstruct_loss
+            total_loss += reconstruct_loss
             # total_loss += sim_mat_loss
 
             outputs = {
