@@ -766,9 +766,10 @@ def random_jpeg_compression(img, low=70, high=95):
     """
     quality_factor = np.random.randint(low, high)
     img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGB2BGR)
-    result, encimg = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), quality_factor])
-    img = cv2.imdecode(encimg, 1)
-    # img = cv2.cvtColor(util.uint8_to_float32(img), cv2.COLOR_BGR2RGB)
+    result, enc_img = cv2.imencode(".jpg",
+                                   img,
+                                   [int(cv2.IMWRITE_JPEG_QUALITY), quality_factor])
+    img = cv2.imdecode(enc_img, 1)
     return img
 
 
@@ -786,7 +787,7 @@ class RandomJPEGCompress(object):
         @param x: PIL Image or numpy ndarray
         """
         if isinstance(x, PIL.Image.Image):
-            x = np.array(x)  # PIL Image to numpy array
+            x = np.array(x)  # convert PIL Image to numpy array
 
         x = random_jpeg_compression(x, self.low, self.high)
         x = Image.fromarray(x)
