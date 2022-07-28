@@ -816,21 +816,16 @@ class PairTransform():
         :param patch_size
         """
         self.augmentation = [
-            # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
             transforms.RandomApply([RandomJPEGCompress(low=50, high=95)], p=0.5),
             transforms.RandomApply([RandomMosaic()], p=0.7),
             transforms.RandomApply([RandomLightShadow(base=200)], p=0.7),
-            # transforms.RandomApply([LocalPixelShuffling(p=0.2)], p=1.0),
-            # transforms.RandomApply([ImageInPainting(p=0.2)], p=1.0),
             transforms.RandomApply([
                 transforms.ColorJitter(0.3, 0.3, 0.3, 0.1)  # not strengthened
             ], p=0.8),
-            transforms.RandomGrayscale(p=0.02),  # p=0.2
-            # transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
+            # transforms.RandomGrayscale(p=0.02),  # p=0.2
             transforms.RandomApply([RandomKernelBlur(iso_rate=0.2,
                                                      min_k_size=3,
                                                      max_k_size=7)], p=0.5),
-            # transforms.RandomHorizontalFlip(),  ## no flipping for patch reconstruction
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),
