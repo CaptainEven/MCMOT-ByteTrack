@@ -177,7 +177,7 @@ class YOLOXDarkSSL(nn.Module):
                 reconstruct_loss += self.head.mse_loss(p1_patches_recon, p0_patches)
                 reconstruct_loss += self.head.mse_loss(p2_patches_recon, p0_patches)
 
-                # ## ----- Calculate similarity matrix loss
+                # ## ----- TODO: Calculate similarity matrix loss
                 # sm_output = torch.mm(p1_vectors, p2_vectors.T)
                 # sm_diff = sm_output - torch.eye(num_gt).cuda()
                 # sm_diff = torch.pow(sm_diff, 2)
@@ -185,11 +185,11 @@ class YOLOXDarkSSL(nn.Module):
 
             ## ----- Calculate total loss
             # TODO: to weight the losses
-            # total_loss += sim_mat_loss
             total_loss += scale_consistent_loss
             total_loss += cycle_loss
             total_loss += ssl_loss
             total_loss += reconstruct_loss
+            # total_loss += sim_mat_loss
 
             outputs = {
                 "total_loss": total_loss,

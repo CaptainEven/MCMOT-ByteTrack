@@ -23,7 +23,7 @@ from yolox.evaluators.voc_eval import voc_eval
 from yolox.utils.myutils import filter_bbox_by_ious
 from .datasets_wrapper import Dataset
 from .voc_classes import C5_CLASSES
-from ..data_augment import PatchTransform
+from ..data_augment import PatchPairTransform
 
 
 class AnnotationTransform(object):
@@ -153,7 +153,7 @@ class VOCDetSSL(Dataset):
                     .format(len(self.ids)))
 
         ## ----- Define the positive sample transformations
-        self.aug_transform = PatchTransform(patch_size=self.patch_size)
+        self.aug_transform = PatchPairTransform(patch_size=self.patch_size)
 
         ## ----- Define the negative sample transformations
         self.transform = transforms.Compose([

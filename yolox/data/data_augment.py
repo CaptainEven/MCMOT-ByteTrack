@@ -809,7 +809,7 @@ class TwoCropsTransform:
 
 
 ## Patch transform to return q and q
-class PatchTransform():
+class PatchPairTransform():
     def __init__(self, patch_size=(224, 224)):
         """
         :param patch_size
