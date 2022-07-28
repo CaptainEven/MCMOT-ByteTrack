@@ -764,8 +764,8 @@ def random_jpeg_compression(img, low=70, high=95):
     :param img:
     :return:
     """
-    quality_factor = random.randint(low, high)
-    img = cv2.cvtColor(util.float32_to_uint8(img), cv2.COLOR_RGB2BGR)
+    quality_factor = np.random.randint(low, high)
+    img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGB2BGR)
     result, encimg = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), quality_factor])
     img = cv2.imdecode(encimg, 1)
     # img = cv2.cvtColor(util.uint8_to_float32(img), cv2.COLOR_BGR2RGB)
@@ -815,6 +815,7 @@ class PatchTransform():
         """
         self.augmentation = [
             # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
+            transforms.RandomApply([RandomJPEGCompress(low=70, high=95)], p=0.5),
             transforms.RandomApply([RandomMosaic()], p=0.7),
             transforms.RandomApply([RandomLightShadow(base=200)], p=0.7),
             # transforms.RandomApply([LocalPixelShuffling(p=0.2)], p=1.0),
