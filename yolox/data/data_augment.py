@@ -765,12 +765,12 @@ def random_jpeg_compress(img, low=50, high=95):
     :return:
     """
     quality_factor = np.random.randint(low, high)
-    img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGB2BGR)
+    img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_RGB2BGR)  # RGB to BGR
     result, enc_img = cv2.imencode(".jpg",
                                    img,
                                    [int(cv2.IMWRITE_JPEG_QUALITY), quality_factor])
     img = cv2.imdecode(enc_img, 1)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # BGR to RGB
     return img
 
 
@@ -816,7 +816,7 @@ class PairTransform():
         :param patch_size
         """
         self.augmentation = [
-            transforms.RandomApply([RandomJPEGCompress(low=50, high=95)], p=0.5),
+            transforms.RandomApply([RandomJPEGCompress(low=70, high=95)], p=0.5),
             transforms.RandomApply([RandomMosaic()], p=0.7),
             transforms.RandomApply([RandomLightShadow(base=200)], p=0.7),
             transforms.RandomApply([
@@ -825,7 +825,7 @@ class PairTransform():
             # transforms.RandomGrayscale(p=0.02),  # p=0.2
             transforms.RandomApply([RandomKernelBlur(iso_rate=0.2,
                                                      min_k_size=3,
-                                                     max_k_size=7)], p=0.5),
+                                                     max_k_size=7)], p=0.7),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),
