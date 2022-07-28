@@ -5,6 +5,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from loguru import logger
 from yolox.models.darknet_backbone import DarknetBackbone
 from yolox.models.darknet_head import DarknetHeadSSL
 
@@ -22,6 +23,7 @@ class YOLOXDarkSSL(nn.Module):
                  backbone=None,
                  head=None,
                  n_classes=5,
+                 max_labels=20,
                  T=0.5):
         """
         :param cfg_path: configure file path for DarknetBackbone
@@ -38,6 +40,9 @@ class YOLOXDarkSSL(nn.Module):
 
         self.backbone = backbone
         self.head = head
+
+        self.max_labels = max_labels
+        logger.info("Max labels: {:d}".format(self.max_labels))
 
         # temperature
         self.T = T
@@ -88,9 +93,14 @@ class YOLOXDarkSSL(nn.Module):
                     continue
 
                 ## ----- Get feature vectors of the image
-                p0_patches = p0[batch_idx]
-                p1_patches = p1[batch_idx]
-                p2_patches = p2[batch_idx]
+                if num_gt < self.max_labels:
+                    p0_patches = p0[batch_idx][:num_gt]
+                    p1_patches = p1[batch_idx][:num_gt]
+                    p2_patches = p2[batch_idx][:num_gt]
+                else:
+                    p0_patches = p0[batch_idx]
+                    p1_patches = p1[batch_idx]
+                    p2_patches = p2[batch_idx]
 
                 # ----- inference
                 p0_maps = self.backbone.forward(p0_patches)
@@ -122,13 +132,16 @@ class YOLOXDarkSSL(nn.Module):
 
                 # ---------- SSL loss calculations
                 ## ---------- processing each sample(image) of the batch
-                p0_vectors = p0_vectors[:num_gt]  # num_gt×128
-                p1_vectors = p1_vectors[:num_gt]
-                p2_vectors = p2_vectors[:num_gt]
+                if num_gt == 1:
+                    p0_vectors = p0_vectors.view(-1, self.head.feature_dim)
+                    p1_vectors = p1_vectors.view(-1, self.head.feature_dim)
+                    p2_vectors = p2_vectors.view(-1, self.head.feature_dim)
 
                 ## ----- Calculate feature scale-consistency loss
                 ## of feature map and patch feature vector difference
-                for i, (p0_vector, p1_vector, p2_vector) in enumerate(zip(p0_vectors, p1_vectors, p2_vectors)):
+                for i, (p0_vector, p1_vector, p2_vector) in enumerate(zip(p0_vectors,
+                                                                          p1_vectors,
+                                                                          p2_vectors)):
                     cls_id, cx, cy, w, h = targets[batch_idx][i]  # in net_size
 
                     ## ----- get center_x, center_y in feature map
@@ -144,8 +157,8 @@ class YOLOXDarkSSL(nn.Module):
                     scale_consistent_loss += 1.0 - torch.dot(p0_vector, feature_vector)
                     # scale_consistent_loss += 1.0 - torch.dot(p1_vector, feature_vector)
                     # scale_consistent_loss += 1.0 - torch.dot(p2_vector, feature_vector)
-                if p0_vectors.shape[0] > 0:
-                    scale_consistent_loss /= p0_vectors.shape[0]
+
+                scale_consistent_loss /= num_gt
 
                 ## ----- calculate Cycle consistency loss
                 cyc_cnt = 0
@@ -174,8 +187,10 @@ class YOLOXDarkSSL(nn.Module):
                 p2_patches_recon = self.head.upsample_fuse_4(p2_patches_recon, p2_maps[0])
                 p2_patches_recon = self.head.upsample_conv(p2_patches_recon)
 
-                reconstruct_loss += self.head.mse_loss(p1_patches_recon, p0_patches)
-                reconstruct_loss += self.head.mse_loss(p2_patches_recon, p0_patches)
+                # p1_patches_recon = p1_patches_recon[:num_gt]
+                # p2_patches_recon = p2_patches_recon[:num_gt]
+                reconstruct_loss += self.head.mse_loss(p1_patches_recon, p0_patches) / num_gt
+                reconstruct_loss += self.head.mse_loss(p2_patches_recon, p0_patches) / num_gt
 
                 # ## ----- TODO: Calculate similarity matrix loss
                 # sm_output = torch.mm(p1_vectors, p2_vectors.T)
@@ -184,11 +199,10 @@ class YOLOXDarkSSL(nn.Module):
                 # sim_mat_loss = sm_diff.sum() / (num_gt * num_gt)
 
             ## ----- Calculate total loss
-            # TODO: to weight the losses
-            total_loss += scale_consistent_loss
+            total_loss += 10 * scale_consistent_loss
             total_loss += cycle_loss
             total_loss += ssl_loss
-            total_loss += reconstruct_loss
+            total_loss += 10 * reconstruct_loss
             # total_loss += sim_mat_loss
 
             outputs = {

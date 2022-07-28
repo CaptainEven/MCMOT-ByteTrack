@@ -23,7 +23,7 @@ class DarknetHeadSSL(nn.Module):
                  in_channels=[256, 512, 1024],
                  act="lrelu",
                  depth_wise=False,
-                 feature_dim=512):
+                 feature_dim=128):
         """
         compute loss in Head
         :param num_classes:

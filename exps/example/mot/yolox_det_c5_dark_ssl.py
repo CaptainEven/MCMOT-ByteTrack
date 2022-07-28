@@ -62,7 +62,10 @@ class Exp(MyExp):
         self.max_epoch = 10  # 100
         self.print_interval = 1  # 10
         self.eval_interval = 0  # 100
-        self.save_ckpt_batch_interval = 30  # 300
+        if debug:
+            self.save_ckpt_batch_interval = 1000
+        else:
+            self.save_ckpt_batch_interval = 30
         self.test_conf = 0.001
         self.nmsthre = 0.7
         self.no_aug_epochs = 10
@@ -109,7 +112,8 @@ class Exp(MyExp):
             self.model = YOLOXDarkSSL(cfg_path=self.cfg_file_path,
                                       backbone=backbone,
                                       head=head,
-                                      n_classes=self.n_classes)
+                                      n_classes=self.n_classes,
+                                      max_labels=self.max_labels)
 
         return self.model
 

@@ -143,7 +143,7 @@ def make_parser():
     parser.add_argument("-b",
                         "--batch-size",
                         type=int,
-                        default=1,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
+                        default=2,  # 4(for debugging), 8, 16, 18, 20, 24, 32, 48, 64
                         help="batch size")
 
     parser.add_argument("--n_workers",
@@ -208,6 +208,7 @@ if __name__ == "__main__":
     ## ----- modify number of workers
     if opt.debug != 0:
         exp.data_num_workers = 0
+        exp.debug = True
     else:
         exp.data_num_workers = opt.n_workers
     logger.info("number of workers: {:d}".format(exp.data_num_workers))
