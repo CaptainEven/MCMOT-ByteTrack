@@ -67,7 +67,7 @@ class Exp(MyExp):
         else:
             self.save_ckpt_batch_interval = 30
         self.test_conf = 0.001
-        self.nmsthre = 0.7
+        self.nms_thresh = 0.7
         self.no_aug_epochs = 10
         self.basic_lr_per_img = 0.001 / 64.0
         self.warmup_epochs = 1
@@ -257,7 +257,7 @@ class Exp(MyExp):
         evaluator = COCOEvaluator(dataloader=val_loader,
                                   img_size=self.test_size,
                                   confthre=self.test_conf,
-                                  nmsthre=self.nmsthre,
+                                  nmsthre=self.nms_thresh,
                                   num_classes=self.num_classes,
                                   testdev=testdev, )
 

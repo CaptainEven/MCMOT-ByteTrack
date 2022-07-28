@@ -809,14 +809,14 @@ class TwoCropsTransform:
 
 
 ## Patch transform to return q and q
-class PatchPairTransform():
+class PairTransform():
     def __init__(self, patch_size=(224, 224)):
         """
         :param patch_size
         """
         self.augmentation = [
             # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
-            transforms.RandomApply([RandomJPEGCompress(low=70, high=95)], p=0.5),
+            transforms.RandomApply([RandomJPEGCompress(low=75, high=95)], p=0.5),
             transforms.RandomApply([RandomMosaic()], p=0.7),
             transforms.RandomApply([RandomLightShadow(base=200)], p=0.7),
             # transforms.RandomApply([LocalPixelShuffling(p=0.2)], p=1.0),
