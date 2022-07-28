@@ -828,7 +828,7 @@ class PairTransform():
             # transforms.RandomApply([GaussianBlur(sigma=[0.1, 2.0])], p=0.5),
             transforms.RandomApply([RandomKernelBlur(iso_rate=0.2,
                                                      min_k_size=3,
-                                                     max_k_size=7)], p=0.7),
+                                                     max_k_size=7)], p=0.5),
             # transforms.RandomHorizontalFlip(),  ## no flipping for patch reconstruction
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
