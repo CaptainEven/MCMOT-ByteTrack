@@ -759,7 +759,7 @@ def random_light_or_shadow(img, base=200, low=10, high=255):
 
     return img.astype(np.uint8)
 
-def random_jpeg_compression(img, low=70, high=95):
+def random_jpeg_compress(img, low=50, high=95):
     """
     :param img:
     :return:
@@ -770,6 +770,7 @@ def random_jpeg_compression(img, low=70, high=95):
                                    img,
                                    [int(cv2.IMWRITE_JPEG_QUALITY), quality_factor])
     img = cv2.imdecode(enc_img, 1)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
 
 
@@ -789,7 +790,7 @@ class RandomJPEGCompress(object):
         if isinstance(x, PIL.Image.Image):
             x = np.array(x)  # convert PIL Image to numpy array
 
-        x = random_jpeg_compression(x, self.low, self.high)
+        x = random_jpeg_compress(x, self.low, self.high)
         x = Image.fromarray(x)
         return x
 
@@ -816,7 +817,7 @@ class PairTransform():
         """
         self.augmentation = [
             # transforms.RandomResizedCrop(patch_size[0], scale=(0.2, 1.)),
-            transforms.RandomApply([RandomJPEGCompress(low=75, high=95)], p=0.5),
+            transforms.RandomApply([RandomJPEGCompress(low=50, high=95)], p=0.5),
             transforms.RandomApply([RandomMosaic()], p=0.7),
             transforms.RandomApply([RandomLightShadow(base=200)], p=0.7),
             # transforms.RandomApply([LocalPixelShuffling(p=0.2)], p=1.0),

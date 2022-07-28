@@ -195,8 +195,8 @@ class YOLOXDarkSSL(nn.Module):
                 # sim_mat_loss = sm_diff.sum() / (num_gt * num_gt)
 
             ## ----- Calculate total loss
-            scale_consistent_loss *= 10.0
-            reconstruct_loss *= 10.0
+            # scale_consistent_loss *= 10.0
+            # reconstruct_loss *= 10.0
             total_loss += scale_consistent_loss
             total_loss += cycle_loss
             total_loss += ssl_loss
