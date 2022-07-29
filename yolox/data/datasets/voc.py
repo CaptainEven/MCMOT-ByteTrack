@@ -904,31 +904,30 @@ class VOCDetection(Dataset):
         :param all_boxes:
         :return:
         """
-        for im_ind, index in enumerate(self.ids):
+        for img_id, index in enumerate(self.ids):
             index0 = index[0]  # test_3000
             index1 = index[1]  # 10_2_XGTCTX00014_TX020127_20201222092014_866_0
-            filename = '/mnt/diskc/even/ByteTrack/YOLOX_outputs/yolox_nano_det_c5/results_3000/' + index1 + '.txt'
-            # filename = self.results_path + index1 + '.txt'
-            with open(filename, "wt") as f:
+            file_path = '/mnt/diskc/even/ByteTrack/YOLOX_outputs/yolox_nano_det_c5/results_3000/' + index1 + '.txt'
+            # file_path = self.results_path + index1 + '.txt'
+            with open(file_path, "wt") as f:
                 f.write("class scores x y w h total= \n")
-                for cls_ind, cls in enumerate(C5_CLASSES):
+                for cls_id, cls in enumerate(C5_CLASSES):
                     if cls == "__background__":
                         continue
-                    dets = all_boxes[cls_ind][im_ind]
+                    dets = all_boxes[cls_id][img_id]
                     if dets == []:
                         continue
                     for k in range(dets.shape[0]):
                         if dets[k, -1] < 0.2:
                             continue
                         f.write(
-                            "{:d} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n".format(
-                                cls_ind,
-                                dets[k, -1],
-                                ((dets[k, 0] + 1) + (dets[k, 2] + 1)) / 3840,
-                                ((dets[k, 1] + 1) + (dets[k, 3] + 1)) / 2160,
-                                ((dets[k, 2] + 1) - (dets[k, 0] + 1)) / 1920,
-                                ((dets[k, 3] + 1) - (dets[k, 1] + 1)) / 1080,
-                            )
+                            "{:d} {:.6f} {:.6f} {:.6f} {:.6f} {:.6f}\n"
+                                .format(cls_id,
+                                        dets[k, -1],
+                                        ((dets[k, 0] + 1) + (dets[k, 2] + 1)) / 3840,
+                                        ((dets[k, 1] + 1) + (dets[k, 3] + 1)) / 2160,
+                                        ((dets[k, 2] + 1) - (dets[k, 0] + 1)) / 1920,
+                                        ((dets[k, 3] + 1) - (dets[k, 1] + 1)) / 1080, )
                         )
         # for cls_ind, cls in enumerate(VOC_CLASSES):
         #     cls_ind = cls_ind

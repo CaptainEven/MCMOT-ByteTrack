@@ -16,6 +16,7 @@ import numpy as np
 import scipy
 import torchvision.transforms as transforms
 from loguru import logger
+from scipy.linalg import orth
 
 from yolox.utils import xyxy2cxcywh
 
@@ -590,12 +591,11 @@ def random_mosaic(img, p, max_num=3):
 
 
 class RandomMosaic(object):
-    def __init__(self, p=1.0, max_num=5):
+    def __init__(self, max_num=5):
         """
         @param p:
         @param max_num:
         """
-        self.p = p
         self.max_num = max_num
 
     def __call__(self, x):
@@ -605,7 +605,7 @@ class RandomMosaic(object):
         if isinstance(x, PIL.Image.Image):
             x = np.array(x)  # PIL Image to numpy array
 
-        x = random_mosaic(x, self.p, self.max_num)
+        x = random_mosaic(x, 1.0, self.max_num)
         x = Image.fromarray(x)
         return x
 
@@ -759,6 +759,7 @@ def random_light_or_shadow(img, base=200, low=10, high=255):
 
     return img.astype(np.uint8)
 
+
 def random_jpeg_compress(img, low=50, high=95):
     """
     :param img:
@@ -795,6 +796,143 @@ class RandomJPEGCompress(object):
         return x
 
 
+def random_sharpening(img, low=3, high=50, weight=0.5, threshold=10):
+    """
+    USM sharpening. borrowed from real-ESRGAN
+    Input image: I; Blurry image: B.
+    1. K = I + weight * (I - B)
+    2. Mask = 1 if abs(I - B) > threshold, else: 0
+    3. Blur mask:
+    4. Out = Mask * K + (1 - Mask) * I
+    Args:
+        img (Numpy array): Input image, HWC, BGR; float32, [0, 1].
+        weight (float): Sharp weight. Default: 1.
+        radius (float): Kernel size of Gaussian blur. Default: 50.
+        threshold (int): residual threshold
+    """
+    img = img.astype(np.float32)
+    img = cv2.normalize(img, None, alpha=0, beta=1.0, norm_type=cv2.NORM_MINMAX)
+    img = np.clip(img, 0.0, 1.0)
+
+    # blur = cv2.GaussianBlur(img, (radius, radius), 0)
+
+    ## ----- generate random blurring kernel
+    radius = np.random.randint(low, high + 1)
+    k_size = radius * 2 + 1  # [3, 7]
+    k_size = k_size if k_size >= 3 else 3
+    kernel, sigma = random_gaussian_kernel(l=k_size,
+                                           sig_min=0.5,
+                                           sig_max=7,
+                                           rate_iso=0.2,
+                                           tensor=False)
+
+    ## ----- apply blurring
+    blur = cv2.filter2D(img, -1, kernel)
+    ## -----
+
+    residual = img - blur
+    mask = np.abs(residual) * 255.0 > threshold
+    mask = mask.astype(np.float32)
+
+    kernel, sigma = random_gaussian_kernel(l=k_size,
+                                           sig_min=0.5,
+                                           sig_max=7,
+                                           rate_iso=0.2,
+                                           tensor=False)
+    soft_mask = cv2.filter2D(mask, -1, kernel)
+    # soft_mask = cv2.GaussianBlur(mask, (radius, radius), 0)
+
+    K = img + weight * residual
+    K = np.clip(K, 0.0, 1.0)
+
+    img_sharp = soft_mask * K + (1 - soft_mask) * img
+    img_sharp *= 255.0
+    img_sharp = np.clip(img_sharp, 0.0, 255.0)
+    img_sharp = img_sharp.astype(np.uint8)
+
+    return img_sharp
+
+
+class RandomSharpening(object):
+    def __init__(self, low=1, high=50):
+        """
+        @param low: low kernel radius
+        @param high: high kernel radius
+        """
+        self.low = low
+        self.high = high
+
+    def __call__(self, x):
+        """
+        @param x: PIL Image or numpy ndarray
+        """
+        if isinstance(x, PIL.Image.Image):
+            x = np.array(x)  # convert PIL Image to numpy array
+
+        x = random_sharpening(x, self.low, self.high)
+        x = Image.fromarray(x)
+
+        return x
+
+
+def random_speckle(img, low=5, high=25):
+    """
+    :param img:
+    :param low:
+    :param high:
+    :return:
+    """
+    img = img.astype(np.float32)
+    img = cv2.normalize(img, None, alpha=0, beta=1.0, norm_type=cv2.NORM_MINMAX)
+    img = np.clip(img, 0.0, 1.0)
+
+    noise_level = np.random.randint(low, high)
+    rand_num = np.random.random()
+    if rand_num > 0.6:
+        img += img \
+               * np.random.normal(0, noise_level / 255.0, img.shape).astype(np.float32)
+    elif rand_num < 0.4:
+        img += img \
+               * np.random.normal(0, noise_level / 255.0, (*img.shape[:2], 1)).astype(np.float32)
+    else:
+        L = high / 255.
+        D = np.diag(np.random.rand(3))
+        U = orth(np.random.rand(3, 3))
+        conv = np.dot(np.dot(np.transpose(U), D), U)
+        img += img * np.random.multivariate_normal([0, 0, 0], np.abs(L ** 2 * conv), img.shape[:2]).astype(np.float32)
+
+    img *= 255
+    img = np.clip(img, 0.0, 255)
+    img = img.astype(np.uint8)
+
+    return img
+
+
+class RandomSpeckle(object):
+    def __init__(self, low=5, high=25):
+        """
+        @param low: low speckle level
+        @param high: high speckle level
+        """
+        self.low = low
+        self.high = high
+
+    def __call__(self, x):
+        """
+        @param x: PIL Image or numpy ndarray
+        """
+        if isinstance(x, PIL.Image.Image):
+            x = np.array(x)  # convert PIL Image to numpy array
+
+        x = random_speckle(x, self.low, self.high)
+        x = Image.fromarray(x)
+
+        return x
+
+
+## TODO: Add random noise: gauss noise, poisson noise
+
+
 class TwoCropsTransform:
     """
     Take two random crops of one image as the query and key.
@@ -816,9 +954,11 @@ class PairTransform():
         :param patch_size
         """
         self.augmentation = [
-            transforms.RandomApply([RandomJPEGCompress(low=70, high=95)], p=0.5),
-            transforms.RandomApply([RandomMosaic()], p=0.7),
+            transforms.RandomApply([RandomJPEGCompress(low=70, high=95)], p=0.7),
+            transforms.RandomApply([RandomSharpening(low=3, high=50)], p=0.5),
+            transforms.RandomApply([RandomMosaic(max_num=7)], p=0.7),
             transforms.RandomApply([RandomLightShadow(base=200)], p=0.7),
+            transforms.RandomApply([RandomSpeckle(low=5, high=25)], p=0.5),
             transforms.RandomApply([
                 transforms.ColorJitter(0.3, 0.3, 0.3, 0.1)  # not strengthened
             ], p=0.8),

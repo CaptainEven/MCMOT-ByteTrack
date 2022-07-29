@@ -2,10 +2,16 @@
 # -*- coding:utf-8 -*-
 # Copyright (c) Megvii, Inc. and its affiliates.
 
-from loguru import logger
-from tqdm import tqdm
+import contextlib
+import io
+import itertools
+import json
+import tempfile
+import time
 
 import torch
+from loguru import logger
+from tqdm import tqdm
 
 from yolox.utils import (
     gather,
@@ -16,13 +22,6 @@ from yolox.utils import (
     xyxy2xywh
 )
 
-import contextlib
-import io
-import itertools
-import json
-import tempfile
-import time
-
 
 class COCOEvaluator:
     """
@@ -30,9 +29,13 @@ class COCOEvaluator:
     and evaluated by COCO API.
     """
 
-    def __init__(
-        self, dataloader, img_size, confthre, nmsthre, num_classes, testdev=False
-    ):
+    def __init__(self,
+                 dataloader,
+                 img_size,
+                 confthre,
+                 nmsthre,
+                 num_classes,
+                 testdev=False):
         """
         Args:
             dataloader (Dataloader): evaluate dataloader.
@@ -49,15 +52,13 @@ class COCOEvaluator:
         self.n_classes = num_classes
         self.testdev = testdev
 
-    def evaluate(
-        self,
-        model,
-        distributed=False,
-        half=False,
-        trt_file=None,
-        decoder=None,
-        test_size=None,
-    ):
+    def evaluate(self,
+                 net,
+                 distributed=False,
+                 half=False,
+                 trt_file=None,
+                 decoder=None,
+                 test_size=None, ):
         """
         COCO average precision (AP) Evaluation. Iterate inference on the test dataset
         and the results are evaluated by COCO API.
@@ -65,7 +66,7 @@ class COCOEvaluator:
         NOTE: This function will change training mode to False, please save states if needed.
 
         Args:
-            model : model to evaluate.
+            net : model to evaluate.
 
         Returns:
             ap50_95 (float) : COCO AP of IoU=50:95
@@ -74,9 +75,9 @@ class COCOEvaluator:
         """
         # TODO half to amp_test
         tensor_type = torch.cuda.HalfTensor if half else torch.cuda.FloatTensor
-        model = model.eval()
+        net = net.eval()
         if half:
-            model = model.half()
+            net = net.half()
         ids = []
         data_list = []
         progress_bar = tqdm if is_main_process() else iter
@@ -92,11 +93,11 @@ class COCOEvaluator:
             model_trt.load_state_dict(torch.load(trt_file))
 
             x = torch.ones(1, 3, test_size[0], test_size[1]).cuda()
-            model(x)
-            model = model_trt
+            net(x)
+            net = model_trt
 
         for cur_iter, (imgs, _, info_imgs, ids) in enumerate(
-            progress_bar(self.dataloader)
+                progress_bar(self.dataloader)
         ):
             with torch.no_grad():
                 imgs = imgs.type(tensor_type)
@@ -106,7 +107,9 @@ class COCOEvaluator:
                 if is_time_record:
                     start = time.time()
 
-                outputs = model(imgs)
+                outputs = net.forward(imgs)
+                if isinstance(outputs, tuple):
+                    outputs, feature_map = outputs
                 if decoder is not None:
                     outputs = decoder(outputs, dtype=outputs.type())
 
@@ -114,14 +117,18 @@ class COCOEvaluator:
                     infer_end = time_synchronized()
                     inference_time += infer_end - start
 
-                outputs = post_process(
-                    outputs, self.n_classes, self.confthre, self.nmsthre
-                )
+                ## (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
+                outputs = post_process(outputs,
+                                       self.n_classes,
+                                       self.confthre,
+                                       self.nmsthre)
                 if is_time_record:
                     nms_end = time_synchronized()
                     nms_time += nms_end - infer_end
 
             data_list.extend(self.convert_to_coco_format(outputs, info_imgs, ids))
+
+        ## ----- TODO: Do evaluation...
 
         statistics = torch.cuda.FloatTensor([inference_time, nms_time, n_samples])
         if distributed:
@@ -134,38 +141,48 @@ class COCOEvaluator:
         return eval_results
 
     def convert_to_coco_format(self, outputs, info_imgs, ids):
+        """
+        @param outputs:
+        @param info_imgs:
+        @param ids:
+        """
         data_list = []
-        for (output, img_h, img_w, img_id) in zip(
-            outputs, info_imgs[0], info_imgs[1], ids
-        ):
+        for (output, img_h, img_w, img_id) in zip(outputs,
+                                                  info_imgs[0],
+                                                  info_imgs[1],
+                                                  ids):
             if output is None:
                 continue
-            output = output.cpu()
 
+            output = output.cpu()
             bboxes = output[:, 0:4]
 
             # preprocessing: resize
-            scale = min(
-                self.img_size[0] / float(img_h), self.img_size[1] / float(img_w)
-            )
+            scale = min(self.img_size[0] / float(img_h),
+                        self.img_size[1] / float(img_w))
             bboxes /= scale
             bboxes = xyxy2xywh(bboxes)
 
             cls = output[:, 6]
             scores = output[:, 4] * output[:, 5]
-            for ind in range(bboxes.shape[0]):
-                label = self.dataloader.dataset.class_ids[int(cls[ind])]
+            labels = output[:, 6]
+            for idx in range(bboxes.shape[0]):
+                # label = self.dataloader.dataset.class_ids[int(cls[idx])]
                 pred_data = {
                     "image_id": int(img_id),
-                    "category_id": label,
-                    "bbox": bboxes[ind].numpy().tolist(),
-                    "score": scores[ind].numpy().item(),
+                    "category_id": labels[idx],
+                    "bbox": bboxes[idx].numpy().tolist(),
+                    "score": scores[idx].numpy().item(),
                     "segmentation": [],
                 }  # COCO json format
                 data_list.append(pred_data)
         return data_list
 
     def evaluate_prediction(self, data_dict, statistics):
+        """
+        @param data_dict:
+        @param statistics:
+        """
         if not is_main_process():
             return 0, 0, None
 
@@ -184,9 +201,9 @@ class COCOEvaluator:
             [
                 "Average {} time: {:.2f} ms".format(k, v)
                 for k, v in zip(
-                    ["forward", "NMS", "inference"],
-                    [a_infer_time, a_nms_time, (a_infer_time + a_nms_time)],
-                )
+                ["forward", "NMS", "inference"],
+                [a_infer_time, a_nms_time, (a_infer_time + a_nms_time)],
+            )
             ]
         )
 
@@ -210,7 +227,7 @@ class COCOEvaluator:
                 from pycocotools import cocoeval as COCOeval
                 logger.warning("Use standard COCOeval.")
             '''
-            #from pycocotools.cocoeval import COCOeval
+            # from pycocotools.cocoeval import COCOeval
             from yolox.layers import COCOeval_opt as COCOeval
             cocoEval = COCOeval(cocoGt, cocoDt, annType[1])
             cocoEval.evaluate()

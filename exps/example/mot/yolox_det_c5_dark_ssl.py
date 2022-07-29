@@ -209,19 +209,19 @@ class Exp(MyExp):
         #     ),
         # )
 
-        valdataset = VOCDetection(data_dir=data_dir,
-                                  f_list_path=self.test_f_list_path,
-                                  img_size=(768, 448),
-                                  preproc=ValTransform(
-                                      rgb_means=(0.485, 0.456, 0.406),
-                                      std=(0.229, 0.224, 0.225),
-                                  ), )
+        val_dataset = VOCDetection(data_dir=data_dir,
+                                   f_list_path=self.test_f_list_path,
+                                   img_size=(768, 448),
+                                   preproc=ValTransform(
+                                       rgb_means=(0.485, 0.456, 0.406),
+                                       std=(0.229, 0.224, 0.225),
+                                   ), )
 
         if is_distributed:
             batch_size = batch_size // dist.get_world_size()
-            sampler = torch.utils.data.distributed.DistributedSampler(valdataset, shuffle=False)
+            sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False)
         else:
-            sampler = torch.utils.data.SequentialSampler(valdataset)
+            sampler = torch.utils.data.SequentialSampler(val_dataset)
 
         dataloader_kwargs = {
             "num_workers": self.data_num_workers,
@@ -229,7 +229,7 @@ class Exp(MyExp):
             "sampler": sampler,
         }
         dataloader_kwargs["batch_size"] = batch_size
-        val_loader = torch.utils.data.DataLoader(valdataset, **dataloader_kwargs)
+        val_loader = torch.utils.data.DataLoader(val_dataset, **dataloader_kwargs)
 
         return val_loader
 

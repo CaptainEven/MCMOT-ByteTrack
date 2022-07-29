@@ -79,7 +79,7 @@ def make_parser():
     # yolox_tiny_det_c5_dark
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ckpt.pth.tar",
+                        default="../pretrained/ssl_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
 

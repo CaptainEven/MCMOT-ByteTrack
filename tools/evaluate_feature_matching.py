@@ -331,11 +331,14 @@ class ReIDEvaluator(object):
         print('Correct matched number: {:d}'.format(num_total_correct))
         print('Wrong matched number:   {:d}'.format(num_total_wrong))
         print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
-        print('Average precision: {:.3f}%'.format(num_total_correct / self.num_total_match * 100.0))
+        print('Average precision: {:.3f}%'
+              .format(num_total_correct / self.num_total_match * 100.0))
         print('Min same ID similarity:  {:.3f}'.format(self.min_same_id_sim))
         print('Max diff ID similarity:  {:.3f}'.format(self.max_diff_id_sim))
-        print('Mean same ID similarity: {:.3f}'.format(self.mean_same_id_sim / num_total_correct))
-        print('Mean diff ID similarity: {:.3f}'.format(self.mean_diff_id_sim / num_total_wrong))
+        print('Mean same ID similarity: {:.3f}'
+              .format(self.mean_same_id_sim / num_total_correct))
+        print('Mean diff ID similarity: {:.3f}'
+              .format(self.mean_diff_id_sim / num_total_wrong))
 
     def load_gt(self, img_w, img_h, one_plus=True, cls_id=0):
         """

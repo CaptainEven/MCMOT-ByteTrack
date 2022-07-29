@@ -559,7 +559,11 @@ class RouteGroup(nn.Module):
 
 
 # Parse cfg file, create every layer
-def build_modules(module_defs, img_size, cfg, in_chans=3, use_momentum=True):
+def build_modules(module_defs,
+                  img_size,
+                  cfg,
+                  in_chans=3,
+                  use_momentum=True):
     """
     :param module_defs:
     :param img_size:

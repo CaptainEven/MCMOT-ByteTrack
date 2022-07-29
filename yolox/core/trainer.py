@@ -86,7 +86,7 @@ class Trainer:
         for self.epoch in range(self.start_epoch, self.max_epoch):
             self.before_epoch()
             self.train_in_iter()
-            self.after_epoch()
+            # self.after_epoch()
 
     def train_in_iter(self):
         """
@@ -361,8 +361,10 @@ class Trainer:
         """
         :return:
         """
-        evalmodel = self.ema_model.ema if self.use_model_ema else self.model
-        ap50_95, ap50, summary = self.exp.eval(evalmodel, self.evaluator, self.is_distributed)
+        eval_model = self.ema_model.ema if self.use_model_ema else self.model
+        ap50_95, ap50, summary = self.exp.eval(eval_model,
+                                               self.evaluator,
+                                               self.is_distributed)
         self.model.train()
         if self.rank == 0:
             self.tblogger.add_scalar("val/COCOAP50", ap50, self.epoch + 1)
