@@ -875,7 +875,7 @@ class RandomSharpening(object):
         return x
 
 
-def random_speckle(img, low=5, high=25):
+def random_speckle_noise(img, low=5, high=25):
     """
     :param img:
     :param low:
@@ -895,7 +895,7 @@ def random_speckle(img, low=5, high=25):
         img += img \
                * np.random.normal(0, noise_level / 255.0, (*img.shape[:2], 1)).astype(np.float32)
     else:
-        L = high / 255.
+        L = high / 255.0
         D = np.diag(np.random.rand(3))
         U = orth(np.random.rand(3, 3))
         conv = np.dot(np.dot(np.transpose(U), D), U)
@@ -907,15 +907,87 @@ def random_speckle(img, low=5, high=25):
 
     return img
 
+def random_poisson_noise(img):
+    """
+    :param img:
+    :return:
+    """
+    img = img.astype(np.float32)
+    img = cv2.normalize(img, None, alpha=0, beta=1.0, norm_type=cv2.NORM_MINMAX)
+    img = np.clip(img, 0.0, 1.0)
 
-class RandomSpeckle(object):
-    def __init__(self, low=5, high=25):
+    vals = 10 ** (2 * np.random.random() + 2.0)  # [2, 4]
+    if np.random.random() < 0.5:
+        img = np.random.poisson(img * vals).astype(np.float32) / vals
+    else:
+        img_gray = np.dot(img[..., :3], [0.299, 0.587, 0.114])
+        img_gray = np.clip((img_gray * 255.0).round(), 0, 255) / 255.
+        noise_gray = np.random.poisson(img_gray * vals).astype(np.float32) / vals - img_gray
+        img += noise_gray[:, :, np.newaxis]
+    img = np.clip(img, 0.0, 1.0)
+
+    img *= 255
+    img = np.clip(img, 0.0, 255)
+    img = img.astype(np.uint8)
+
+    return img
+
+def random_gauss_noise(img,
+                       low=2,
+                       high=25):
+    """
+    :param img:
+    :param low:
+    :param high:
+    :return:
+    """
+    img = img.astype(np.float32)
+    img = cv2.normalize(img, None, alpha=0, beta=1.0, norm_type=cv2.NORM_MINMAX)
+    img = np.clip(img, 0.0, 1.0)
+
+    noise_level = np.random.randint(low, high)
+    rand_num = np.random.rand()
+    if rand_num > 0.6:  # add color Gaussian noise
+        img += np.random.normal(0, noise_level / 255.0, img.shape).astype(np.float32)
+    elif rand_num < 0.4:  # add grayscale Gaussian noise
+        img += np.random.normal(0, noise_level / 255.0, (*img.shape[:2], 1)).astype(np.float32)
+    else:  # add  noise
+        L = high / 255.0
+        D = np.diag(np.random.rand(3))
+        U = orth(np.random.rand(3, 3))
+        conv = np.dot(np.dot(np.transpose(U), D), U)
+        img += np.random.multivariate_normal([0, 0, 0], np.abs(L ** 2 * conv), img.shape[:2]).astype(np.float32)
+    img = np.clip(img, 0.0, 1.0)
+
+    img *= 255
+    img = np.clip(img, 0.0, 255)
+    img = img.astype(np.uint8)
+
+    return img
+
+## TODO: extend speckle noise to more random noise types:
+# speckle noise gauss noise, poisson noise
+def random_noise(img):
+    """
+    @param img:
+    """
+    noise_type = np.random.randint(1, 4)
+    if noise_type == 1:
+        img_noise = random_gauss_noise(img, low=2, high=25)
+    elif noise_type == 2:
+        img_noise = random_poisson_noise(img)
+    elif noise_type == 3:
+        img_noise = random_speckle_noise(img, low=5, high=25)
+
+    return img_noise
+
+class RandomNoise(object):
+    def __init__(self):
         """
         @param low: low speckle level
         @param high: high speckle level
         """
-        self.low = low
-        self.high = high
+        pass
 
     def __call__(self, x):
         """
@@ -924,15 +996,10 @@ class RandomSpeckle(object):
         if isinstance(x, PIL.Image.Image):
             x = np.array(x)  # convert PIL Image to numpy array
 
-        x = random_speckle(x, self.low, self.high)
+        x = random_noise(x)
         x = Image.fromarray(x)
 
         return x
-
-
-## TODO: extend speckle noise to more random noise types:
-# speckle noise gauss noise, poisson noise
-
 
 class TwoCropsTransform:
     """
@@ -955,18 +1022,16 @@ class PairTransform():
         :param patch_size
         """
         self.augmentation = [
-            transforms.RandomApply([RandomJPEGCompress(low=70, high=95)], p=0.7),
+            transforms.RandomApply([RandomJPEGCompress(low=70, high=95)], p=0.5),
             transforms.RandomApply([RandomSharpening(low=3, high=50)], p=0.5),
-            transforms.RandomApply([RandomMosaic(max_num=7)], p=0.7),
-            transforms.RandomApply([RandomLightShadow(base=200)], p=0.7),
-            transforms.RandomApply([RandomSpeckle(low=5, high=25)], p=0.5),
-            transforms.RandomApply([
-                transforms.ColorJitter(0.3, 0.3, 0.3, 0.1)  # not strengthened
-            ], p=0.8),
-            # transforms.RandomGrayscale(p=0.02),  # p=0.2
+            transforms.RandomApply([RandomMosaic(max_num=7)], p=0.5),
+            transforms.RandomApply([RandomLightShadow(base=200)], p=0.5),
+            transforms.RandomApply([RandomNoise()], p=0.2),
             transforms.RandomApply([RandomKernelBlur(iso_rate=0.2,
                                                      min_k_size=3,
-                                                     max_k_size=7)], p=0.7),
+                                                     max_k_size=7)], p=0.5),
+            transforms.RandomApply([transforms.ColorJitter(0.3, 0.3, 0.3, 0.1)], p=0.5),
+            # transforms.RandomGrayscale(p=0.02),  # p=0.2
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),
