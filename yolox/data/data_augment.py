@@ -930,7 +930,8 @@ class RandomSpeckle(object):
         return x
 
 
-## TODO: Add random noise: gauss noise, poisson noise
+## TODO: extend speckle noise to more random noise types:
+# speckle noise gauss noise, poisson noise
 
 
 class TwoCropsTransform:
