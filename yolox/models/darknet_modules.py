@@ -335,31 +335,24 @@ class GAP(nn.Module):
         """
         return self.avg_pool(x)
 
-
-class AttentionGAP(nn.Module):
-    def __init__(self, in_channels):
+class PointWiseAttentionGAP(nn.Module):
+    def __init__(self, in_channels, mid_channels=32):
         """
         parameterized self-attention GAP
         @param in_channels:
         """
-        super(AttentionGAP, self).__init__()
+        super(PointWiseAttentionGAP, self).__init__()
+        print("mid channels: {:d}".format(mid_channels))
         self.gap = GAP()
-
-        # self.conv = nn.Conv2d(in_channels=in_channels,
-        #                       out_channels=1,
-        #                       kernel_size=3,
-        #                       stride=1,
-        #                       padding=1)
-
         self.conv = nn.Sequential(*[nn.Conv2d(in_channels=in_channels,
-                                              out_channels=256,
+                                              out_channels=mid_channels,
                                               kernel_size=3,
                                               stride=1,
                                               padding=1),
-                                    nn.BatchNorm2d(256),
+                                    nn.BatchNorm2d(mid_channels),
                                     nn.LeakyReLU(),
-                                    nn.Conv2d(in_channels=256,
-                                              out_channels=1,
+                                    nn.Conv2d(in_channels=mid_channels,
+                                              out_channels=in_channels,
                                               kernel_size=3,
                                               stride=1,
                                               padding=1)])
@@ -369,6 +362,40 @@ class AttentionGAP(nn.Module):
         @param x:
         """
         attention_map = torch.sigmoid(self.conv(x))  # n×c×h×w
+        out = self.gap(attention_map * x) / self.gap(attention_map)
+        out = torch.squeeze(out)
+        return out
+
+class AttentionGAP(nn.Module):
+    def __init__(self, in_channels, mid_channels=256):
+        """
+        parameterized self-attention GAP
+        @param in_channels:
+        """
+        super(AttentionGAP, self).__init__()
+
+        self.in_channels = in_channels
+
+        self.gap = GAP()
+        self.conv = nn.Sequential(*[nn.Conv2d(in_channels=in_channels,
+                                              out_channels=mid_channels,
+                                              kernel_size=3,
+                                              stride=1,
+                                              padding=1),
+                                    nn.BatchNorm2d(mid_channels),
+                                    nn.LeakyReLU(),
+                                    nn.Conv2d(in_channels=mid_channels,
+                                              out_channels=1,
+                                              kernel_size=3,
+                                              stride=1,
+                                              padding=1)])
+
+    def forward(self, x):
+        """
+        @param x:
+        """
+        attention_map = torch.sigmoid(self.conv(x))  # n×1×h×w
+        attention_map = attention_map.repeat(1, self.in_channels, 1, 1)
         out = self.gap(attention_map * x) / self.gap(attention_map)
         out = torch.squeeze(out)
         return out

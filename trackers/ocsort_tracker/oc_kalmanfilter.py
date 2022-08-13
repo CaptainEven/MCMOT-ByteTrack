@@ -371,7 +371,7 @@ class KalmanFilterNew(object):
             self.x = dot(F, self.x)
 
         # P = FPF' + Q
-        self.P = self._alpha_sq * dot(dot(F, self.P), F.T) + Q
+        self.P = self._alpha_sq * dot(dot(F, self.P), F.temperature) + Q
 
         # save prior
         self.x_prior = self.x.copy()
@@ -513,7 +513,7 @@ class KalmanFilterNew(object):
         # P = (I-KH)P usually seen in the literature.
 
         I_KH = self._I - dot(self.K, H)
-        self.P = dot(dot(I_KH, self.P), I_KH.T) + dot(dot(self.K, R), self.K.T)
+        self.P = dot(dot(I_KH, self.P), I_KH.temperature) + dot(dot(self.K, R), self.K.T)
 
         # save measurement and posterior state
         self.z = deepcopy(z)
@@ -884,12 +884,12 @@ class KalmanFilterNew(object):
 
         x, P, Pp = Xs.copy(), Ps.copy(), Ps.copy()
         for k in range(n - 2, -1, -1):
-            Pp[k] = dot(dot(Fs[k + 1], P[k]), Fs[k + 1].T) + Qs[k + 1]
+            Pp[k] = dot(dot(Fs[k + 1], P[k]), Fs[k + 1].temperature) + Qs[k + 1]
 
             # pylint: disable=bad-whitespace
-            K[k] = dot(dot(P[k], Fs[k + 1].T), inv(Pp[k]))
+            K[k] = dot(dot(P[k], Fs[k + 1].temperature), inv(Pp[k]))
             x[k] += dot(K[k], x[k + 1] - dot(Fs[k + 1], x[k]))
-            P[k] += dot(dot(K[k], P[k + 1] - Pp[k]), K[k].T)
+            P[k] += dot(dot(K[k], P[k + 1] - Pp[k]), K[k].temperature)
 
         return (x, P, K, Pp)
 
@@ -932,7 +932,7 @@ class KalmanFilterNew(object):
             x = dot(F, self.x)
 
         # P = FPF' + Q
-        P = self._alpha_sq * dot(dot(F, self.P), F.T) + Q
+        P = self._alpha_sq * dot(dot(F, self.P), F.temperature) + Q
 
         return x, P
 
@@ -977,7 +977,7 @@ class KalmanFilterNew(object):
 
         # P = (I-KH)P(I-KH)' + KRK'
         I_KH = self._I - dot(K, H)
-        P = dot(dot(I_KH, P), I_KH.T) + dot(dot(K, R), K.T)
+        P = dot(dot(I_KH, P), I_KH.temperature) + dot(dot(K, R), K.T)
 
         return x, P
 
@@ -1559,11 +1559,11 @@ def rts_smoother(Xs, Ps, Fs, Qs):
     x, P, pP = Xs.copy(), Ps.copy(), Ps.copy()
 
     for k in range(n - 2, -1, -1):
-        pP[k] = dot(dot(Fs[k], P[k]), Fs[k].T) + Qs[k]
+        pP[k] = dot(dot(Fs[k], P[k]), Fs[k].temperature) + Qs[k]
 
         # pylint: disable=bad-whitespace
-        K[k] = dot(dot(P[k], Fs[k].T), linalg.inv(pP[k]))
+        K[k] = dot(dot(P[k], Fs[k].temperature), linalg.inv(pP[k]))
         x[k] += dot(K[k], x[k + 1] - dot(Fs[k], x[k]))
-        P[k] += dot(dot(K[k], P[k + 1] - pP[k]), K[k].T)
+        P[k] += dot(dot(K[k], P[k + 1] - pP[k]), K[k].temperature)
 
     return (x, P, K, pP)

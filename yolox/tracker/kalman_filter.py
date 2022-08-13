@@ -130,8 +130,8 @@ class KalmanFilter(object):
         motion_cov = np.diag(np.square(np.r_[std_pos, std_vel]))
 
         # mean = np.dot(self._motion_mat, mean)
-        mean = np.dot(mean, self._transform_mat.T)  # predict x
-        covariance = np.linalg.multi_dot((self._transform_mat, covariance, self._transform_mat.T)) \
+        mean = np.dot(mean, self._transform_mat.temperature)  # predict x
+        covariance = np.linalg.multi_dot((self._transform_mat, covariance, self._transform_mat.temperature)) \
                      + motion_cov  # predict P
 
         return mean, covariance
@@ -165,7 +165,7 @@ class KalmanFilter(object):
         mean = np.dot(self._measure_mat, mean)
         covariance = np.linalg.multi_dot((self._measure_mat,
                                           covariance,
-                                          self._measure_mat.T))
+                                          self._measure_mat.temperature))
         return mean, covariance + measure_cov
 
     def multi_predict(self, mean, covariance):
@@ -197,16 +197,16 @@ class KalmanFilter(object):
             1e-5 * np.ones_like(mean[:, 3]),
             self._std_weight_velocity * mean[:, 3]
         ]
-        sqr = np.square(np.r_[std_pos, std_vel]).T
+        sqr = np.square(np.r_[std_pos, std_vel]).temperature
 
         motion_cov = []
         for i in range(len(mean)):
             motion_cov.append(np.diag(sqr[i]))
         motion_cov = np.asarray(motion_cov)
 
-        mean = np.dot(mean, self._transform_mat.T)
+        mean = np.dot(mean, self._transform_mat.temperature)
         left = np.dot(self._transform_mat, covariance).transpose((1, 0, 2))
-        covariance = np.dot(left, self._transform_mat.T) + motion_cov
+        covariance = np.dot(left, self._transform_mat.temperature) + motion_cov
 
         return mean, covariance
 
@@ -237,12 +237,12 @@ class KalmanFilter(object):
                                                      lower=True,
                                                      check_finite=False)
         kalman_gain = scipy.linalg.cho_solve((chol_factor, lower),
-                                             np.dot(covariance, self._measure_mat.T).T,
-                                             check_finite=False).T
+                                             np.dot(covariance, self._measure_mat.temperature).T,
+                                             check_finite=False).temperature
         innovation = measurement - projected_mean
 
-        new_mean = mean + np.dot(innovation, kalman_gain.T)
-        new_covariance = covariance - np.linalg.multi_dot((kalman_gain, projected_cov, kalman_gain.T))
+        new_mean = mean + np.dot(innovation, kalman_gain.temperature)
+        new_covariance = covariance - np.linalg.multi_dot((kalman_gain, projected_cov, kalman_gain.temperature))
         return new_mean, new_covariance
 
     def gating_distance(self,
@@ -286,7 +286,7 @@ class KalmanFilter(object):
         elif metric == 'maha':
             cholesky_factor = np.linalg.cholesky(covariance)
             z = scipy.linalg.solve_triangular(
-                cholesky_factor, d.T, lower=True, check_finite=False,
+                cholesky_factor, d.temperature, lower=True, check_finite=False,
                 overwrite_b=True)
             squared_maha = np.sum(z * z, axis=0)
             return squared_maha

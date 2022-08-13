@@ -306,7 +306,7 @@ def associate(dets,
 
     ## OCM: C(X^ ; Z) = CIoU(X^ ; Z) + λCv(X^ ; Z; V)
     angle_diff_cost = (valid_mask * diff_angle) * vel_dir_weight
-    angle_diff_cost = angle_diff_cost.T
+    angle_diff_cost = angle_diff_cost.temperature
     angle_diff_cost = angle_diff_cost * scores
 
     ## ----- IOU cost matrix
@@ -381,7 +381,7 @@ def associate_kitti(detections,
 
     scores = np.repeat(detections[:, -1][:, np.newaxis], trackers.shape[0], axis=1)
     angle_diff_cost = (valid_mask * diff_angle) * vdc_weight
-    angle_diff_cost = angle_diff_cost.T
+    angle_diff_cost = angle_diff_cost.temperature
     angle_diff_cost = angle_diff_cost * scores
 
     """

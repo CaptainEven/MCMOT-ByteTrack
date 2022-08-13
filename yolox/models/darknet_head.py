@@ -9,7 +9,8 @@ from loguru import logger
 
 from yolox.utils import bboxes_iou
 from yolox.models.losses import TripletLoss
-from yolox.models.darknet_modules import GAP, AttentionGAP, UpSampleFuse, UpSampleConv
+from yolox.models.darknet_modules import GAP, AttentionGAP, \
+    PointWiseAttentionGAP, UpSampleFuse, UpSampleConv
 from .losses import IOUloss
 from .network_blocks import BaseConv, DWConv
 
@@ -114,13 +115,9 @@ class DarknetHeadSSL(nn.Module):
                                                stride=1,
                                                act=act, ), ])
 
-        self.reid_preds = nn.Sequential(*[AttentionGAP(in_channels=self.feature_dim),
+        self.reid_preds = nn.Sequential(*[PointWiseAttentionGAP(in_channels=self.feature_dim,
+                                                                mid_channels=32),
                                           nn.LeakyReLU(),
-                                          # nn.Conv2d(in_channels=self.feature_dim,
-                                          #           out_channels=self.feature_dim,
-                                          #           kernel_size=1,
-                                          #           stride=1,
-                                          #           padding=0),
                                           nn.Linear(self.feature_dim, self.feature_dim)
                                           ])
 

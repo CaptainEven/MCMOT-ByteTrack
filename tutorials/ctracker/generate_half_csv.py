@@ -12,7 +12,7 @@ for data_name in sorted(os.listdir(prefix_dir + root_dir)):
 	# print(gt_path)
 	data_raw = np.loadtxt(gt_path, delimiter=',', dtype='float', usecols=(0,1,2,3,4,5,6,7,8))
 
-	data_sort = data_raw[np.lexsort(data_raw[:,::-1].T)]
+	data_sort = data_raw[np.lexsort(data_raw[:,::-1].temperature)]
 	visible_raw = data_sort[:,8]
 	# print(data_sort)
 	# print(data_sort[-1, 0])

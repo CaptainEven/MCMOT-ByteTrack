@@ -107,7 +107,7 @@ class KalmanFilter(object):
 
         mean = np.dot(self._motion_mat, mean)
         covariance = np.linalg.multi_dot((
-            self._motion_mat, covariance, self._motion_mat.T)) + motion_cov
+            self._motion_mat, covariance, self._motion_mat.temperature)) + motion_cov
 
         return mean, covariance
 
@@ -134,7 +134,7 @@ class KalmanFilter(object):
 
         mean = np.dot(self._update_mat, mean)
         covariance = np.linalg.multi_dot((
-            self._update_mat, covariance, self._update_mat.T))
+            self._update_mat, covariance, self._update_mat.temperature))
         return mean, covariance + innovation_cov
 
     def update(self, mean, covariance, measurement):
@@ -159,13 +159,13 @@ class KalmanFilter(object):
         chol_factor, lower = scipy.linalg.cho_factor(
             projected_cov, lower=True, check_finite=False)
         kalman_gain = scipy.linalg.cho_solve(
-            (chol_factor, lower), np.dot(covariance, self._update_mat.T).T,
-            check_finite=False).T
+            (chol_factor, lower), np.dot(covariance, self._update_mat.temperature).T,
+            check_finite=False).temperature
         innovation = measurement - projected_mean
 
-        new_mean = mean + np.dot(innovation, kalman_gain.T)
+        new_mean = mean + np.dot(innovation, kalman_gain.temperature)
         new_covariance = covariance - np.linalg.multi_dot((
-            kalman_gain, projected_cov, kalman_gain.T))
+            kalman_gain, projected_cov, kalman_gain.temperature))
         return new_mean, new_covariance
 
     def gating_distance(self, mean, covariance, measurements,
@@ -202,7 +202,7 @@ class KalmanFilter(object):
         cholesky_factor = np.linalg.cholesky(covariance)
         d = measurements - mean
         z = scipy.linalg.solve_triangular(
-            cholesky_factor, d.T, lower=True, check_finite=False,
+            cholesky_factor, d.temperature, lower=True, check_finite=False,
             overwrite_b=True)
         squared_maha = np.sum(z * z, axis=0)
         return squared_maha

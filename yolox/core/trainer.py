@@ -121,7 +121,10 @@ class Trainer:
         if self.use_model_ema:
             self.ema_model.update(self.model)
 
-        lr = self.lr_scheduler.update_lr(self.progress_in_iter + 1)
+        if self.exp.lr > 0:
+            lr = self.exp.lr
+        else:
+            lr = self.lr_scheduler.update_lr(self.progress_in_iter + 1)
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -208,9 +211,9 @@ class Trainer:
         logger.info("---> start train epoch{}".format(self.epoch + 1))
 
         if self.epoch + 1 == self.max_epoch - self.exp.no_aug_epochs or self.no_aug:
-            logger.info("--->No mosaic aug now!")
+            logger.info("---> No mosaic aug now!")
             self.train_loader.close_mosaic()
-            logger.info("--->Add additional L1 loss now!")
+            logger.info("---> Add additional L1 loss now!")
 
             if self.is_distributed:
                 self.model.module.head.use_l1 = True

@@ -23,7 +23,7 @@ def make_parser():
 
     parser.add_argument("--vid_path",
                         type=str,
-                        default="../videos/test_13.mp4",
+                        default="../videos/test_10.mp4",
                         help="The input video path.")
 
     parser.add_argument("--output_dir",
@@ -52,7 +52,7 @@ def make_parser():
 
     parser.add_argument("--conf",
                         type=float,
-                        default=0.5,
+                        default=0.2,
                         help="")
 
     parser.add_argument("--time_type",

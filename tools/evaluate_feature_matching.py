@@ -735,6 +735,7 @@ class ReIDEvaluator(object):
                         if gt_tr_id_pre == gt_tr_id_cur:
                             # update correct number
                             num_correct += 1
+
                             self.mean_same_id_sim += best_sim
                             sim_sum += best_sim
 

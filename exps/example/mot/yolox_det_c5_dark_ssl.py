@@ -29,7 +29,8 @@ class Exp(MyExp):
         self.width = 0.5
 
         ## ----- Define file list path(imgs and txts(labels) path)
-        self.train_f_list_path = "/mnt/diskb/even/ByteTrack/datasets/train_all.txt"
+        self.train_f_list_path = "/users/duanyou/c5/data_all/train_all.txt"
+        logger.info("train list file path: {:s}".format(self.train_f_list_path))
         self.test_f_list_path = "/mnt/diskb/even/ByteTrack/datasets/test3000.txt"
         self.train_f_list_path = os.path.abspath(self.train_f_list_path)
         self.test_f_list_path = os.path.abspath(self.test_f_list_path)
@@ -62,12 +63,14 @@ class Exp(MyExp):
         self.max_epoch = 10  # 100
         self.print_interval = 1  # 10
         self.eval_interval = 0  # 100
+
         if debug:
             self.save_ckpt_batch_interval = 1000
         else:
             self.save_ckpt_batch_interval = 30
+
         self.test_conf = 0.001
-        self.nms_thresh = 0.7
+        self.nms_thresh = 0.45  # 0.
         self.no_aug_epochs = 10
         self.basic_lr_per_img = 0.001 / 64.0
         self.warmup_epochs = 1

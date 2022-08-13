@@ -3,7 +3,14 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="a9dcaea3-c4fe-4f34-89a1-32cf23e2896b" name="ByteTrack">
-        <fileTransfer accessType="SFTP" host="10.8.3.1" port="22" sshConfigId="50f78ff0-3736-4ddc-92ec-5c4f67dd7b91" sshConfig="jaya@10.8.3.1:22 password">
+        <fileTransfer accessType="SFTP" host="10.8.3.1" port="22" sshConfigId="caa64eec-d759-463d-acd9-17dbd0129bd5" sshConfig="jaya@10.8.3.1:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="8b125edb-b9cf-4fcf-8a83-565f6495743b" name="LicensePlate">
+        <fileTransfer accessType="SFTP" host="10.8.3.1" port="22" sshConfigId="caa64eec-d759-463d-acd9-17dbd0129bd5" sshConfig="jaya@10.8.3.1:22 password">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

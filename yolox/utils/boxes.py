@@ -29,27 +29,30 @@ def filter_box(output, scale_range):
     return output[keep]
 
 
-def post_process(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
+def post_process(predicts,
+                 num_classes,
+                 conf_thresh=0.7,
+                 nms_thresh=0.45):
     """
-    :param prediction:
+    :param predicts:
     :param num_classes:
-    :param conf_thre:
-    :param nms_thre:
+    :param conf_thresh:
+    :param nms_thresh:
     :return:
     """
-    if isinstance(prediction, tuple):
-        prediction = prediction[0]
-    box_corner = prediction.new(prediction.shape)
+    if isinstance(predicts, tuple):
+        predicts = predicts[0]
+    box_corner = predicts.new(predicts.shape)
 
     ## ----- cxcywh2xyxy
-    box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2.0
-    box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2.0
-    box_corner[:, :, 2] = prediction[:, :, 0] + prediction[:, :, 2] / 2.0
-    box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2.0
-    prediction[:, :, :4] = box_corner[:, :, :4]
+    box_corner[:, :, 0] = predicts[:, :, 0] - predicts[:, :, 2] / 2.0
+    box_corner[:, :, 1] = predicts[:, :, 1] - predicts[:, :, 3] / 2.0
+    box_corner[:, :, 2] = predicts[:, :, 0] + predicts[:, :, 2] / 2.0
+    box_corner[:, :, 3] = predicts[:, :, 1] + predicts[:, :, 3] / 2.0
+    predicts[:, :, :4] = box_corner[:, :, :4]
 
-    output = [None for _ in range(len(prediction))]
-    for i, image_pred in enumerate(prediction):
+    output = [None for _ in range(len(predicts))]
+    for i, image_pred in enumerate(predicts):
 
         # If none are remaining => process next image
         if not image_pred.size(0):
@@ -58,7 +61,7 @@ def post_process(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
         # Get score and class with high-est confidence
         class_conf, class_pred = torch.max(image_pred[:, 5: 5 + num_classes], 1, keepdim=True)
 
-        conf_mask = (image_pred[:, 4] * class_conf.squeeze() >= conf_thre).squeeze()
+        conf_mask = (image_pred[:, 4] * class_conf.squeeze() >= conf_thresh).squeeze()
         # _, conf_mask = torch.topk((image_pred[:, 4] * class_conf.squeeze()), 1000)
 
         # Detections ordered as (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
@@ -70,7 +73,7 @@ def post_process(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
         nms_out_index = torchvision.ops.batched_nms(detections[:, :4],
                                                     detections[:, 4] * detections[:, 5],
                                                     detections[:, 6],
-                                                    nms_thre, )
+                                                    nms_thresh, )
         detections = detections[nms_out_index]
 
         if output[i] is None:

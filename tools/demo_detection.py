@@ -34,9 +34,13 @@ def make_parser():
                         default="../YOLOX_outputs",
                         help="")
     parser.add_argument("--conf",
-                        default=0.4,
+                        default=0.3,
                         type=float,
                         help="test conf")
+    parser.add_argument("--nms_thresh",
+                        type=float,
+                        default=0.55,
+                        help="")
     parser.add_argument("-expn",
                         "--experiment-name",
                         type=str,
@@ -79,7 +83,7 @@ def make_parser():
     # yolox_tiny_det_c5_dark
     parser.add_argument("-c",
                         "--ckpt",
-                        default="../pretrained/ssl_ckpt.pth.tar",
+                        default="../YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ckpt.pth.tar",
                         type=str,
                         help="ckpt for eval")
 
@@ -275,7 +279,11 @@ class Predictor(object):
         self.decoder = decoder
         self.num_classes = exp.n_classes
         self.conf_thresh = exp.test_conf
+        logger.info("confidence thresh: ", self.conf_thresh)
+
         self.nms_thresh = exp.nms_thresh
+        logger.info("NMS thresh: ", self.nms_thresh)
+
         self.test_size = exp.test_size
         self.device = device
         self.fp16 = fp16
@@ -648,7 +656,7 @@ def run(exp, opt):
             ckpt_path = opt.ckpt
         ckpt_path = os.path.abspath(ckpt_path)
 
-        logger.info("Loading checkpoint...")
+        logger.info("Loading checkpoint from {:s}...".format(ckpt_path))
         ckpt = torch.load(ckpt_path, map_location="cpu")
 
         # load the model state dict
@@ -693,6 +701,10 @@ if __name__ == "__main__":
         exp.cfg_file_path = os.path.abspath(opt.cfg)
     if hasattr(exp, "output_dir"):
         exp.output_dir = opt.output_dir
+
+    if opt.nms_thresh is not None:
+        exp.nms_thresh = opt.nms_thresh
+        logger.info("NMS thresh: {:.3f}".format(exp.nms_thresh))
 
     class_names = opt.class_names.split(",")
     opt.class_names = class_names

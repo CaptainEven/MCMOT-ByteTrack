@@ -96,7 +96,6 @@ class VOCDetSSL(Dataset):
         dataset_name (string, optional): which dataset to load
             (default: 'VOC2007')
     """
-
     def __init__(self,
                  data_dir,
                  f_list_path,
@@ -153,7 +152,7 @@ class VOCDetSSL(Dataset):
                     .format(len(self.ids)))
 
         ## ----- Define the positive sample transformations
-        self.aug_transform = PairTransform(patch_size=self.patch_size)
+        self.aug_transform = PairTransform()
 
         ## ----- Define the negative sample transformations
         self.transform = transforms.Compose([
@@ -469,7 +468,7 @@ class VOCDetSSL(Dataset):
 
         ## ----- Get positive bboxes
         pos_bboxes = np.empty((0, 4), dtype=np.int64)
-        pos_patches = []
+        obj_patches = []
 
         if target.size == 0:  # empty objs
             pos_bboxes = self.random_crops(img.shape[1],
@@ -482,7 +481,7 @@ class VOCDetSSL(Dataset):
 
                 ## ----- Get patch
                 patch = img[int(y1):int(y2), int(x1):int(x2), :]
-                pos_patches.append(patch)
+                obj_patches.append(patch)
         else:
             pos_bboxes = np.zeros((target.shape[0], 4), dtype=np.float64)
 
@@ -508,21 +507,21 @@ class VOCDetSSL(Dataset):
 
                 ## ----- Get patch
                 patch = img[int(y1):int(y2), int(x1):int(x2), :]
-                pos_patches.append(patch)
-                pos_bboxes[i] = np.array([x1, y1, x2, y2], dtype=np.float64)
+                obj_patches.append(patch)
+                pos_bboxes[i] = np.array([x1, y1, x2, y2], dtype=np.float32)
 
         ## ---------- load patches for query and key
         # ----- Get positive pairs of patches
         p0 = torch.zeros((self.max_patches, 3, self.patch_size[0], self.patch_size[1]))
         p1 = torch.zeros((self.max_patches, 3, self.patch_size[0], self.patch_size[1]))
         p2 = torch.zeros((self.max_patches, 3, self.patch_size[0], self.patch_size[1]))
-        for i, patch in enumerate(pos_patches):
+        for i, patch in enumerate(obj_patches):
             ## ----- Resize
             if patch.size == 0:  # empty positive patch
                 continue
 
             ## ----- Random resizing
-            resize_mode = np.random.randint(0, 4)
+            resize_mode = np.random.randint(0, 5)
             if resize_mode == 0:
                 patch = cv2.resize(patch, self.patch_size, cv2.INTER_NEAREST)
             elif resize_mode == 1:
@@ -531,6 +530,8 @@ class VOCDetSSL(Dataset):
                 patch = cv2.resize(patch, self.patch_size, cv2.INTER_CUBIC)
             elif resize_mode == 3:
                 patch = cv2.resize(patch, self.patch_size, cv2.INTER_AREA)
+            elif resize_mode == 4:
+                patch = cv2.resize(patch, self.patch_size, cv2.INTER_LANCZOS4)
 
             p0[i] = self.transform(Image.fromarray(patch))
             aug_1, aug_2 = self.aug_transform(Image.fromarray(patch))

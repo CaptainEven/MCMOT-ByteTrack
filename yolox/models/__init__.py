@@ -9,4 +9,4 @@ from .yolo_pafpn import YOLOPAFPN
 from .yolox import YOLOX
 from .yolox_reid import YOLOXReID
 from .yolox_darknet import YOLOXDarknet, YOLOXDarknetReID
-from .darknet_modules import load_darknet_weights
+from .darknet_modules import load_darknet_weights, PointWiseAttentionGAP

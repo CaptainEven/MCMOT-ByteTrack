@@ -9,10 +9,17 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="LicensePlate">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/mnt/diskb/even/LicensePlateRestoreOCR" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="jaya@10.8.3.1:22">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/mnt/diskb/even/LicensePlateRestoreOCR" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

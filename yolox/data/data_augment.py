@@ -17,6 +17,7 @@ import scipy
 import torchvision.transforms as transforms
 from loguru import logger
 from scipy.linalg import orth
+from PIL import Image, ImageFilter
 
 from yolox.utils import xyxy2cxcywh
 
@@ -144,7 +145,7 @@ def random_perspective(img,
         xy[:, :2] = targets[:, [0, 1, 2, 3, 0, 3, 2, 1]].reshape(
             n * 4, 2
         )  # x1y1, x2y2, x1y2, x2y1
-        xy = xy @ M.T  # transform
+        xy = xy @ M.temperature  # transform
         if perspective:
             xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 8)  # rescale
         else:  # affine
@@ -153,14 +154,14 @@ def random_perspective(img,
         # create new boxes
         x = xy[:, [0, 2, 4, 6]]
         y = xy[:, [1, 3, 5, 7]]
-        xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
+        xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).temperature
 
         # clip boxes
         # xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, width)
         # xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, height)
 
         # filter candidates
-        i = box_candidates(box1=targets[:, :4].T * s, box2=xy.T)
+        i = box_candidates(box1=targets[:, :4].T * s, box2=xy.temperature)
         targets = targets[i]
         targets[:, :4] = xy[i]
 
@@ -221,12 +222,13 @@ def random_mirror(image, boxes):
     return image, boxes
 
 
-def preproc(image, net_size, mean, std, swap=(2, 0, 1)):
+def preproc(image, net_size, mean, std, pad_val=114, swap=(2, 0, 1)):
     """
     :param image:
     :param net_size: (H, W)
     :param mean:
     :param std:
+    :param pad_val:
     :param swap:
     :return:
     """
@@ -567,6 +569,41 @@ class ImageInPainting(object):
         x = Image.fromarray(x)  # PIL image to numpy ndarray
         return x
 
+def random_shape_mosaic(img, left, top, rect_w, rect_h,
+                        patch_size=5):
+    """
+    Random shaped mosaic
+    """
+    H, W, C = img.shape
+    if (top + rect_h > H) or (left + rect_w > W):  # do nothing
+        return img
+
+    ## ----- generate random blurring kernel
+    k_size = max(rect_w // patch_size, rect_h // patch_size)
+    k_size = k_size if k_size >= 3 else 3
+    kernel, sigma = random_gaussian_kernel(l=k_size,
+                                           sig_min=0.5,
+                                           sig_max=7,
+                                           rate_iso=0.2,
+                                           tensor=False)
+    idx = np.argpartition(kernel, int(0.3 * kernel.size), axis=None)[0]
+    idx_y, idx_x = int(idx / kernel.shape[1]), idx % kernel.shape[1]
+    kernel_thresh = kernel[idx_y, idx_x]
+
+    ## ----- Split the rect area of image int o patches
+    for y_i, y in enumerate(range(0, rect_h - patch_size, patch_size)):
+        for x_i, x in enumerate(range(0, rect_w - patch_size, patch_size)):
+            if kernel[y_i, x_i] > kernel_thresh:
+                y0 = y + top
+                x0 = x + left
+                patch = img[y0: y0 + patch_size, x0: x0 + patch_size, :]
+                B = int(np.mean(patch[:, :, 0]))
+                G = int(np.mean(patch[:, :, 1]))
+                R = int(np.mean(patch[:, :, 2]))
+                color = np.array([B, G, R], dtype=np.uint8)
+                img[y0: y0 + patch_size, x0: x0 + patch_size] = color
+
+    return img
 
 def random_mosaic(img, p, max_num=3):
     """
@@ -609,44 +646,6 @@ class RandomMosaic(object):
         x = Image.fromarray(x)
         return x
 
-
-def random_shape_mosaic(img, left, top, rect_w, rect_h,
-                        patch_size=5):
-    """
-    Random shaped mosaic
-    """
-    H, W, C = img.shape
-    if (top + rect_h > H) or (left + rect_w > W):  # do nothing
-        return img
-
-    ## ----- generate random blurring kernel
-    k_size = max(rect_w // patch_size, rect_h // patch_size)
-    k_size = k_size if k_size >= 3 else 3
-    kernel, sigma = random_gaussian_kernel(l=k_size,
-                                           sig_min=0.5,
-                                           sig_max=7,
-                                           rate_iso=0.2,
-                                           tensor=False)
-    idx = np.argpartition(kernel, int(0.3 * kernel.size), axis=None)[0]
-    idx_y, idx_x = int(idx / kernel.shape[1]), idx % kernel.shape[1]
-    kernel_thresh = kernel[idx_y, idx_x]
-
-    ## ----- Split the rect area of image int o patches
-    for y_i, y in enumerate(range(0, rect_h - patch_size, patch_size)):
-        for x_i, x in enumerate(range(0, rect_w - patch_size, patch_size)):
-            if kernel[y_i, x_i] > kernel_thresh:
-                y0 = y + top
-                x0 = x + left
-                patch = img[y0: y0 + patch_size, x0: x0 + patch_size, :]
-                B = int(np.mean(patch[:, :, 0]))
-                G = int(np.mean(patch[:, :, 1]))
-                R = int(np.mean(patch[:, :, 2]))
-                color = np.array([B, G, R], dtype=np.uint8)
-                img[y0: y0 + patch_size, x0: x0 + patch_size] = color
-
-    return img
-
-
 def random_rect_mosaic(img, left, top, rect_w, rect_h, patch_size=5):
     """
     Add mosaic to rectangle shape area
@@ -676,9 +675,6 @@ def random_rect_mosaic(img, left, top, rect_w, rect_h, patch_size=5):
     return img
 
 
-from PIL import Image, ImageFilter
-
-
 class GaussianBlur(object):
     """
     Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
@@ -701,31 +697,8 @@ class GaussianBlur(object):
 
 import PIL
 
-
-class RandomLightShadow(object):
-    """
-    Randomly add light or shadow
-    """
-
-    def __init__(self, base=200):
-        """
-        @param base:
-        """
-        self.base = base
-
-    def __call__(self, x):
-        """
-        @param x: PIL Image or numpy ndarray
-        """
-        if isinstance(x, PIL.Image.Image):
-            x = np.array(x)  # PIL Image to numpy array
-
-        x = random_light_or_shadow(x)
-        x = Image.fromarray(x)
-        return x
-
-
 ## ----- TODO: random colorful light(not only white light)
+## ----- TODO: random kernel weighted light or shadow
 def random_light_or_shadow(img, base=200, low=10, high=255):
     """
     @param img:
@@ -759,6 +732,27 @@ def random_light_or_shadow(img, base=200, low=10, high=255):
 
     return img.astype(np.uint8)
 
+class RandomLightShadow(object):
+    """
+    Randomly add light or shadow
+    """
+
+    def __init__(self, base=200):
+        """
+        @param base:
+        """
+        self.base = base
+
+    def __call__(self, x):
+        """
+        @param x: PIL Image or numpy ndarray
+        """
+        if isinstance(x, PIL.Image.Image):
+            x = np.array(x)  # PIL Image to numpy array
+
+        x = random_light_or_shadow(x)
+        x = Image.fromarray(x)
+        return x
 
 def random_jpeg_compress(img, low=50, high=95):
     """
@@ -907,6 +901,7 @@ def random_speckle_noise(img, low=5, high=25):
 
     return img
 
+
 def random_poisson_noise(img):
     """
     :param img:
@@ -931,6 +926,7 @@ def random_poisson_noise(img):
     img = img.astype(np.uint8)
 
     return img
+
 
 def random_gauss_noise(img,
                        low=2,
@@ -965,6 +961,7 @@ def random_gauss_noise(img,
 
     return img
 
+
 ## TODO: extend speckle noise to more random noise types:
 # speckle noise gauss noise, poisson noise
 def random_noise(img):
@@ -973,13 +970,14 @@ def random_noise(img):
     """
     noise_type = np.random.randint(1, 4)
     if noise_type == 1:
-        img_noise = random_gauss_noise(img, low=2, high=25)
+        img_noise = random_gauss_noise(img, low=2, high=10)
     elif noise_type == 2:
         img_noise = random_poisson_noise(img)
     elif noise_type == 3:
-        img_noise = random_speckle_noise(img, low=5, high=25)
+        img_noise = random_speckle_noise(img, low=2, high=10)
 
     return img_noise
+
 
 class RandomNoise(object):
     def __init__(self):
@@ -1017,21 +1015,21 @@ class TwoCropsTransform:
 
 ## Patch transform to return q and q
 class PairTransform():
-    def __init__(self, patch_size=(224, 224)):
+    def __init__(self):
         """
         :param patch_size
         """
         self.augmentation = [
             transforms.RandomApply([RandomJPEGCompress(low=70, high=95)], p=0.5),
+            transforms.RandomApply([RandomNoise()], p=0.5),
             transforms.RandomApply([RandomSharpening(low=3, high=50)], p=0.5),
             transforms.RandomApply([RandomMosaic(max_num=7)], p=0.5),
             transforms.RandomApply([RandomLightShadow(base=200)], p=0.5),
-            transforms.RandomApply([RandomNoise()], p=0.2),
             transforms.RandomApply([RandomKernelBlur(iso_rate=0.2,
                                                      min_k_size=3,
-                                                     max_k_size=7)], p=0.5),
+                                                     max_k_size=9)], p=0.5),
             transforms.RandomApply([transforms.ColorJitter(0.3, 0.3, 0.3, 0.1)], p=0.5),
-            # transforms.RandomGrayscale(p=0.02),  # p=0.2
+            transforms.RandomGrayscale(p=0.01),  # p=0.2
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),

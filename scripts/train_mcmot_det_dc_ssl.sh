@@ -4,6 +4,7 @@ python3 ./tools/train_det.py --ckpt ./YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ck
                              --batch-size 7 \
                              --cutoff 44 \
                              --debug 0 \
+                             --lr 5e-5 \
                              --n_workers 2 \
                              --n_devices 2 \
                              --devices 6,7

@@ -231,7 +231,7 @@ class MosaicDetection(Dataset):
         '''
         cp_bboxes_transformed_np[:, 0::2] = cp_bboxes_transformed_np[:, 0::2] - x_offset
         cp_bboxes_transformed_np[:, 1::2] = cp_bboxes_transformed_np[:, 1::2] - y_offset
-        keep_list = box_candidates(cp_bboxes_origin_np.T, cp_bboxes_transformed_np.T, 5)
+        keep_list = box_candidates(cp_bboxes_origin_np.temperature, cp_bboxes_transformed_np.temperature, 5)
 
         if keep_list.sum() >= 1.0:
             cls_labels = cp_labels[keep_list, 4:5].copy()
