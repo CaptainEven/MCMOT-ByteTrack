@@ -138,18 +138,18 @@ def _pre_process(image, net_size, mean, std):
     return preprocessed_image, image_info
 
 
-def post_process(outputs, img_size):
+def post_process(outputs, net_size):
     """
     :param outputs:
-    :param img_size:
+    :param net_size:
     """
     grids = []
     expanded_strides = []
 
     strides = [8, 16, 32]
 
-    h_sizes = [img_size[0] // stride for stride in strides]
-    w_sizes = [img_size[1] // stride for stride in strides]
+    h_sizes = [net_size[0] // stride for stride in strides]
+    w_sizes = [net_size[1] // stride for stride in strides]
 
     for h_size, w_size, stride in zip(h_sizes, w_sizes, strides):
         xv, yv = np.meshgrid(np.arange(w_size), np.arange(h_size))
@@ -166,12 +166,13 @@ def post_process(outputs, img_size):
     return outputs
 
 
-def _post_process(result, net_size, scale, nms_th, score_th):
+def _post_process(outputs, net_size, scale, nms_th, score_th):
     """
-    :param result:
+    :param outputs:
     :param net_size: net_h, net_w
     """
-    predictions = post_process(result, net_size)
+    ## ----- Get xywh in net_size
+    predictions = post_process(outputs, net_size)
 
     predictions = predictions[0]
     boxes = predictions[:, :4]
@@ -221,7 +222,7 @@ def inference(net,
     ## -----
 
     ## ----- post process
-    dets = _post_process(result=outputs,
+    dets = _post_process(outputs=outputs,
                          net_size=net_size,
                          scale=img_info['ratio'],
                          nms_th=nms_thresh,

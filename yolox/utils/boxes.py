@@ -3,9 +3,9 @@
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
 import numpy as np
-
-import torch
 import torchvision
+import torch
+
 
 __all__ = [
     "filter_box",
@@ -82,7 +82,6 @@ def post_process(predicts,
             output[i] = torch.cat((output[i], detections))
 
     return output
-
 
 def bboxes_iou(bboxes_a, bboxes_b, xyxy=True):
     """

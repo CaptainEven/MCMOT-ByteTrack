@@ -13,7 +13,8 @@ from tqdm import tqdm
 
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
-from yolox.utils import post_process, select_device, find_free_gpu
+from yolox.utils import select_device, find_free_gpu
+from yolox.utils.demo_utils import multiclass_nms
 
 
 def make_parser():
@@ -81,7 +82,7 @@ def make_parser():
 
     parser.add_argument("--iou_thresh",
                         type=float,
-                        default=0.5,
+                        default=0.3,
                         help="")
 
     parser.add_argument("--conf_thresh",
@@ -95,6 +96,56 @@ def make_parser():
                         help="")
 
     return parser
+
+def post_process(outputs, net_size):
+    """
+    :param outputs:
+    :param net_size:
+    """
+    grids = []
+    expanded_strides = []
+
+    strides = [8, 16, 32]
+
+    h_sizes = [net_size[0] // stride for stride in strides]
+    w_sizes = [net_size[1] // stride for stride in strides]
+
+    for h_size, w_size, stride in zip(h_sizes, w_sizes, strides):
+        xv, yv = np.meshgrid(np.arange(w_size), np.arange(h_size))
+        grid = np.stack((xv, yv), 2).reshape(1, -1, 2)
+        grids.append(grid)
+        shape = grid.shape[:2]
+        expanded_strides.append(np.full((*shape, 1), stride))
+
+    grids = np.concatenate(grids, 1)
+    expanded_strides = np.concatenate(expanded_strides, 1)
+    outputs[..., :2] = (outputs[..., :2] + grids) * expanded_strides
+    outputs[..., 2:4] = np.exp(outputs[..., 2:4]) * expanded_strides
+
+    return outputs
+
+def _post_process(outputs, net_size, scale, nms_th, score_th):
+    """
+    :param outputs:
+    :param net_size: net_h, net_w
+    """
+    predictions = post_process(outputs, net_size)
+
+    predictions = predictions[0]
+    boxes = predictions[:, :4]
+    scores = predictions[:, 4:5] * predictions[:, 5:]
+    boxes_xyxy = np.ones_like(boxes)
+    boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2] / 2.0
+    boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3] / 2.0
+    boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2] / 2.0
+    boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3] / 2.0
+    boxes_xyxy /= scale  # scale from net size back to image size
+
+    dets = multiclass_nms(boxes_xyxy,
+                          scores,
+                          nms_thr=nms_th,
+                          score_thr=score_th, )
+    return dets
 
 
 def inference(img_path, net, opt):
@@ -129,11 +180,13 @@ def inference(img_path, net, opt):
         if isinstance(outputs, tuple):
             outputs, feature_map = outputs[0], outputs[1]
 
-        ## ----- get bbox(x1y1x2y2) and do NMS
-        outputs = post_process(outputs,
-                               opt.num_classes,
-                               opt.conf_thresh,
-                               opt.nms_thresh)
+        ## ----- post process
+        outputs = outputs.cpu().numpy()
+        outputs = _post_process(outputs=outputs,
+                                net_size=(net_size[1], net_size[0]),
+                                scale=img_info["ratio"],
+                                nms_th=opt.nms_thresh,
+                                score_th=opt.conf_thresh)
 
     return outputs, img_info
 
@@ -213,86 +266,16 @@ def get_img_name(img_path):
     name = img_path.replace('.jpg', '')
     return name
 
-
-# def LoadLabel(xml_path, class_names):
-#     """
-#     @param xml_path:
-#     @param class_names:
-#     """
-#     fl = open(xml_path)
-#
-#     cn = 0
-#     num = 0
-#     gt_dets = []
-#     label_info = fl.read()
-#     if label_info.find('dataroot') < 0:
-#         print("Can not find dataroot")
-#         fl.close()
-#         return gt_dets
-#
-#     try:
-#         root = ET.fromstring(label_info)
-#     except(Exception, e):
-#         print("Error: cannot parse file")
-#         # n = raw_input()
-#         fl.close()
-#         return gt_dets
-#
-#     if root.find('markNode') != None:
-#         obj = root.find('markNode').find('object')
-#         if obj != None:
-#             w = int(root.find('width').text)
-#             h = int(root.find('height').text)
-#             # print("w:%d,h%d" % (w, h))
-#             for obj in root.iter('object'):
-#                 targettype = obj.find('targettype').text
-#                 cartype = obj.find('cartype').text
-#                 if targettype == 'car_front' or targettype == 'car_rear':
-#                     targettype = 'fr'
-#                 if targettype not in class_names and cartype not in class_names:
-#                     # print("********************************* "+str(targettype) + "is not in class list *************************")
-#                     continue
-#
-#                 # classes_c9
-#                 # if targettype == "car":
-#                 #     cartype = obj.find('cartype').text
-#                 #     # print(cartype)
-#                 #     if cartype == 'motorcycle':
-#                 #         targettype = "bicycle"
-#                 #     elif cartype == 'truck':
-#                 #         targettype = "truck"
-#                 #     elif cartype == 'waggon':
-#                 #         targettype = 'waggon'
-#                 #     elif cartype == 'passenger_car':
-#                 #         targettype = 'passenger_car'
-#                 #     elif cartype == 'unkonwn' or cartype == "shop_truck":
-#                 #         targettype = "other"
-#
-#                 # classes_c5
-#                 if targettype == 'car':
-#                     cartype = obj.find('cartype').text
-#                     if cartype == 'motorcycle':
-#                         targettype = 'bicycle'
-#                 if targettype == "motorcycle":
-#                     targettype = "bicycle"
-#
-#                 xmlbox = obj.find('bndbox')
-#                 b = (float(xmlbox.find('xmin').text), float(xmlbox.find('xmax').text), float(xmlbox.find('ymin').text),
-#                      float(xmlbox.find('ymax').text))
-#                 bb = Convert((w, h), b)
-#                 obj = [targettype, float(bb[0]), float(bb[1]), float(bb[2]), float(bb[3])]
-#                 # print(obj)
-#                 gt_dets.append(obj)
-#
-#     fl.close()
-#     return gt_dets
-
-def voc_ap(rec, prec):
+def voc_ap(recall, precision):
+    """
+    @param recall:
+    @param precision:
+    """
     # 采用更为精确的逐点积分方法
     # correct AP calculation
     # first append sentinel values at the end
-    mrec = np.concatenate(([0.], rec, [1.]))
-    mpre = np.concatenate(([0.], prec, [0.]))
+    mrec = np.concatenate(([0.0], recall, [1.0]))
+    mpre = np.concatenate(([0.0], precision, [0.0]))
 
     # compute the precision envelope
     for i in range(mpre.size - 1, 0, -1):
@@ -307,144 +290,120 @@ def voc_ap(rec, prec):
     return ap
 
 
-def voc_eval(dets_cls,
+def voc_eval(dets_pred_cls,
              xml_path_list,
              img_name_list,
              class_name,
              iou_thresh=0.5):
     """
-    :param dets_cls:
+    :param dets_pred_cls:
     :param xml_path_list:
     :param img_name_list:
     :param class_name:
     :param iou_thresh:
     :return:
     """
-    # 主函数，计算当前类别的recall和precision
-    # #det_path检测结果txt文件，路径VOCdevkit/results/VOC20xx/Main/<comp_id>_det_test_aeroplane.txt。
-    # 该文件格式：image_name1 type confidence xmin ymin xmax ymax  (图像1的第一个结果)
-    #           image_name1 type confidence xmin ymin xmax ymax  (图像1的第二个结果)
-    #           image_name2 type confidence xmin ymin xmax ymax  (图像2的第一个结果)
-    #           ......
-    # 每个结果占一行，检测到多少个BBox就有多少行，这里假设有20000个检测结果
-
-    # det_path: Path to detections
-    #     detpath.format(classname) should produce the detection results file.
-
-    # anno_path: Path to annotations
-    #     annopath.format(imagename) should be the xml annotations file. #xml 标注文件。
-
-    # img_name_list: Text file containing the list of images, one image per line.
-    # #数据集划分txt文件，
-    # 路径VOCdevkit/VOC20xx/ImageSets/Main/test.txt这里假设测试图像1000张，那么该txt文件1000行。
-
-    # class_name: Category name (duh) #种类的名字，即类别，假设类别2（一类目标+背景）。
-
-    # cachedir: Directory for caching the annotations
-    # #缓存标注的目录路径VOCdevkit/annotation_cache,图像数据只读文件，为了避免每次都要重新读数据集原始数据。
-
-    # [ovthresh]: Overlap threshold (default = 0.5) #重叠的多少大小。
-    # [use_07_metric]: Whether to use VOC07's 11 point AP computation
-    #     (default False) #是否使用VOC07的AP计算方法，voc07是11个点采样。
-
-    # assumes detections are in detpath.format(classname)
-    # assumes annotations are in annopath.format(imagename)
-    # assumes imagesetfile is a text file with each line an image name
-    # cachedir caches the annotations in a pickle file
-
     img_names_list = [x.strip() for x in img_name_list]
 
     # parse_rec函数读取当前图像标注文件，返回当前图像标注，存于recs字典（key是图像名，values是gt）
     print("=> Parsing XMLs...")
-    recs = {}
-    with tqdm(total=len(img_names_list)) as progress_bar:
+    gt_dict_all = {}
+    with tqdm(total=len(img_names_list)) as progress_bar:  # 遍历大图
         for img_name, xml_path in zip(img_names_list, xml_path_list):
-            # recs[img_name] = parse_rec(annopath.format(img_name))
+            # recs[img_name] = parse_xml(annopath.format(img_name))
             parse_res = parse_xml(xml_path)
             if parse_res is None:
                 continue
-            recs[img_name] = parse_res
+
+            gt_dict_all[img_name] = parse_res
             progress_bar.update()
 
     # extract gt objects for this class #按类别获取标注文件，recall和precision都是针对不同类别而言的，AP也是对各个类别分别算的。
-    class_recs = {}  # 当前类别的标注
-    npos = 0  # npos标记的目标数量
+    gt_dict_cls = {}  # 当前类别的标注
+    n_gt = 0  # 标记的目标数量
     for img_name in img_names_list:
-        img_gts = recs[img_name]
-        img_cls_gts = [obj for obj in img_gts if obj['name'] == class_name]  # 过滤，只保留recs中指定类别的项，存为R。
-        bbox = np.array([x["bbox"] for x in img_cls_gts])  # 抽取bbox
-        difficult = np.array([x["difficult"] for x in img_cls_gts]).astype(np.bool)  # 如果数据集没有difficult,所有项都是0.
+        ## ----- Get labels of the whole image
+        img_gts = gt_dict_all[img_name]
 
-        det = [False] * len(img_cls_gts)  # len(img_cls_gts)就是当前类别的gt目标个数，det表示是否检测到，初始化为false。
-        npos += sum(~difficult)  # 自增，非difficult样本数量，如果数据集没有difficult，npos数量就是gt数量。
-        class_recs[img_name] = {'bbox': bbox,
-                                'difficult': difficult,
-                                'det': det}
+        ## ----- Get labels of the whole image for current class
+        gts_cls = [obj for obj in img_gts if obj["name"] == class_name]
+        gt_bboxes_cls = np.array([x["bbox"] for x in gts_cls])  # 抽取bbox
+        difficult = np.array([x["difficult"] for x in gts_cls]).astype(np.bool)  # 如果数据集没有difficult,所有项都是0.
+
+        gt_matched = [False] * len(gts_cls)  # len(img_cls_gts)就是当前类别的gt目标个数，det表示是否检测到，初始化为false。
+        n_gt += sum(~difficult)  # 自增，非difficult样本数量，如果数据集没有difficult，npos数量就是gt数量。
+        gt_dict_cls[img_name] = {"bbox": gt_bboxes_cls,
+                                 "difficult": difficult,
+                                 "matched": gt_matched}
 
     # read dets 读取检测结果
-    splitlines = dets_cls  # 该文件格式：imagename1 type confidence xmin ymin xmax ymax
+    splitlines = dets_pred_cls  # 该文件格式：imagename1 type confidence xmin ymin xmax ymax
     # splitlines = [x.strip().split(' ') for x in detpath]  # 假设检测结果有20000个，则splitlines长度20000
 
-    img_names = [x[0] for x in splitlines]  # 检测结果中的图像名，image_ids长度20000，但实际图像只有1000张，因为一张图像上可以有多个目标检测结果
+    pred_img_names = [x[0] for x in splitlines]  # 检测结果中的图像名，image_ids长度20000，但实际图像只有1000张，因为一张图像上可以有多个目标检测结果
     confidence = np.array([float(x[2]) for x in splitlines])  # 检测结果置信度
-    BB_pred = np.array([[float(z) for z in x[3:]] for x in splitlines])  # 变为浮点型的bbox。
+    BB_preds = np.array([[float(z) for z in x[3:]] for x in splitlines])  # 变为浮点型的bbox。
 
-    npos = len(img_names)
+    n_gt = len(pred_img_names)  # TODO:???
 
     # sort by confidence 将20000各检测结果按置信度排序
     sorted_ind = np.argsort(-confidence)  # 对confidence的index根据值大小进行降序排列。
     sorted_scores = np.sort(-confidence)  # 降序排列。
-    BB_pred = BB_pred[sorted_ind, :]  # 重排bbox，由大概率到小概率。
-    img_names = [img_names[x] for x in sorted_ind]
+    BB_preds = BB_preds[sorted_ind, :]  # 重排bbox，由大概率到小概率。
+    pred_img_names = [pred_img_names[x] for x in sorted_ind]
 
-    # go down dets and mark TPs and FPs
-    n_predict_dets = len(img_names)  # 注意这里是20000，不是1000
-    tp = np.zeros(n_predict_dets)  # true positive，长度20000
-    fp = np.zeros(n_predict_dets)  # false positive，长度20000
-    for pred_det_i, img_name in enumerate(img_names):  # 遍历所有检测结果，因为已经排序，所以这里是从置信度最高到最低遍历
-        img_cls_gts = class_recs[img_names[pred_det_i]]  # 当前检测结果所在图像的所有同类别gt
-        bb = BB_pred[pred_det_i, :].astype(float)  # 当前检测结果bbox坐标
+    ## ----- go down dets and mark TPs and FPs
+    n_pred_dets = len(pred_img_names)  # 注意这里是20000，不是1000
+    TPs = np.zeros(n_pred_dets)  # true positive，长度20000
+    FPs = np.zeros(n_pred_dets)  # false positive，长度20000
+
+    # 遍历所有推理检测结果(一个bbox对应一个检测结果)，
+    # 因为已经排序，所以这里是从置信度最高到最低遍历
+    for i, img_name in enumerate(pred_img_names):
+        bbox_pred = BB_preds[i]
+
+        # 当前检测结果所在图像的所有同类别gt
+        gts_cls = gt_dict_cls[img_name]
+
+        # 当前检测结果所在图像的所有同类别gt的bbox坐标
+        bbox_gt = gts_cls["bbox"].astype(float)
         max_iou = -np.inf
-        BB_GT = img_cls_gts['bbox'].astype(float)  # 当前检测结果所在图像的所有同类别gt的bbox坐标
 
-        if BB_GT.size > 0:
+        if bbox_gt.size > 0:
             # compute overlaps 计算当前检测结果，与该检测结果所在图像的标注重合率，一对多用到python的broadcast机制
             # intersection
-            i_x_min = np.maximum(BB_GT[:, 0], bb[0])
-            i_y_min = np.maximum(BB_GT[:, 1], bb[1])
-            i_x_max = np.minimum(BB_GT[:, 2], bb[2])
-            i_y_max = np.minimum(BB_GT[:, 3], bb[3])
+            i_x_min = np.maximum(bbox_gt[:, 0], bbox_pred[0])
+            i_y_min = np.maximum(bbox_gt[:, 1], bbox_pred[1])
+            i_x_max = np.minimum(bbox_gt[:, 2], bbox_pred[2])
+            i_y_max = np.minimum(bbox_gt[:, 3], bbox_pred[3])
             iw = np.maximum(i_x_max - i_x_min + 1.0, 0.0)
             ih = np.maximum(i_y_max - i_y_min + 1.0, 0.0)
             inters = iw * ih
-
-            # union
-            uni = ((bb[2] - bb[0] + 1.0) * (bb[3] - bb[1] + 1.0) +
-                   (BB_GT[:, 2] - BB_GT[:, 0] + 1.0) *
-                   (BB_GT[:, 3] - BB_GT[:, 1] + 1.0) - inters)
-
-            ious = inters / uni
-            max_iou = np.max(ious)  # 最大重合率
-            j_max = np.argmax(ious)  # 最大重合率对应的gt, 返回最大索引数
+            unions = ((bbox_pred[2] - bbox_pred[0] + 1.0) * (bbox_pred[3] - bbox_pred[1] + 1.0) +
+                      (bbox_gt[:, 2] - bbox_gt[:, 0] + 1.0) *
+                      (bbox_gt[:, 3] - bbox_gt[:, 1] + 1.0) - inters)
+            ious = inters / unions
+            max_iou = np.max(ious)
+            max_iou_gt_idx = np.argmax(ious)
 
         if max_iou > iou_thresh:  # 如果当前检测结果与真实标注最大重合率满足阈值
-            # if not img_cls_gts['difficult'][j_max]:
-            if not img_cls_gts['det'][j_max]:
-                tp[pred_det_i] = 1.0  # 正检数目+1
-                img_cls_gts['det'][j_max] = True  # 该gt被置为已检测到，下一次若还有另一个检测结果与之重合率满足阈值，则不能认为多检测到一个目标
+            # if not img_cls_gts["difficult"][j_max]:
+            if not gts_cls["matched"][max_iou_gt_idx]:
+                TPs[i] = 1.0  # 正检数目+1
+                gts_cls["matched"][max_iou_gt_idx] = True  # 该gt被置为已检测到，下一次若还有另一个检测结果与之重合率满足阈值，则不能认为多检测到一个目标
             else:  # 相反，认为检测到一个虚警
-                fp[pred_det_i] = 1.0
+                FPs[i] = 1.0
         else:  # 不满足阈值，肯定是虚警
-            fp[pred_det_i] = 1.0
+            FPs[i] = 1.0
 
-    # compute precision recall
-    fp = np.cumsum(fp)  # 积分图，在当前节点前的虚警数量，fp长度
-    tp = np.cumsum(tp)  # 积分图，在当前节点前的正检数量
-    recall = tp / float(npos)  # 召回率，长度20000，从0到1
+    # compute precision and recall
+    FPs = np.cumsum(FPs)  # 积分图，在当前节点前的虚警数量，fp长度
+    TPs = np.cumsum(TPs)  # 积分图，在当前节点前的正检数量
+    recall = TPs / float(n_gt)  # 召回率，长度20000，从0到1
 
     # avoid divide by zero in case the first detection matches a difficult
     # ground truth 准确率，长度20000，长度20000，从1到0
-    precision = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+    precision = TPs / np.maximum(TPs + FPs, np.finfo(np.float64).eps)
     ap = voc_ap(recall, precision)
 
     return ap
@@ -479,6 +438,7 @@ def evaluate(exp, opt):
     ## ----- Define the network
     net = exp.get_model()
     net.eval().to(device)
+    net.head.decode_in_inference = False
     ## -----
 
     ## ----- load weights
@@ -531,16 +491,16 @@ def evaluate(exp, opt):
                 continue
 
             with torch.no_grad():
-                dets_pred = outputs[0]
-                if dets_pred is None:
+                dets_predicted = outputs  # [0]
+                if dets_predicted is None:
                     continue
-                dets_pred = dets_pred.cpu().numpy()
+                # dets_predicted = dets_predicted.cpu().numpy()
 
             ## -----
             dets_pred = []
-            for det in dets_pred:
+            for det in dets_predicted:
                 # print(det)
-                x1, y1, x2, y2, score_1, score_2, cls_id = det
+                x1, y1, x2, y2, confidence, cls_id = det
 
                 ## ----- Clipping the predicted coordinates
                 x1 = x1 if x1 >= 0 else 0
@@ -559,7 +519,7 @@ def evaluate(exp, opt):
                 y2 /= img_info["height"]
 
                 cls_name = id2cls[cls_id]
-                confidence = score_1 * score_2
+                # confidence = score_1 * score_2
                 det_pred = [img_name, cls_name, confidence, x1, y1, x2, y2]
                 dets_pred.append(det_pred)
             if len(dets_pred) > 0:
@@ -571,11 +531,11 @@ def evaluate(exp, opt):
     APs = []
     for cls_name in opt.class_names:
         print("=> processing {:s}...".format(cls_name))
-        dets_cls = [obj for obj in dets_pred_all if obj[1] == cls_name]
-        if len(dets_cls) == 0:
+        dets_pred_cls = [obj for obj in dets_pred_all if obj[1] == cls_name]
+        if len(dets_pred_cls) == 0:
             cls_ap = 0
         else:
-            cls_ap = voc_eval(dets_cls,
+            cls_ap = voc_eval(dets_pred_cls,
                               xml_paths,
                               img_name_list,
                               cls_name,

@@ -13,8 +13,10 @@ from loguru import logger
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.tracking_utils.timer import Timer
-from yolox.utils import fuse_model, get_model_info, post_process
+from yolox.utils import fuse_model, get_model_info
 from yolox.utils.visualize import plot_detection
+from yolox.utils.demo_utils import multiclass_nms
+
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -34,7 +36,7 @@ def make_parser():
                         default="../YOLOX_outputs",
                         help="")
     parser.add_argument("--conf",
-                        default=0.35,
+                        default=0.2,
                         type=float,
                         help="test conf")
     parser.add_argument("--nms_thresh",
@@ -170,7 +172,6 @@ def make_parser():
 
     return parser
 
-
 def get_image_list(path):
     """
     :param path:
@@ -256,10 +257,60 @@ def write_results(file_path, results):
 
     logger.info('save results to {}'.format(file_path))
 
+def post_process(outputs, net_size):
+    """
+    :param outputs:
+    :param net_size:
+    """
+    grids = []
+    expanded_strides = []
+
+    strides = [8, 16, 32]
+
+    h_sizes = [net_size[0] // stride for stride in strides]
+    w_sizes = [net_size[1] // stride for stride in strides]
+
+    for h_size, w_size, stride in zip(h_sizes, w_sizes, strides):
+        xv, yv = np.meshgrid(np.arange(w_size), np.arange(h_size))
+        grid = np.stack((xv, yv), 2).reshape(1, -1, 2)
+        grids.append(grid)
+        shape = grid.shape[:2]
+        expanded_strides.append(np.full((*shape, 1), stride))
+
+    grids = np.concatenate(grids, 1)
+    expanded_strides = np.concatenate(expanded_strides, 1)
+    outputs[..., :2] = (outputs[..., :2] + grids) * expanded_strides
+    outputs[..., 2:4] = np.exp(outputs[..., 2:4]) * expanded_strides
+
+    return outputs
+
+def _post_process(outputs, net_size, scale, nms_th, score_th):
+    """
+    :param outputs:
+    :param net_size: net_h, net_w
+    """
+    ## ----- Get xywh in net_size
+    predictions = post_process(outputs, net_size)
+
+    predictions = predictions[0]
+    boxes = predictions[:, :4]
+    scores = predictions[:, 4:5] * predictions[:, 5:]
+    boxes_xyxy = np.ones_like(boxes)
+    boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2] / 2.0
+    boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3] / 2.0
+    boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2] / 2.0
+    boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3] / 2.0
+    boxes_xyxy /= scale  # scale from net size back to image size
+
+    dets = multiclass_nms(boxes_xyxy,
+                          scores,
+                          nms_thr=nms_th,
+                          score_thr=score_th, )
+    return dets
 
 class Predictor(object):
     def __init__(self,
-                 model,
+                 net,
                  exp,
                  trt_file=None,
                  decoder=None,
@@ -267,7 +318,7 @@ class Predictor(object):
                  fp16=False,
                  reid=False):
         """
-        :param model:
+        :param net:
         :param exp:
         :param trt_file:
         :param decoder:
@@ -275,7 +326,8 @@ class Predictor(object):
         :param fp16:
         :param reid:
         """
-        self.net = model
+        self.net = net
+        self.net.head.decode_in_inference = False
         self.decoder = decoder
         self.num_classes = exp.n_classes
         self.conf_thresh = exp.test_conf
@@ -284,7 +336,8 @@ class Predictor(object):
         self.nms_thresh = exp.nms_thresh
         logger.info("NMS thresh: ", self.nms_thresh)
 
-        self.test_size = exp.test_size
+        self.test_size = exp.test_size  # H, W
+        # self.net_size = self.test_size
         self.device = device
         self.fp16 = fp16
         self.reid = reid
@@ -345,10 +398,18 @@ class Predictor(object):
                 outputs, feature_map = outputs[0], outputs[1]
 
             ## ----- get bbox(x1y1x2y2) and do NMS
-            outputs = post_process(outputs,
-                                   self.num_classes,
-                                   self.conf_thresh,
-                                   self.nms_thresh)
+            # outputs = post_process(outputs,
+            #                        self.num_classes,
+            #                        self.conf_thresh,
+            #                        self.nms_thresh)
+
+            ## ----- post process
+            outputs = outputs.cpu().numpy()
+            outputs = _post_process(outputs=outputs,
+                                    net_size=self.test_size,
+                                    scale=img_info["ratio"],
+                                    nms_th=self.nms_thresh,
+                                    score_th=self.conf_thresh)
 
         return outputs, img_info
 
@@ -498,19 +559,17 @@ def detect_video(predictor, cap, vid_save_path, opt):
         if ret_val:
             with torch.no_grad():
                 outputs, img_info = predictor.inference(frame, timer)
-                dets = outputs[0]
-                dets = dets.cpu().numpy()
-                dets = dets[np.where(dets[:, 4] > opt.conf)]
+                dets = outputs
+                # dets = dets.cpu().numpy()
+                # dets = dets[np.where(dets[:, 4] > opt.conf)]
 
-            ## turn x1,y1,x2,y2,score1,score2,cls_id  (7)
-            ## tox1,y1,x2,y2,score,cls_id  (6)
-            if dets.shape[1] == 7:
-                dets[:, 4] *= dets[:, 5]
-                dets[:, 5] = dets[:, 6]
-                dets = dets[:, :6]
-
-            if dets.shape[0] > 0:
-                dets[:, :4] /= img_info['ratio']  # scale x1, y1, x2, y2
+            if dets.size > 0:
+                ## turn x1,y1,x2,y2,score1,score2,cls_id  (7)
+                ## to x1,y1,x2,y2,score,cls_id  (6)
+                if dets.shape[1] == 7:
+                    dets[:, 4] *= dets[:, 5]
+                    dets[:, 5] = dets[:, 6]
+                    dets = dets[:, :6]
 
                 timer.toc()
                 online_img = plot_detection(img=img_info['raw_img'],
@@ -642,7 +701,8 @@ def run(exp, opt):
     ## ----- Define the network
     net = exp.get_model()
     if not opt.debug:
-        logger.info("Model Summary: {}".format(get_model_info(net, exp.test_size)))
+        logger.info("Model Summary: {}"
+                    .format(get_model_info(net, exp.test_size)))
     if opt.device == "gpu":
         net.cuda()
     net.eval()
@@ -683,6 +743,7 @@ def run(exp, opt):
         decoder = None
 
     ## ---------- Define the predictor
+    net.head.decode_in_inference = False
     predictor = Predictor(net, exp, trt_file, decoder, opt.device, opt.fp16, opt.reid)
     ## ----------
 
