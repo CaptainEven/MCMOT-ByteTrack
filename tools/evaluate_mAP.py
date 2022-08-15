@@ -86,6 +86,7 @@ def make_parser():
                         default=(0.229, 0.224, 0.225),
                         help="")
 
+    ## ----- mAP thresh
     parser.add_argument("--iou_thresh",
                         type=float,
                         default=0.5,
@@ -564,7 +565,8 @@ def evaluate(exp, opt):
                               cls_name,
                               opt.iou_thresh)
         APs.append(cls_ap)
-        print("\n")
+        print("=> Processing {:s} done.".format(cls_name))
+
     print("APs: ", APs)
     APs = np.array(APs, dtype=np.float32)
     mAP = np.mean(APs)
