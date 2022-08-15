@@ -36,7 +36,7 @@ def make_parser():
                         default="../YOLOX_outputs",
                         help="")
     parser.add_argument("--conf_thresh",
-                        default=0.25,
+                        default=0.3,
                         type=float,
                         help="test conf")
     parser.add_argument("--nms_thresh",

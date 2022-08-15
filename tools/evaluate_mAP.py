@@ -17,6 +17,7 @@ from yolox.utils import select_device, find_free_gpu
 from yolox.utils.demo_utils import multiclass_nms
 from yolox.utils.visualize import plot_detection
 
+
 def make_parser():
     """
     :return:
@@ -341,7 +342,7 @@ def voc_eval(dets_pred_cls,
     confidence = np.array([float(x[2]) for x in split_lines])  # 检测结果置信度
     BB_preds = np.array([[float(z) for z in x[3:]] for x in split_lines])  # 变为浮点型的bbox。
 
-    n_gt = len(pred_img_names)  # TODO:???
+    # n_gt = len(pred_img_names)  # TODO:???
 
     # sort by confidence 将20000各检测结果按置信度排序
     sorted_ind = np.argsort(-confidence)  # 对confidence的index根据值大小进行降序排列。
@@ -406,6 +407,116 @@ def voc_eval(dets_pred_cls,
     return ap
 
 
+def calculate_f1(dets_pred_cls,
+                 gt_dict_all,
+                 img_name_list,
+                 class_name,
+                 iou_thresh=0.5):
+    """
+    :param dets_pred_cls:
+    :param xml_path_list:
+    :param img_name_list:
+    :param class_name:
+    :param iou_thresh:
+    :return:
+    """
+    # extract gt objects for this class
+    # #按类别获取标注文件，recall和precision都是针对不同类别而言的，
+    # AP也是对各个类别分别算的。
+    n_gt = 0  # 标记的目标数量
+    gt_cls_dict = {}
+    for img_name in img_name_list:
+        ## ----- Get labels of the whole image
+        gts_of_img = gt_dict_all[img_name]
+
+        ## ----- Get labels of the whole image for current class
+        gts_cls = [x for x in gts_of_img if x["name"].strip() == class_name]
+        gt_bboxes_cls = np.array([x["bbox"] for x in gts_cls])  # 抽取bbox
+        difficult = np.array([x["difficult"] for x in gts_cls]).astype(np.bool)  # 如果数据集没有difficult,所有项都是0.
+
+        gt_matched = [False] * len(gts_cls)  # len(img_cls_gts)就是当前类别的gt目标个数，det表示是否检测到，初始化为false。
+
+        # 自增, 非difficult样本数量，如果数据集没有difficult, n_gt数量就是gt数量。
+        n_gt += sum(~difficult)
+        gt_cls_dict[img_name] = {"bbox": gt_bboxes_cls.copy(),
+                                 "difficult": difficult,
+                                 "matched": gt_matched}
+
+    # read dets 读取检测结果
+    split_lines = dets_pred_cls  # img_name cls_name confidence x1 y1 x2 y2
+    pred_img_names = [x[0] for x in split_lines]  # 检测结果中的图像名，image_ids长度20000，但实际图像只有1000张，因为一张图像上可以有多个目标检测结果
+    confidence = np.array([float(x[2]) for x in split_lines])  # 检测结果置信度
+    BB_preds = np.array([[float(z) for z in x[3:]] for x in split_lines])  # 变为浮点型的bbox。
+
+    # n_gt = len(pred_img_names)  # TODO:???
+
+    # sort by confidence 将20000各检测结果按置信度排序
+    sorted_ind = np.argsort(-confidence)  # 对confidence的index根据值大小进行降序排列。
+    sorted_scores = np.sort(-confidence)  # 降序排列。
+    BB_preds = BB_preds[sorted_ind, :]  # 重排bbox，由大概率到小概率。
+    pred_img_names = [pred_img_names[x] for x in sorted_ind]
+
+    ## ----- go down dets and mark TPs and FPs
+    n_pred_dets = len(pred_img_names)  # 注意这里是20000，不是1000
+    TPs = np.zeros(n_pred_dets)  # true positive，长度20000
+    FPs = np.zeros(n_pred_dets)  # false positive，长度20000
+
+    # 遍历所有推理检测结果(一个bbox对应一个检测结果)，
+    # 因为已经排序，所以这里是从置信度最高到最低遍历
+    for i, img_name in enumerate(pred_img_names):
+        bbox_pred = BB_preds[i]
+
+        # 当前检测结果所在图像的所有同类别gt
+        gts_cls = gt_cls_dict[img_name]
+
+        # 当前检测结果所在图像的所有同类别gt的bbox坐标
+        bbox_gt = gts_cls["bbox"].astype(float)
+        max_iou = -np.inf
+
+        if bbox_gt.size > 0:
+            # compute overlaps 计算当前检测结果，与该检测结果所在图像的标注重合率，一对多用到python的broadcast机制
+            # intersection
+            i_x_min = np.maximum(bbox_gt[:, 0], bbox_pred[0])
+            i_y_min = np.maximum(bbox_gt[:, 1], bbox_pred[1])
+            i_x_max = np.minimum(bbox_gt[:, 2], bbox_pred[2])
+            i_y_max = np.minimum(bbox_gt[:, 3], bbox_pred[3])
+            iw = np.maximum(i_x_max - i_x_min + 1.0, 0.0)
+            ih = np.maximum(i_y_max - i_y_min + 1.0, 0.0)
+            inters = iw * ih
+            unions = ((bbox_pred[2] - bbox_pred[0] + 1.0) * (bbox_pred[3] - bbox_pred[1] + 1.0) +
+                      (bbox_gt[:, 2] - bbox_gt[:, 0] + 1.0) *
+                      (bbox_gt[:, 3] - bbox_gt[:, 1] + 1.0) - inters)
+            ious = inters / unions
+            max_iou = np.max(ious)
+            max_iou_gt_idx = np.argmax(ious)
+
+        if max_iou > iou_thresh:  # 如果当前检测结果与真实标注最大重合率满足阈值
+            # if not img_cls_gts["difficult"][j_max]:
+            if not gts_cls["matched"][max_iou_gt_idx]:
+                TPs[i] = 1.0  # 正检数目+1
+                gts_cls["matched"][max_iou_gt_idx] = True  # 该gt被置为已检测到，下一次若还有另一个检测结果与之重合率满足阈值，则不能认为多检测到一个目标
+            else:  # 相反，认为检测到一个虚警
+                FPs[i] = 1.0
+        else:  # 不满足阈值，肯定是虚警
+            FPs[i] = 1.0
+
+    # compute precision and recall
+    FPs = np.sum(FPs)  # 积分图，在当前节点前的虚警数量，fp长度
+    TPs = np.sum(TPs)  # 积分图，在当前节点前的正检数量
+    recall = TPs / float(n_gt)  # 召回率，长度20000，从0到1
+
+    # avoid divide by zero in case the first detection matches a difficult
+    # ground truth 准确率，长度20000，长度20000，从1到0
+    precision = TPs / np.maximum(TPs + FPs, np.finfo(np.float64).eps)
+
+    f1 = 2.0 * (recall * precision) / (recall + precision)
+
+    return f1
+
+    ## ----- Calculate F1
+    f1 = 2.0 * (recall * precision) / (recall + precision)
+
+
 def evaluate(exp, opt):
     """
     @param exp:
@@ -467,8 +578,8 @@ def evaluate(exp, opt):
 
     img_paths.sort()
     xml_path_list = [img_path.replace("JPEGImages", "Annotations")
-                     .replace(".jpg", ".xml")
-                 for img_path in img_paths]
+                         .replace(".jpg", ".xml")
+                     for img_path in img_paths]
     logger.info("total {:d} samples to be evaluated.".format(len(img_paths)))
 
     ## ----- Get predicts
@@ -546,6 +657,7 @@ def evaluate(exp, opt):
     ## ----- Calculate APs for each object class
     dets_pred_all = np.delete(dets_pred_all, 0, axis=0)
     APs = []
+    F1s = []
     for cls_i, cls_name in enumerate(opt.class_names):
         cls_name = cls_name.strip()
 
@@ -564,13 +676,24 @@ def evaluate(exp, opt):
                               img_name_list,
                               cls_name,
                               opt.iou_thresh)
+            cls_f1 = calculate_f1(dets_pred_cls,
+                                  gt_dict_all,
+                                  img_name_list,
+                                  cls_name,
+                                  opt.iou_thresh)
         APs.append(cls_ap)
+        F1s.append(cls_f1)
         print("=> Processing {:s} done.".format(cls_name))
 
-    print("APs: ", APs)
+    print("APs:\n", APs)
     APs = np.array(APs, dtype=np.float32)
     mAP = np.mean(APs)
     print("mAP of C5: {:.3f}".format(mAP))
+
+    print("F1s:\n", F1s)
+    F1s = np.array(F1s)
+    mF1 = np.mean(F1s)
+    print("mF1 of C5: {:.3f}".format(mF1))
 
 
 if __name__ == "__main__":
