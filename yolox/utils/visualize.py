@@ -63,12 +63,12 @@ def get_color(idx):
 
 def plot_detection(img,
                    dets,
-                   frame_id=0,
-                   fps=0.0,
-                   id2cls=None):
+                   frame_id,
+                   fps,
+                   id2cls):
     """
     :param img:
-    :param dets: n×6: x1,y1,x2,y2,score, cls_id
+    :param dets: n×6: x1,y1,x2,y2,score,cls_id
     """
     img = np.ascontiguousarray(np.copy(img))
     # im_h, im_w = img.shape[:2]

@@ -25,7 +25,7 @@ class YOLOXDarkSSL(nn.Module):
                  n_classes=5,
                  max_labels=20,
                  T=0.5,
-                 aux_loss_weight=0.03):
+                 aux_loss_weight=0.05):
         """
         :param cfg_path: configure file path for DarknetBackbone
         :param backbone:

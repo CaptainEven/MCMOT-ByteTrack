@@ -14,9 +14,9 @@ from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.tracking_utils.timer import Timer
 from yolox.utils import fuse_model, get_model_info
-from yolox.utils.visualize import plot_detection
+from yolox.utils import select_device, find_free_gpu
 from yolox.utils.demo_utils import multiclass_nms
-
+from yolox.utils.visualize import plot_detection
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
@@ -35,13 +35,13 @@ def make_parser():
                         type=str,
                         default="../YOLOX_outputs",
                         help="")
-    parser.add_argument("--conf",
-                        default=0.2,
+    parser.add_argument("--conf_thresh",
+                        default=0.25,
                         type=float,
                         help="test conf")
     parser.add_argument("--nms_thresh",
                         type=float,
-                        default=0.65,
+                        default=0.6,
                         help="")
     parser.add_argument("-expn",
                         "--experiment-name",
@@ -172,6 +172,7 @@ def make_parser():
 
     return parser
 
+
 def get_image_list(path):
     """
     :param path:
@@ -257,6 +258,7 @@ def write_results(file_path, results):
 
     logger.info('save results to {}'.format(file_path))
 
+
 def post_process(outputs, net_size):
     """
     :param outputs:
@@ -284,6 +286,7 @@ def post_process(outputs, net_size):
 
     return outputs
 
+
 def _post_process(outputs, net_size, scale, nms_th, score_th):
     """
     :param outputs:
@@ -308,6 +311,7 @@ def _post_process(outputs, net_size, scale, nms_th, score_th):
                           score_thr=score_th, )
     return dets
 
+
 class Predictor(object):
     def __init__(self,
                  net,
@@ -315,8 +319,7 @@ class Predictor(object):
                  trt_file=None,
                  decoder=None,
                  device="cpu",
-                 fp16=False,
-                 reid=False):
+                 fp16=False):
         """
         :param net:
         :param exp:
@@ -324,7 +327,6 @@ class Predictor(object):
         :param decoder:
         :param device:
         :param fp16:
-        :param reid:
         """
         self.net = net
         self.net.head.decode_in_inference = False
@@ -334,23 +336,15 @@ class Predictor(object):
         logger.info("confidence thresh: ", self.conf_thresh)
 
         self.nms_thresh = exp.nms_thresh
-        logger.info("NMS thresh: ", self.nms_thresh)
+        logger.info("NMS thresh: {:.3f}".format(self.nms_thresh))
+
+        self.conf_thresh = exp.conf_thresh
+        logger.info("Conf thresh: {:.3f}".format(self.conf_thresh))
 
         self.test_size = exp.test_size  # H, W
         # self.net_size = self.test_size
         self.device = device
         self.fp16 = fp16
-        self.reid = reid
-
-        if trt_file is not None:
-            from torch2trt import TRTModule
-
-            model_trt = TRTModule()
-            model_trt.load_state_dict(torch.load(trt_file))
-
-            x = torch.ones(1, 3, exp.test_size[0], exp.test_size[1]).cuda()
-            self.net(x)
-            self.net = model_trt
 
         self.mean = (0.485, 0.456, 0.406)
         self.std = (0.229, 0.224, 0.225)
@@ -362,10 +356,9 @@ class Predictor(object):
         :return:
         """
         img_info = {"id": 0}
-
         if isinstance(img, str):
             img_info["file_name"] = os.path.basename(img)
-            img = cv2.imread(img, cv2.IMREAD_UNCHANGED)
+            img = cv2.imread(img, cv2.IMREAD_COLOR)
         else:
             img_info["file_name"] = None
 
@@ -378,11 +371,7 @@ class Predictor(object):
         img_info["ratio"] = ratio
         img = torch.from_numpy(img).unsqueeze(0)
         img = img.float()
-
-        if self.device == "gpu":
-            img = img.cuda()
-            if self.fp16:
-                img = img.half()  # to FP16
+        img = img.to(self.device)
 
         with torch.no_grad():
             timer.tic()
@@ -396,12 +385,6 @@ class Predictor(object):
 
             if isinstance(outputs, tuple):
                 outputs, feature_map = outputs[0], outputs[1]
-
-            ## ----- get bbox(x1y1x2y2) and do NMS
-            # outputs = post_process(outputs,
-            #                        self.num_classes,
-            #                        self.conf_thresh,
-            #                        self.nms_thresh)
 
             ## ----- post process
             outputs = outputs.cpu().numpy()
@@ -533,7 +516,6 @@ def detect_video(predictor, cap, vid_save_path, opt):
         cls2id[cls_name] = cls_id
 
     net_size = exp.test_size
-    logger.info("Confidence threshold: {:.3f}".format(opt.conf))
 
     timer = Timer()
 
@@ -598,18 +580,18 @@ def detect_video(predictor, cap, vid_save_path, opt):
     logger.info("{:s} saved.".format(vid_save_path))
 
 
-def imageflow_demo(predictor, vis_dir, current_time, args):
+def imageflow_demo(predictor, vis_dir, current_time, opt):
     """
     :param predictor:
     :param vis_dir:
     :param current_time:
-    :param args:
+    :param opt:
     :return:
     """
-    if args.demo == "videos":
-        if os.path.isdir(args.video_dir):
-            mp4_path_list = [args.video_dir + "/" + x
-                             for x in os.listdir(args.video_dir)
+    if opt.demo == "videos":
+        if os.path.isdir(opt.video_dir):
+            mp4_path_list = [opt.video_dir + "/" + x
+                             for x in os.listdir(opt.video_dir)
                              if x.endswith(".mp4")]
             mp4_path_list.sort()
             if len(mp4_path_list) == 0:
@@ -620,7 +602,7 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
                 if os.path.isfile(video_path):
                     video_name = os.path.split(video_path)[-1][:-4]
                     logger.info("\nstart detecting video {:s} offline..."
-                          .format(video_name))
+                                .format(video_name))
 
                     ## ----- video capture
                     cap = cv2.VideoCapture(video_path)
@@ -634,20 +616,20 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
                     save_path = os.path.join(save_dir, current_time + ".mp4")
 
                     ## ---------- Get tracking results
-                    detect_video(predictor, cap, save_path, args)
+                    detect_video(predictor, cap, save_path, opt)
                     ## ----------
 
                     print("{:s} tracking offline done.".format(video_name))
 
-    elif args.demo == "video":
-        if os.path.isfile(args.path):
-            video_name = args.path.split("/")[-1][:-4]
+    elif opt.demo == "video":
+        if os.path.isfile(opt.path):
+            video_name = opt.path.split("/")[-1][:-4]
             logger.info("start detecting video {:s} offline...".format(video_name))
 
-            args.path = os.path.abspath(args.path)
+            opt.path = os.path.abspath(opt.path)
 
             ## ----- video capture
-            cap = cv2.VideoCapture(args.path)
+            cap = cv2.VideoCapture(opt.path)
             ## -----
 
             save_dir = os.path.join(vis_dir, video_name)
@@ -658,15 +640,15 @@ def imageflow_demo(predictor, vis_dir, current_time, args):
             save_path = os.path.join(save_dir, current_time + ".mp4")
 
             ## ---------- Get tracking results
-            detect_video(predictor, cap, save_path, args)
+            detect_video(predictor, cap, save_path, opt)
             ## ----------
 
             print("{:s} tracking done offline.".format(video_name))
 
-    elif args.demo == "camera":
-        if os.path.isfile(args.path):
-            cap = cv2.VideoCapture(args.camid)
-            video_name = args.path.split("/")[-1][:-4]
+    elif opt.demo == "camera":
+        if os.path.isfile(opt.path):
+            cap = cv2.VideoCapture(opt.camid)
+            video_name = opt.path.split("/")[-1][:-4]
             save_dir = os.path.join(vis_dir, video_name)
             save_path = os.path.join(save_dir, "camera.mp4")
 
@@ -687,25 +669,21 @@ def run(exp, opt):
         vis_dir = os.path.join(file_name, "track_vis")
         os.makedirs(vis_dir, exist_ok=True)
 
-    if opt.trt:
-        opt.device = "gpu"
+    ## ----- Set device
+    opt.device = str(find_free_gpu())
+    logger.info("=> using gpu: {:s}".format(opt.device))
+    os.environ["CUDA_VISIBLE_DEVICES"] = opt.device
+    device = select_device(device="cpu"
+    if not torch.cuda.is_available() else opt.device)
+    opt.device = device
 
     logger.info("Args: {}".format(opt))
-    if opt.conf is not None:
-        exp.test_conf = opt.conf
-    if opt.nms is not None:
-        exp.nms_thresh = opt.nms
     if opt.tsize is not None:
         exp.test_size = (opt.tsize, opt.tsize)
 
     ## ----- Define the network
     net = exp.get_model()
-    if not opt.debug:
-        logger.info("Model Summary: {}"
-                    .format(get_model_info(net, exp.test_size)))
-    if opt.device == "gpu":
-        net.cuda()
-    net.eval()
+    net.eval().to(device)
     ## -----
 
     ## ----- load weights
@@ -727,24 +705,14 @@ def run(exp, opt):
         logger.info("\tFusing model...")
         net = fuse_model(net)
 
-    if opt.fp16:
-        net = net.half()  # to FP16
-
-    if opt.trt:
-        assert not opt.fuse, "TensorRT model is not support model fusing!"
-        trt_file = os.path.join(file_name, "model_trt.pth")
-        assert os.path.exists(trt_file), \
-            "TensorRT model is not found!\n Run python3 tools/trt.py first!"
-        net.head.decode_in_inference = False
-        decoder = net.head.decode_outputs
-        logger.info("Using TensorRT to inference")
-    else:
-        trt_file = None
-        decoder = None
-
     ## ---------- Define the predictor
     net.head.decode_in_inference = False
-    predictor = Predictor(net, exp, trt_file, decoder, opt.device, opt.fp16, opt.reid)
+    predictor = Predictor(net,
+                          exp,
+                          None,
+                          None,
+                          opt.device,
+                          False)
     ## ----------
 
     current_time = time.localtime()
@@ -763,9 +731,12 @@ if __name__ == "__main__":
     if hasattr(exp, "output_dir"):
         exp.output_dir = opt.output_dir
 
+    if opt.conf_thresh > 0.0:
+        exp.conf_thresh = opt.conf_thresh
+        # logger.info("Conf thresh: {:.3f}".format(exp.conf_thresh))
     if opt.nms_thresh is not None:
         exp.nms_thresh = opt.nms_thresh
-        logger.info("NMS thresh: {:.3f}".format(exp.nms_thresh))
+        # logger.info("NMS thresh: {:.3f}".format(exp.nms_thresh))
 
     class_names = opt.class_names.split(",")
     opt.class_names = class_names

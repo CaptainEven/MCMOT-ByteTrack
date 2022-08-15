@@ -15,7 +15,7 @@ from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.utils import select_device, find_free_gpu
 from yolox.utils.demo_utils import multiclass_nms
-
+from yolox.utils.visualize import plot_detection
 
 def make_parser():
     """
@@ -62,6 +62,12 @@ def make_parser():
                         default="/users/duanyou/c5/data_all/test3000.txt",
                         help="path to images or video")
 
+    ## /mnt/diske/viz_results/det
+    parser.add_argument("--viz_dir",
+                        type=str,
+                        default="",
+                        help="")
+
     parser.add_argument("--net_w",
                         type=int,
                         default=768,
@@ -82,7 +88,7 @@ def make_parser():
 
     parser.add_argument("--iou_thresh",
                         type=float,
-                        default=0.3,
+                        default=0.5,
                         help="")
 
     parser.add_argument("--conf_thresh",
@@ -92,10 +98,11 @@ def make_parser():
 
     parser.add_argument("--nms_thresh",
                         type=float,
-                        default=0.55,
+                        default=0.6,
                         help="")
 
     return parser
+
 
 def post_process(outputs, net_size):
     """
@@ -124,11 +131,13 @@ def post_process(outputs, net_size):
 
     return outputs
 
-def _post_process(outputs, net_size, scale, nms_th, score_th):
+
+def _post_process(outputs, net_size, scale, nms_th, conf_th):
     """
     :param outputs:
     :param net_size: net_h, net_w
     """
+    ## ----- Get xywh in net_size
     predictions = post_process(outputs, net_size)
 
     predictions = predictions[0]
@@ -144,7 +153,7 @@ def _post_process(outputs, net_size, scale, nms_th, score_th):
     dets = multiclass_nms(boxes_xyxy,
                           scores,
                           nms_thr=nms_th,
-                          score_thr=score_th, )
+                          score_thr=conf_th, )
     return dets
 
 
@@ -156,7 +165,7 @@ def inference(img_path, net, opt):
     img_info = {"id": 0}
     if isinstance(img_path, str):
         img_info["file_name"] = os.path.basename(img_path)
-        img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
     else:
         img_info["file_name"] = None
 
@@ -165,10 +174,9 @@ def inference(img_path, net, opt):
     img_info["width"] = width
     img_info["raw_img"] = img
 
-    net_size = (opt.net_w, opt.net_h)
+    net_size = (opt.net_h, opt.net_w)  ## Todo
     img, ratio = preproc(img, net_size, opt.mean, opt.std)
     img_info["ratio"] = ratio
-
     img = torch.from_numpy(img.astype(np.float32)).unsqueeze(0)
     img = img.to(opt.device)
 
@@ -183,10 +191,10 @@ def inference(img_path, net, opt):
         ## ----- post process
         outputs = outputs.cpu().numpy()
         outputs = _post_process(outputs=outputs,
-                                net_size=(net_size[1], net_size[0]),
+                                net_size=net_size,
                                 scale=img_info["ratio"],
                                 nms_th=opt.nms_thresh,
-                                score_th=opt.conf_thresh)
+                                conf_th=opt.conf_thresh)
 
     return outputs, img_info
 
@@ -266,6 +274,7 @@ def get_img_name(img_path):
     name = img_path.replace('.jpg', '')
     return name
 
+
 def voc_ap(recall, precision):
     """
     @param recall:
@@ -291,7 +300,7 @@ def voc_ap(recall, precision):
 
 
 def voc_eval(dets_pred_cls,
-             xml_path_list,
+             gt_dict_all,
              img_name_list,
              class_name,
              iou_thresh=0.5):
@@ -303,46 +312,33 @@ def voc_eval(dets_pred_cls,
     :param iou_thresh:
     :return:
     """
-    img_names_list = [x.strip() for x in img_name_list]
-
-    # parse_rec函数读取当前图像标注文件，返回当前图像标注，存于recs字典（key是图像名，values是gt）
-    print("=> Parsing XMLs...")
-    gt_dict_all = {}
-    with tqdm(total=len(img_names_list)) as progress_bar:  # 遍历大图
-        for img_name, xml_path in zip(img_names_list, xml_path_list):
-            # recs[img_name] = parse_xml(annopath.format(img_name))
-            parse_res = parse_xml(xml_path)
-            if parse_res is None:
-                continue
-
-            gt_dict_all[img_name] = parse_res
-            progress_bar.update()
-
-    # extract gt objects for this class #按类别获取标注文件，recall和precision都是针对不同类别而言的，AP也是对各个类别分别算的。
-    gt_dict_cls = {}  # 当前类别的标注
+    # extract gt objects for this class
+    # #按类别获取标注文件，recall和precision都是针对不同类别而言的，
+    # AP也是对各个类别分别算的。
     n_gt = 0  # 标记的目标数量
-    for img_name in img_names_list:
+    gt_cls_dict = {}
+    for img_name in img_name_list:
         ## ----- Get labels of the whole image
-        img_gts = gt_dict_all[img_name]
+        gts_of_img = gt_dict_all[img_name]
 
         ## ----- Get labels of the whole image for current class
-        gts_cls = [obj for obj in img_gts if obj["name"] == class_name]
+        gts_cls = [x for x in gts_of_img if x["name"].strip() == class_name]
         gt_bboxes_cls = np.array([x["bbox"] for x in gts_cls])  # 抽取bbox
         difficult = np.array([x["difficult"] for x in gts_cls]).astype(np.bool)  # 如果数据集没有difficult,所有项都是0.
 
         gt_matched = [False] * len(gts_cls)  # len(img_cls_gts)就是当前类别的gt目标个数，det表示是否检测到，初始化为false。
-        n_gt += sum(~difficult)  # 自增，非difficult样本数量，如果数据集没有difficult，npos数量就是gt数量。
-        gt_dict_cls[img_name] = {"bbox": gt_bboxes_cls,
+
+        # 自增, 非difficult样本数量，如果数据集没有difficult, n_gt数量就是gt数量。
+        n_gt += sum(~difficult)
+        gt_cls_dict[img_name] = {"bbox": gt_bboxes_cls.copy(),
                                  "difficult": difficult,
                                  "matched": gt_matched}
 
     # read dets 读取检测结果
-    splitlines = dets_pred_cls  # 该文件格式：imagename1 type confidence xmin ymin xmax ymax
-    # splitlines = [x.strip().split(' ') for x in detpath]  # 假设检测结果有20000个，则splitlines长度20000
-
-    pred_img_names = [x[0] for x in splitlines]  # 检测结果中的图像名，image_ids长度20000，但实际图像只有1000张，因为一张图像上可以有多个目标检测结果
-    confidence = np.array([float(x[2]) for x in splitlines])  # 检测结果置信度
-    BB_preds = np.array([[float(z) for z in x[3:]] for x in splitlines])  # 变为浮点型的bbox。
+    split_lines = dets_pred_cls  # img_name cls_name confidence x1 y1 x2 y2
+    pred_img_names = [x[0] for x in split_lines]  # 检测结果中的图像名，image_ids长度20000，但实际图像只有1000张，因为一张图像上可以有多个目标检测结果
+    confidence = np.array([float(x[2]) for x in split_lines])  # 检测结果置信度
+    BB_preds = np.array([[float(z) for z in x[3:]] for x in split_lines])  # 变为浮点型的bbox。
 
     n_gt = len(pred_img_names)  # TODO:???
 
@@ -363,7 +359,7 @@ def voc_eval(dets_pred_cls,
         bbox_pred = BB_preds[i]
 
         # 当前检测结果所在图像的所有同类别gt
-        gts_cls = gt_dict_cls[img_name]
+        gts_cls = gt_cls_dict[img_name]
 
         # 当前检测结果所在图像的所有同类别gt的bbox坐标
         bbox_gt = gts_cls["bbox"].astype(float)
@@ -452,7 +448,7 @@ def evaluate(exp, opt):
 
     ## ----- Set images and labels
     img_paths = []
-    xml_paths = []
+    xml_path_list = []
     with open(test_list_file_path, mode="r", encoding="utf-8") as f:
         for line in f.readlines():
             img_path = line.strip()
@@ -466,11 +462,10 @@ def evaluate(exp, opt):
                 logger.warning("invalid file path: {:s}"
                                .format(xml_pathxml_path))
                 continue
-
             img_paths.append(img_path)
-            # xml_paths.append(xml_path)
+
     img_paths.sort()
-    xml_paths = [img_path.replace("JPEGImages", "Annotations")
+    xml_path_list = [img_path.replace("JPEGImages", "Annotations")
                      .replace(".jpg", ".xml")
                  for img_path in img_paths]
     logger.info("total {:d} samples to be evaluated.".format(len(img_paths)))
@@ -480,7 +475,7 @@ def evaluate(exp, opt):
     dets_pred_all = [["img_name", "cls_name", "confidence", 0, 0, 0, 0]]
     img_name_list = []
     with tqdm(total=len(img_paths)) as progress_bar:
-        for img_path, xml_path in zip(img_paths, xml_paths):
+        for i, (img_path, xml_path) in enumerate(zip(img_paths, xml_path_list)):
             ## ----- Get image name
             img_name = get_img_name(img_path)
             img_name_list.append(img_name)
@@ -494,12 +489,21 @@ def evaluate(exp, opt):
                 dets_predicted = outputs  # [0]
                 if dets_predicted is None:
                     continue
-                # dets_predicted = dets_predicted.cpu().numpy()
+
+            if os.path.isdir(opt.viz_dir):
+                ## ----- draw detections
+                img_plot = plot_detection(img_info["raw_img"],
+                                          dets_predicted,
+                                          frame_id=i,
+                                          fps=0.0,
+                                          id2cls=id2cls)
+                save_vis_path = opt.viz_dir + "/" + img_name + ".jpg"
+                cv2.imwrite(save_vis_path, img_plot)
+                print("{:s} saved".format(save_vis_path))
 
             ## -----
             dets_pred = []
             for det in dets_predicted:
-                # print(det)
                 x1, y1, x2, y2, confidence, cls_id = det
 
                 ## ----- Clipping the predicted coordinates
@@ -519,29 +523,52 @@ def evaluate(exp, opt):
                 y2 /= img_info["height"]
 
                 cls_name = id2cls[cls_id]
-                # confidence = score_1 * score_2
                 det_pred = [img_name, cls_name, confidence, x1, y1, x2, y2]
                 dets_pred.append(det_pred)
+
             if len(dets_pred) > 0:
                 dets_pred_all = np.vstack((dets_pred_all, dets_pred))
+
+            progress_bar.update()
+
+    # parse_rec函数读取当前图像标注文件，返回当前图像标注，存于recs字典（key是图像名，values是gt）
+    print("=> Parsing XMLs...")
+    gt_dict_all = {}
+    with tqdm(total=len(img_name_list)) as progress_bar:  # 遍历大图
+        for img_name, xml_path in zip(img_name_list, xml_path_list):
+            parsed_list = parse_xml(xml_path)
+            if parsed_list is None:
+                continue
+            gt_dict_all[img_name] = parsed_list
             progress_bar.update()
 
     ## ----- Calculate APs for each object class
     dets_pred_all = np.delete(dets_pred_all, 0, axis=0)
     APs = []
-    for cls_name in opt.class_names:
-        print("=> processing {:s}...".format(cls_name))
-        dets_pred_cls = [obj for obj in dets_pred_all if obj[1] == cls_name]
+    for cls_i, cls_name in enumerate(opt.class_names):
+        cls_name = cls_name.strip()
+
+        # if cls_i > 0:
+        #     print("pause")
+        # elif cls_i == 0:
+        #     continue
+
+        print("=> Processing {:s}...".format(cls_name))
+        dets_pred_cls = [obj for obj in dets_pred_all if obj[1].strip() == cls_name]
         if len(dets_pred_cls) == 0:
             cls_ap = 0
         else:
             cls_ap = voc_eval(dets_pred_cls,
-                              xml_paths,
+                              gt_dict_all,
                               img_name_list,
                               cls_name,
                               opt.iou_thresh)
         APs.append(cls_ap)
+        print("\n")
     print("APs: ", APs)
+    APs = np.array(APs, dtype=np.float32)
+    mAP = np.mean(APs)
+    print("mAP of C5: {:.3f}".format(mAP))
 
 
 if __name__ == "__main__":
@@ -556,9 +583,10 @@ if __name__ == "__main__":
     class_names = opt.class_names.split(",")
     opt.class_names = class_names
     exp.class_names = class_names
+    logger.info("object class names: " + " ".join(opt.class_names))
     exp.n_classes = len(exp.class_names)
     opt.num_classes = len(exp.class_names)
-    logger.info("Number of classes: {:d}".format(exp.n_classes))
+    logger.info("Number of object classes: {:d}".format(exp.n_classes))
 
     ## ----- run the tracking
     evaluate(exp, opt)

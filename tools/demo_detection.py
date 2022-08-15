@@ -279,10 +279,7 @@ class Predictor(object):
         self.decoder = decoder
         self.num_classes = exp.n_classes
         self.conf_thresh = exp.test_conf
-        logger.info("confidence thresh: ", self.conf_thresh)
-
         self.nms_thresh = exp.nms_thresh
-        logger.info("NMS thresh: ", self.nms_thresh)
 
         self.test_size = exp.test_size
         self.device = device
