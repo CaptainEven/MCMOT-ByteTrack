@@ -12,7 +12,7 @@
       <paths name="LicensePlate">
         <serverdata>
           <mappings>
-            <mapping deploy="/mnt/diskb/even/LicensePlateRestoreOCR" local="$PROJECT_DIR$" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

@@ -7,7 +7,8 @@ python3 ./tools/train_det.py --ckpt ./YOLOX_outputs/yolox_det_c5_dark_ssl/ssl_ck
                              --lr 5e-5 \
                              --n_workers 2 \
                              --n_devices 2 \
-                             --devices 6,7
+                             --devices 1,4
+
 
 
 ## /mnt/diskb/even/ByteTrack/YOLOX_outputs/yolox_tiny_det_c5_dark/latest_ckpt.pth.tar

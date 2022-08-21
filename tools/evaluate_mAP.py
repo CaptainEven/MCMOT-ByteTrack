@@ -326,7 +326,8 @@ def voc_eval(dets_pred_cls,
         ## ----- Get labels of the whole image for current class
         gts_cls = [x for x in gts_of_img if x["name"].strip() == class_name]
         gt_bboxes_cls = np.array([x["bbox"] for x in gts_cls])  # 抽取bbox
-        difficult = np.array([x["difficult"] for x in gts_cls]).astype(np.bool)  # 如果数据集没有difficult,所有项都是0.
+        # difficult = np.array([x["difficult"] for x in gts_cls]).astype(np.bool)  # 如果数据集没有difficult,所有项都是0.
+        difficult = np.bool_(np.array([x["difficult"] for x in gts_cls])) # 如果数据集没有difficult,所有项都是0.
 
         gt_matched = [False] * len(gts_cls)  # len(img_cls_gts)就是当前类别的gt目标个数，det表示是否检测到，初始化为false。
 
@@ -432,7 +433,8 @@ def calculate_f1(dets_pred_cls,
         ## ----- Get labels of the whole image for current class
         gts_cls = [x for x in gts_of_img if x["name"].strip() == class_name]
         gt_bboxes_cls = np.array([x["bbox"] for x in gts_cls])  # 抽取bbox
-        difficult = np.array([x["difficult"] for x in gts_cls]).astype(np.bool)  # 如果数据集没有difficult,所有项都是0.
+        # difficult = np.array([x["difficult"] for x in gts_cls]).astype(np.bool)  # 如果数据集没有difficult,所有项都是0.
+        difficult = np.bool_(np.array([x["difficult"] for x in gts_cls]))  # 如果数据集没有difficult,所有项都是0.
 
         gt_matched = [False] * len(gts_cls)  # len(img_cls_gts)就是当前类别的gt目标个数，det表示是否检测到，初始化为false。
 
@@ -660,12 +662,6 @@ def evaluate(exp, opt):
     F1s = []
     for cls_i, cls_name in enumerate(opt.class_names):
         cls_name = cls_name.strip()
-
-        # if cls_i > 0:
-        #     print("pause")
-        # elif cls_i == 0:
-        #     continue
-
         print("=> Processing {:s}...".format(cls_name))
         dets_pred_cls = [obj for obj in dets_pred_all if obj[1].strip() == cls_name]
         if len(dets_pred_cls) == 0:

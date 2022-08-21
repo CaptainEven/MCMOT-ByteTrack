@@ -55,7 +55,12 @@ class YOLOXDarkSSL(nn.Module):
         self.version = np.array([1, 0, 0], dtype=np.int32)
         self.seen = np.array([0], dtype=np.int64)
 
-    def forward(self, inps, targets=None, p0=None, p1=None, p2=None):
+    def forward(self,
+                inps,
+                targets=None,
+                p0=None,
+                p1=None,
+                p2=None):
         """
         :param inps:
         :param targets:
